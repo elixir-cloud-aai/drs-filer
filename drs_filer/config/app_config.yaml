@@ -1,0 +1,19 @@
+# General server/service settings
+server:
+    host: '0.0.0.0'
+    port: 8080
+    debug: True
+    environment: development
+    testing: False
+    use_reloader: True
+
+#database
+database:
+    host: mongodb
+    port: 27017
+    name: cwl-wes-db
+    run_id:
+        length: 6
+        charset: string.ascii_uppercase + string.digits
+
+# OpenAPI specs
