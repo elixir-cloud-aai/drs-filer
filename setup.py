@@ -5,10 +5,11 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='drs-filer',
-    version='',
-    author='Elixir Europe',
+    version='0.1.0',
+    author='ELIXIR Cloud & AAI',
     author_email='sarthakgupta072@gmail.com',
-    description='',
+    description='Lightweight, flexible Flask/Gunicorn-based \
+                    GA4GH DRS implementation',
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='Apache License 2.0',

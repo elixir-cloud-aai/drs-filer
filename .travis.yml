@@ -11,5 +11,5 @@ if: type != pull_request  # do not build anything for PRs
 
 script:
   - flake8
-  - coverage run --source drs-filer -m pytest
-  - coveralls
+  # - coverage run --source drs-filer -m pytest
+  # - coveralls

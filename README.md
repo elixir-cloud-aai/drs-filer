@@ -3,7 +3,6 @@
 [![License][badge-license]][badge-url-license]
 [![Build_status][badge-build-status]][badge-url-build-status]
 [![Coverage][badge-coverage]][badge-url-coverage]
-[![GitHub_tag][badge-github-tag]][badge-url-github-tag]
 
 ## Synopsis
 
