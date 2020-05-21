@@ -220,7 +220,5 @@ tags
 # Add any custom additions below
 !.gitkeep
 .vscode/
-tests/tmp/*
-tests/output/*
 *.modified.yaml
 .idea/*
