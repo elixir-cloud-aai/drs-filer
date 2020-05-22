@@ -7,7 +7,8 @@ python:
   - "3.7"
   - "3.8"
 
-if: type != pull_request  # do not build anything for PRs
+# Build once for pushes to the repo, and once for PR from forks
+if: (type == push) OR (type == pull_request AND fork == true)
 
 script:
   - flake8
