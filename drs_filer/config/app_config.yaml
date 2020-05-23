@@ -11,7 +11,7 @@ server:
 database:
     host: mongodb
     port: 27017
-    name: cwl-wes-db
+    name: drs-db
     run_id:
         length: 6
         charset: string.ascii_uppercase + string.digits

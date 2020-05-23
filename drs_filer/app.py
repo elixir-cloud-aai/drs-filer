@@ -11,10 +11,10 @@ from foca.config.config_parser import get_conf
 def run_server():
 
     # Configure logger
-    configure_logging(config_var='WES_CONFIG_LOG')
+    configure_logging(config_var='DRS_CONFIG_LOG')
 
     # Parse app configuration
-    config = parse_app_config(config_var='WES_CONFIG')
+    config = parse_app_config(config_var='DRS_CONFIG')
 
     # Create Connexion app
     connexion_app = create_connexion_app(config)

@@ -11,13 +11,5 @@
 **/*.egg-info
 src
 
-# Ignore deployment-specific files and dirs
-docker-compose.yaml
-deployment
-utils
-
-# Ignore security-related files and dirs
-**/.netrc
-
 # Ignore CI-related files and dirs
 .travis.yml

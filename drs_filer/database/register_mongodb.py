@@ -6,7 +6,7 @@ import logging
 from typing import Dict
 
 from flask import Flask
-from flask_pymongo import ASCENDING, PyMongo
+from flask_pymongo import PyMongo
 
 from foca.config.config_parser import get_conf
 
@@ -29,7 +29,14 @@ def register_mongodb(app: Flask) -> Flask:
     db = mongo.db[os.environ.get(
         'MONGO_DBNAME', get_conf(config, 'database', 'name'))]
 
+    logger.info(db)
     # TODO: Add db and collection for metadata
+    resident = {
+        "Test": "Value"
+    }
+
+    mongo.db['test_collection'].insert_one(resident).inserted_id
+    logger.info("Database created")
 
     # Add database and collections to app config
     config['database']['database'] = db
