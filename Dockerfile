@@ -30,8 +30,7 @@ COPY ./requirements.txt /app/requirements.txt
 
 ## Install Python dependencies
 RUN cd /app \
-  && pip install -r requirements.txt \
-  && cd /
+  && pip install -r requirements.txt
 
 ## Copy remaining app files
 COPY ./ /app

@@ -1,3 +1,3 @@
-from drs_filer.app import run_server
+from foca.foca import foca
 
-app, config = run_server()
+app = foca("app_config.yaml")
