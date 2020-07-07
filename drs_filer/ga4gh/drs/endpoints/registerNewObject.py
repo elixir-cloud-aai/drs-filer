@@ -11,7 +11,7 @@ error_respose = {
 def registerNewObject(db_collection, jsonData):
     try:
         db_collection.insert(jsonData)
-        return jsonData
+        return {"object created id: ": jsonData['id']}
     except Exception as e:
         logger.error(f"{type(e).__name__}: {e}")
         return error_respose
