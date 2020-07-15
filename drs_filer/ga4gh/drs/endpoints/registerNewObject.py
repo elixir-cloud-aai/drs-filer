@@ -1,11 +1,7 @@
 import logging
-import logging
+from foca.errors.exceptions import handle_problem
 
 logger = logging.getLogger(__name__)
-
-error_respose = {
-    "status": "Something is wrong"
-}
 
 
 def registerNewObject(db_collection, jsonData):
@@ -13,5 +9,4 @@ def registerNewObject(db_collection, jsonData):
         db_collection.insert(jsonData)
         return {"object created id: ": jsonData['id']}
     except Exception as e:
-        logger.error(f"{type(e).__name__}: {e}")
-        return error_respose
+        return handle_problem(e)

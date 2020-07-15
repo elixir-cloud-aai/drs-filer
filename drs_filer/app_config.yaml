@@ -47,4 +47,7 @@ log:
     root:
         level: 10
         handlers: [console]
-        
+
+exceptions:
+    exceptions: drs_filer.errors.exceptions.exceptions
+    logging: ExceptionLoggingEnum.regular

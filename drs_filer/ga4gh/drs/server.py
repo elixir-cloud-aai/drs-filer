@@ -4,11 +4,14 @@ from flask import (current_app)
 from flask.globals import request
 
 from drs_filer.ga4gh.drs.endpoints import registerNewObject
+from foca.errors.exceptions import handle_problem
+
+from werkzeug.exceptions import NotFound
 
 logger = logging.getLogger(__name__)
 
 
-def registerObject():
+def RegisterObject():
     db_collection = (
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
@@ -20,7 +23,7 @@ def registerObject():
     return response
 
 
-def getObject(object_id):
+def GetObject(object_id):
     db_collection = (
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
@@ -32,7 +35,7 @@ def getObject(object_id):
     return obj, 200
 
 
-def getAccessURL(object_id, access_id):
+def GetAccessURL(object_id, access_id):
     db_collection = (
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
@@ -41,13 +44,7 @@ def getAccessURL(object_id, access_id):
     obj = db_collection.find_one_or_404({"id": object_id})
     # create the response
     access_methods = obj["access_methods"]
-
-    response = {
-        "detail": "The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.",
-        "status": 404,
-        "title": "Not Found",
-        "type": "about:blank"
-    }
+    response = handle_problem(NotFound)
     found = False
     for access_method in access_methods:
         if access_method["access_id"] == access_id:
