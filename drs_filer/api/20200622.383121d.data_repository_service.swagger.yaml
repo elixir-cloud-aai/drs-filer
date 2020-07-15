@@ -187,7 +187,7 @@ definitions:
           standard `type` value such as `md5`, `etag`, `crc32c`, `trunc512`, or `sha1`.
         example:
           sha-256
-    :
+  DrsObject:
     type: object
     required: ['id', 'self_uri', 'size', 'created_time', 'checksums']
     properties:

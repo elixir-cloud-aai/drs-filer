@@ -12,4 +12,3 @@ if: (type == push) OR (type == pull_request AND fork == true)
 
 script:
   - flake8
-  - coveralls
