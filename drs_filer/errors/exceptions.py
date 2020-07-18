@@ -2,6 +2,7 @@ from connexion.exceptions import (
     ExtraParameterProblem,
     Forbidden,
     Unauthorized,
+    BadRequestProblem
 )
 
 from werkzeug.exceptions import (
@@ -17,6 +18,10 @@ exceptions = {
     Exception: {
         "title": "Internal Server Error",
         "status": 500,
+    },
+    BadRequestProblem: {
+        "title": "Bad Request Problem",
+        "status": 400,
     },
     BadRequest: {
         "title": "Bad Request",
@@ -35,7 +40,7 @@ exceptions = {
         "status": 403,
     },
     NotFound: {
-        "title": "Not Found",
+        "title": "Object Not Found",
         "status": 404,
     },
     InternalServerError: {

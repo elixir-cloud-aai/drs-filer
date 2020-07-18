@@ -50,4 +50,3 @@ log:
 
 exceptions:
     exceptions: drs_filer.errors.exceptions.exceptions
-    logging: ExceptionLoggingEnum.regular

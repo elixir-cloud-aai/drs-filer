@@ -4,7 +4,6 @@ from flask import (current_app)
 from flask.globals import request
 
 from drs_filer.ga4gh.drs.endpoints import registerNewObject
-from foca.errors.exceptions import handle_problem
 
 from werkzeug.exceptions import NotFound
 
@@ -31,8 +30,7 @@ def GetObject(object_id):
 
     obj = db_collection.find_one_or_404({"id": object_id})
     obj.pop("_id")
-    print("obj: ", obj)
-    return obj, 200
+    return obj
 
 
 def GetAccessURL(object_id, access_id):
@@ -43,8 +41,10 @@ def GetAccessURL(object_id, access_id):
 
     obj = db_collection.find_one_or_404({"id": object_id})
     # create the response
+
     access_methods = obj["access_methods"]
-    response = handle_problem(NotFound)
+    response = dict()
+    logger.info(access_methods)
     found = False
     for access_method in access_methods:
         if access_method["access_id"] == access_id:
@@ -52,6 +52,6 @@ def GetAccessURL(object_id, access_id):
             found = True
             break
     if found:
-        return response, 200
+        return response
     else:
-        return response, 404
+        raise NotFound
