@@ -15,9 +15,10 @@ def RegisterObject():
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
     )
+    json_data = request.json
     response = registerNewObject.registerNewObject(
         db_collection,
-        request.json
+        json_data
     )
     return response
 
@@ -28,8 +29,8 @@ def GetObject(object_id):
         collections['objects'].client
     )
 
-    obj = db_collection.find_one_or_404({"id": object_id})
-    obj.pop("_id")
+    obj = db_collection.find_one({"id": object_id})
+    del obj["_id"]
     return obj
 
 
@@ -39,7 +40,7 @@ def GetAccessURL(object_id, access_id):
         collections['objects'].client
     )
 
-    obj = db_collection.find_one_or_404({"id": object_id})
+    obj = db_collection.find_one({"id": object_id})
     # create the response
 
     access_methods = obj["access_methods"]

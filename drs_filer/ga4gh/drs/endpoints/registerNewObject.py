@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def registerNewObject(db_collection, jsonData):
     try:
-        db_collection.insert(jsonData)
+        db_collection.insert_one(jsonData)
         del jsonData['_id']
         return jsonData
     except Exception as e:

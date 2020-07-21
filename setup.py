@@ -1,11 +1,13 @@
 from setuptools import (setup, find_packages)
 
+from drs_filer import __version__
+
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
     name='drs-filer',
-    version='0.1.0',
+    version=__version__,
     author='ELIXIR Cloud & AAI',
     author_email='sarthakgupta072@gmail.com',
     description='Lightweight, flexible Flask/Gunicorn-based \
