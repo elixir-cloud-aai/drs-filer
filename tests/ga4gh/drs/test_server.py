@@ -1,6 +1,6 @@
 from flask import json
 from foca.models.config import MongoConfig
-from drs_filer.errors.exceptions import URLNotFound
+from drs_filer.errors.exceptions import URLNotFound, ObjectNotFound
 from drs_filer.ga4gh.drs.server import GetObject, GetAccessURL, RegisterObject
 import mongomock
 import pytest
@@ -65,6 +65,22 @@ def test_GetObject():
         assert res == objects[0]
 
 
+def test_GetObject_Not_Found():
+    with pytest.raises(ObjectNotFound):
+        app = Flask(__name__)
+        app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client = mongomock.MongoClient().\
+            db.collection
+        objects = json.loads(open(data_objects_path, "r").read())
+        for obj in objects:
+            obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+                collections['objects'].client.insert_one(obj).inserted_id
+        del objects[0]['_id']
+        with app.app_context():
+            GetObject("a01")
+
+
 def test_GetAccessURL():
     """Test for getting DRSObject access url using `object_id` and `access_id`
     """
@@ -111,3 +127,21 @@ def test_GetAccessURL_Not_Found():
                 ]
             }
             assert res == expected
+
+
+def test_GetAccessURL_Object_Not_Found():
+    """GetAccessURL should raise NotFound exception when access_id is not found
+    """
+    with pytest.raises(ObjectNotFound):
+        app = Flask(__name__)
+        app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client = mongomock.MongoClient().\
+            db.collection
+        objects = json.loads(open(data_objects_path, "r").read())
+        for obj in objects:
+            obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+                collections['objects'].client.insert_one(obj).inserted_id
+        del objects[0]['_id']
+        with app.app_context():
+            GetAccessURL("001", "12")
