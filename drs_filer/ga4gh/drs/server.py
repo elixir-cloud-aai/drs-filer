@@ -28,8 +28,9 @@ def GetObject(object_id):
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
     )
-
     obj = db_collection.find_one({"id": object_id})
+    if obj is None:
+        raise NotFound
     del obj["_id"]
     return obj
 
@@ -42,6 +43,8 @@ def GetAccessURL(object_id, access_id):
 
     obj = db_collection.find_one({"id": object_id})
     # create the response
+    if obj is None:
+        raise NotFound
 
     access_methods = obj["access_methods"]
     response = dict()

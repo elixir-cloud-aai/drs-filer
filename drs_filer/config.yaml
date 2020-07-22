@@ -49,4 +49,6 @@ log:
         handlers: [console]
 
 exceptions:
+    required_members: [['msg'], ['status_code']]
+    status_member: ['status_code']
     exceptions: drs_filer.errors.exceptions.exceptions
