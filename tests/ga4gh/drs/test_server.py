@@ -1,6 +1,6 @@
 from flask import json
 from foca.models.config import MongoConfig
-from werkzeug.exceptions import NotFound
+from drs_filer.errors.exceptions import URLNotFound
 from drs_filer.ga4gh.drs.server import GetObject, GetAccessURL, RegisterObject
 import mongomock
 import pytest
@@ -91,7 +91,7 @@ def test_GetAccessURL():
 def test_GetAccessURL_Not_Found():
     """GetAccessURL should raise NotFound exception when access_id is not found
     """
-    with pytest.raises(NotFound):
+    with pytest.raises(URLNotFound):
         app = Flask(__name__)
         app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
         app.config['FOCA'].db.dbs['drsStore']. \
