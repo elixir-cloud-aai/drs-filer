@@ -14,6 +14,17 @@ from werkzeug.exceptions import (
     ServiceUnavailable,
 )
 
+
+class ObjectNotFound(Exception):
+    """Exception raised when object with given object_id is not found"""
+    pass
+
+
+class URLNotFound(Exception):
+    """Exception raised when Access URL for object is not found"""
+    pass
+
+
 exceptions = {
     Exception: {
         "msg": "An unexpected error occurred",
@@ -41,6 +52,14 @@ exceptions = {
     },
     NotFound: {
         "msg": "The requested `DrsObject` wasn't found",
+        "status_code": '404',
+    },
+    ObjectNotFound: {
+        "msg": "The requested `DrsObject` wasn't found",
+        "status_code": '404',
+    },
+    URLNotFound: {
+        "msg": "The requested access URL wasn't found",
         "status_code": '404',
     },
     InternalServerError: {

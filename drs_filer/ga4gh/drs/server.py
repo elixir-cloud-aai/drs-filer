@@ -4,9 +4,7 @@ from flask import (current_app)
 from flask.globals import request
 
 from drs_filer.ga4gh.drs.endpoints import registerNewObject
-
-from werkzeug.exceptions import NotFound
-
+from drs_filer.errors.exceptions import ObjectNotFound, URLNotFound
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +28,7 @@ def GetObject(object_id):
     )
     obj = db_collection.find_one({"id": object_id})
     if obj is None:
-        raise NotFound
+        raise ObjectNotFound
     del obj["_id"]
     return obj
 
@@ -44,7 +42,7 @@ def GetAccessURL(object_id, access_id):
     obj = db_collection.find_one({"id": object_id})
     # create the response
     if obj is None:
-        raise NotFound
+        raise ObjectNotFound
 
     access_methods = obj["access_methods"]
     response = dict()
@@ -58,4 +56,4 @@ def GetAccessURL(object_id, access_id):
     if found:
         return response
     else:
-        raise NotFound
+        raise URLNotFound
