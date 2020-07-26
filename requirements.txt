@@ -1,3 +1,3 @@
-foca==0.3.0
+foca==0.4.0
 gunicorn==20.0.4
 setuptools==46.4.0
