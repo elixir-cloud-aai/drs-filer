@@ -1,9 +1,9 @@
-paths:  
+paths:
   '/objects':
     post:
       summary: Get info about a `DrsObject`
       description: "Posts object metadata, and a list of access methods that can be used to fetch object bytes."
-      operationId: RegisterObject
+      operationId: RegisterObjects
       responses:
         '200':
           description: The `DrsObject` was found successfully.

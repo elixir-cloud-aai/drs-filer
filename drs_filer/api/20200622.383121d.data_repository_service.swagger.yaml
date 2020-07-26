@@ -13,13 +13,14 @@ info:
     url: 'https://raw.githubusercontent.com/ga4gh/data-repository-service-schemas/master/LICENSE'
 schemes:
   - https
+  - http
 consumes:
   - application/json
 produces:
   - application/json
-security:
-  - {}
-  - authToken: []
+#security:
+#  - {}
+#  - authToken: []
 paths:
   '/objects/{object_id}':
     get:
@@ -155,15 +156,15 @@ paths:
       tags:
         - DataRepositoryService
       x-swagger-router-controller: ga4gh.drs.server
-securityDefinitions:
-  authToken:
-    description: |
-      A valid authorization token must be passed in the 'Authorization' header.
-      Example syntax for using 'Authorization' header :
-        Bearer: token_string
-    type: apiKey
-    name: Authorization
-    in: header
+#securityDefinitions:
+#  authToken:
+#    description: |
+#      A valid authorization token must be passed in the 'Authorization' header.
+#      Example syntax for using 'Authorization' header :
+#        Bearer: token_string
+#    type: apiKey
+#    name: Authorization
+#    in: header
 definitions:
   Checksum:
     type: object

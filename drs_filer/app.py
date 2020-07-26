@@ -1,17 +1,22 @@
+import logging
 import os
 
 from foca.foca import foca
 
+logger = logging.getLogger(__name__)
 
-def init():
-    if __name__ == '__main__':
-        app = foca(
-            os.path.join(
-                os.path.dirname(__file__),
-                "config.yaml",
-            )
+
+def main():
+    app = foca(
+        os.path.join(
+            os.path.dirname(__file__),
+            "config.yaml",
         )
-        app.run(port=app.port)
+    )
+    logger.warning(f"App config: {app.app.config}")
+    logger.warning(f"FOCA config: {app.app.config['FOCA']}")
+    app.run(port=app.port)
 
 
-init()
+if __name__ == '__main__':
+    main()
