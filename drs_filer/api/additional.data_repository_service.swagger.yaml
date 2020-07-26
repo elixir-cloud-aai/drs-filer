@@ -8,7 +8,7 @@ paths:
         '200':
           description: The `DrsObject` was found successfully.
           schema:
-            $ref: '#/definitions/DrsObject'
+            type: string
         '202':
           description: >
             The operation is delayed and will continue asynchronously.
