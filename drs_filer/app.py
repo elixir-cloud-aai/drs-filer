@@ -13,8 +13,6 @@ def main():
             "config.yaml",
         )
     )
-    logger.warning(f"App config: {app.app.config}")
-    logger.warning(f"FOCA config: {app.app.config['FOCA']}")
     app.run(port=app.port)
 
 
