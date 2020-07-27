@@ -1,11 +1,13 @@
 from setuptools import (setup, find_packages)
 
+from drs_filer import __version__
+
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
     name='drs-filer',
-    version='0.1.0',
+    version=__version__,
     author='ELIXIR Cloud & AAI',
     author_email='sarthakgupta072@gmail.com',
     description='Lightweight, flexible Flask/Gunicorn-based \
@@ -25,10 +27,9 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    install_requires=['connexion', 'Flask-Cors', 'Flask-PyMongo'],
+    install_requires=[],
 )
