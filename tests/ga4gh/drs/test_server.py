@@ -182,6 +182,5 @@ def test_GetAccessURL_Duplicate_Access_Id():
             collections['objects'].client.insert_one(obj).inserted_id
     del objects[0]['_id']
     with app.app_context():
-        res = GetAccessURL.__wrapped__("a003", "3")
-        print(res)
-        assert isinstance(res, InternalServerError.__class__)
+        with pytest.raises(InternalServerError):
+            GetAccessURL.__wrapped__("a003", "3")
