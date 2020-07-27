@@ -1,7 +1,10 @@
 from flask import json
 from foca.models.config import MongoConfig
-from drs_filer.errors.exceptions import URLNotFound, ObjectNotFound
-from drs_filer.ga4gh.drs.server import GetObject, GetAccessURL, RegisterObject
+from drs_filer.errors.exceptions import (
+    URLNotFound,
+    ObjectNotFound,
+    InternalServerError)
+from drs_filer.ga4gh.drs.server import GetObject, GetAccessURL, RegisterObjects
 import mongomock
 import pytest
 
@@ -37,7 +40,7 @@ MONGO_CONFIG = {
 data_objects_path = "tests/data_objects.json"
 
 
-def test_RegisterObject():
+def test_RegisterObjects():
     """Test for registering new DRSObject"""
     app = Flask(__name__)
     app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
@@ -45,8 +48,8 @@ def test_RegisterObject():
         collections['objects'].client = mongomock.MongoClient().db.collection
 
     with app.test_request_context(json={"id": "1"}):
-        res = RegisterObject()
-        assert res == {"id": "1"}
+        res = RegisterObjects.__wrapped__()
+        assert res == "1"
 
 
 def test_GetObject():
@@ -61,7 +64,7 @@ def test_GetObject():
             collections['objects'].client.insert_one(obj).inserted_id
     del objects[0]['_id']
     with app.app_context():
-        res = GetObject("a001")
+        res = GetObject.__wrapped__("a001")
         assert res == objects[0]
 
 
@@ -78,7 +81,7 @@ def test_GetObject_Not_Found():
                 collections['objects'].client.insert_one(obj).inserted_id
         del objects[0]['_id']
         with app.app_context():
-            GetObject("a01")
+            GetObject.__wrapped__("a01")
 
 
 def test_GetAccessURL():
@@ -94,7 +97,7 @@ def test_GetAccessURL():
             collections['objects'].client.insert_one(obj).inserted_id
     del objects[0]['_id']
     with app.app_context():
-        res = GetAccessURL("a001", "1")
+        res = GetAccessURL.__wrapped__("a001", "1")
         expected = {
             "url": "ftp://ftp.ensembl.org/pub/release-96/fasta/homo_sapiens/dna//Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",   # noqa: E501
             "headers": [
@@ -119,7 +122,7 @@ def test_GetAccessURL_Not_Found():
                 collections['objects'].client.insert_one(obj).inserted_id
         del objects[0]['_id']
         with app.app_context():
-            res = GetAccessURL("a001", "12")
+            res = GetAccessURL.__wrapped__("a001", "12")
             expected = {
                 "url": "ftp://ftp.ensembl.org/pub/release-96/fasta/homo_sapiens/dna//Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",   # noqa: E501
                 "headers": [
@@ -144,4 +147,41 @@ def test_GetAccessURL_Object_Not_Found():
                 collections['objects'].client.insert_one(obj).inserted_id
         del objects[0]['_id']
         with app.app_context():
-            GetAccessURL("001", "12")
+            GetAccessURL.__wrapped__("001", "12")
+
+
+def test_GetAccessURL_Key_Error():
+    """GetAccessURL should raise KeyError exception when access_methods
+    are not there"""
+    with pytest.raises(InternalServerError):
+        app = Flask(__name__)
+        app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client = mongomock.MongoClient().\
+            db.collection
+        objects = json.loads(open(data_objects_path, "r").read())
+        for obj in objects:
+            obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+                collections['objects'].client.insert_one(obj).inserted_id
+        del objects[0]['_id']
+        with app.app_context():
+            GetAccessURL.__wrapped__("a010", "12")
+
+
+def test_GetAccessURL_Duplicate_Access_Id():
+    """GetAccessURL should return Internal Server Error on duplicate access keys
+    """
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().\
+        db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        res = GetAccessURL.__wrapped__("a003", "3")
+        print(res)
+        assert isinstance(res, InternalServerError.__class__)

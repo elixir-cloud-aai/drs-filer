@@ -77,6 +77,16 @@
             ]
           },
           "access_id": "3"
+        },
+        {
+          "type": "http",
+          "access_url": {
+            "url": "http://http.ensembl.org/pub/release-97/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
+            "headers": [
+              "None"
+            ]
+          },
+          "access_id": "3"
         }
       ]
     },
@@ -249,17 +259,6 @@
         {
           "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
           "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
-            "headers":  [
-              "None"
-            ]
-          }
         }
       ]
     }
