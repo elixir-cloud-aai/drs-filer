@@ -72,4 +72,4 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
         return access_urls[0]
     # Access IDs should be unique
     else:
-        return InternalServerError
+        raise InternalServerError
