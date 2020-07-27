@@ -6,6 +6,10 @@
 
 ## Synopsis
 
+Microservice implementing the [Global Alliance for Genomics and
+Health][org-ga4gh] (GA4GH) [Data Repository Service][res-ga4gh-drs] (DRS)
+API specification.
+
 
 ## Description
 
@@ -51,6 +55,8 @@ question etc.
 [license]: LICENSE
 [license-apache]: <https://www.apache.org/licenses/LICENSE-2.0>
 [org-elixir-cloud]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai>
+[org-ga4gh]: <https://www.ga4gh.org/>
 [res-elixir-cloud-coc]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai/blob/dev/CODE_OF_CONDUCT.md>
 [res-elixir-cloud-contributing]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai/blob/dev/CONTRIBUTING.md>
 [res-semver]: <https://semver.org/>
+[res-ga4gh-drs]: https://github.com/ga4gh/data-repository-service-schemas
