@@ -13,7 +13,11 @@ db:
         drsStore:
             collections:
                 objects:
-                    indexes: null
+                    indexes:
+                        - keys:
+                              id: 1
+                          options: 
+                            'unique': True
 
 api:
     specs:
