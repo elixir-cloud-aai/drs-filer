@@ -50,7 +50,18 @@ log:
         level: 10
         handlers: [console]
 
+
 exceptions:
     required_members: [['msg'], ['status_code']]
     status_member: ['status_code']
     exceptions: drs_filer.errors.exceptions.exceptions
+
+
+endpoints:
+    objects:
+        id_charset: string.ascii_letters + string.digits + ".-_~"
+        id_length: 6
+    access_methods:
+        id_charset: string.ascii_letters + string.digits + ".-_~"
+        id_length: 6
+
