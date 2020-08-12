@@ -23,7 +23,7 @@ def register_new_objects(request: request) -> str:
     )
 
     data = request.json
-    data = _prepare_access_data(data)
+    data = prepare_access_data(data)
 
     while True:
         # Fill in the main fields
@@ -32,7 +32,7 @@ def register_new_objects(request: request) -> str:
                 endpoints['objects']['id_charset']
             id_length = current_app.config['FOCA'].\
                 endpoints['objects']['id_length']
-            generated_object_id = _create_id(id_charset, id_length)
+            generated_object_id = __create_id(id_charset, id_length)
             data['id'] = generated_object_id
             data['self_uri'] = \
                 f"drs://{current_app.config['FOCA'].server.host}/{data['id']}"
@@ -47,7 +47,7 @@ def register_new_objects(request: request) -> str:
     return data['id']
 
 
-def _prepare_access_data(data: Dict) -> Dict:
+def prepare_access_data(data: Dict) -> Dict:
     """Prepare acess data before registering into database
 
     Args:
@@ -66,7 +66,7 @@ def _prepare_access_data(data: Dict) -> Dict:
             endpoints['access_methods']['id_length']
         access_id_set = set()
         for method in access_data:
-            generated_access_id = _create_id(id_charset, id_length)
+            generated_access_id = __create_id(id_charset, id_length)
             if generated_access_id not in access_id_set:
                 method['access_id'] = generated_access_id
                 access_id_set.add(generated_access_id)
@@ -76,6 +76,6 @@ def _prepare_access_data(data: Dict) -> Dict:
     return data
 
 
-def _create_id(charset, length) -> str:
+def __create_id(charset, length) -> str:
     """Creates random ID."""
     return ''.join(choice(charset) for __ in range(length))

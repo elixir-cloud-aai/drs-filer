@@ -94,5 +94,5 @@ def DeleteObject(object_id):
     if not obj:
         raise ObjectNotFound
     else:
-        db_collection.remove({"id": object_id})
+        db_collection.delete_one({"id": object_id})
         return object_id
