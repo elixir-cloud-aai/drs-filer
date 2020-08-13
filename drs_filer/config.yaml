@@ -59,9 +59,9 @@ exceptions:
 
 endpoints:
     objects:
-        id_charset: string.ascii_letters + string.digits + ".-_~"
+        id_charset: 'string.ascii_letters + string.digits + ".-_~"'
         id_length: 6
     access_methods:
-        id_charset: string.ascii_letters + string.digits + ".-_~"
+        id_charset: 'string.ascii_letters + string.digits + ".-_~"'
         id_length: 6
 

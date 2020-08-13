@@ -1,5 +1,3 @@
-from drs_filer.ga4gh.drs import endpoints
-from os import access
 from flask import json
 from foca.models.config import MongoConfig
 from drs_filer.errors.exceptions import (
@@ -45,11 +43,11 @@ MONGO_CONFIG = {
 
 ENDPOINT_CONFIG = {
     "objects": {
-        "id_charset": "abcde",
+        "id_charset": 'string.digits',
         "id_length": 6
     },
     "access_methods": {
-        "id_charset": "abcde",
+        "id_charset": "string.digits",
         "id_length": 6
     }
 }
@@ -186,7 +184,7 @@ def test_GetAccessURL_Key_Error():
 
 
 def test_GetAccessURL_Duplicate_Access_Id():
-    """GetAccessURL should return Internal Server Error on duplicate access keys
+    """GetAccessURL should return Internal Server Error on duplicate access keys.
     """
     app = Flask(__name__)
     app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))

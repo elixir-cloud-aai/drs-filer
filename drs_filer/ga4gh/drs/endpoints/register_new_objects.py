@@ -1,7 +1,7 @@
 """Controller for adding new DRS objects."""
 
 from drs_filer.app import logger
-import string
+import string  # noqa: F401
 from typing import Dict
 from flask import (current_app, request)
 from random import choice
@@ -28,8 +28,8 @@ def register_new_objects(request: request) -> str:
     while True:
         # Fill in the main fields
         try:
-            id_charset = current_app.config['FOCA'].\
-                endpoints['objects']['id_charset']
+            id_charset = eval(current_app.config['FOCA'].
+                              endpoints['objects']['id_charset'])
             id_length = current_app.config['FOCA'].\
                 endpoints['objects']['id_length']
             generated_object_id = __create_id(id_charset, id_length)
@@ -60,8 +60,8 @@ def prepare_access_data(data: Dict) -> Dict:
     # Generate the access_ids
     try:
         access_data = data["access_methods"]
-        id_charset = current_app.config['FOCA'].\
-            endpoints['access_methods']['id_charset']
+        id_charset = eval(current_app.config['FOCA'].
+                          endpoints['access_methods']['id_charset'])
         id_length = current_app.config['FOCA'].\
             endpoints['access_methods']['id_length']
         access_id_set = set()
