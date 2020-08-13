@@ -16,11 +16,7 @@ from foca.models.config import Config
 from flask import Flask
 
 INDEX_CONFIG = {
-    'keys': [('last_name', -1)],
-    'name': 'indexLastName',
-    'unique': True,
-    'background': False,
-    'sparse': False,
+    'keys': [('last_name', -1)]
 }
 
 COLLECTION_CONFIG = {
