@@ -3,7 +3,7 @@
 import logging
 from random import choice
 import string
-from typing import Dict
+from typing import (Dict, List)
 
 from flask import (current_app, request)
 from pymongo.errors import DuplicateKeyError
@@ -27,9 +27,10 @@ def register_new_objects(request: request) -> str:
     data = request.json
 
     # Add unique access identifiers for each access method
-    data['access_methods'] = __add_access_ids(
-        data=data['access_methods']
-    )
+    if 'access_methods' in data:
+        data['access_methods'] = __add_access_ids(
+            data=data['access_methods']
+        )
 
     while True:
         # Add object identifier and DRS URL
@@ -53,7 +54,7 @@ def register_new_objects(request: request) -> str:
     return data['id']
 
 
-def __add_access_ids(data: Dict) -> Dict:
+def __add_access_ids(data: List) -> List:
     """Add access identifiers to posted access methods metadata.
 
     Args:

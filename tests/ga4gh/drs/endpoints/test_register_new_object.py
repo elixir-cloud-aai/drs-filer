@@ -1,5 +1,8 @@
 from drs_filer.ga4gh.drs.endpoints.register_new_objects import (
-    register_new_objects, prepare_access_data)
+    __add_access_ids,
+    register_new_objects,
+    generate_id,
+)
 import mongomock
 import pytest
 import string  # noqa: F401
@@ -16,17 +19,14 @@ import json
 INDEX_CONFIG = {
     'keys': [('id', 1)]
 }
-
 COLLECTION_CONFIG = {
     'indexes': [INDEX_CONFIG],
 }
-
 DB_CONFIG = {
     'collections': {
         'objects': COLLECTION_CONFIG,
     },
 }
-
 MONGO_CONFIG = {
     'host': 'mongodb',
     'port': 27017,
@@ -34,7 +34,6 @@ MONGO_CONFIG = {
         'drsStore': DB_CONFIG,
     },
 }
-
 ENDPOINT_CONFIG = {
     "objects": {
         "id_charset": 'string.digits',
@@ -45,7 +44,6 @@ ENDPOINT_CONFIG = {
         "id_length": 6
     }
 }
-
 INVALID_ENDPOINT_CONFIG = {
     "object": {
         "id_charset": 'string.digits',
@@ -79,8 +77,7 @@ def test_register_new_object_exception():
 
 
 def test_register_new_object_duplicate_key_error():
-    """test registerNewObject for DuplicateKeyError.
-    """
+    """Test registerNewObject for DuplicateKeyError."""
     app = Flask(__name__)
     app.config['FOCA'] = \
         Config(
@@ -95,17 +92,29 @@ def test_register_new_object_duplicate_key_error():
     app.config['FOCA'].db.dbs['drsStore']. \
         collections['objects'].client.insert_one = mock
     request_data = Dict()
-    request_data.json = {"name": "mock_name"}
+    request_data.json = {"name": "mock_name", "access_methods": []}
     with app.app_context():
         assert isinstance(register_new_objects(request_data), str)
 
 
-def test_prepare_access_data():
-    """Test for prepare_access_data"""
+def test_add_access_ids():
+    """Test for __add_access_ids()."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(endpoints=ENDPOINT_CONFIG)
+
+def test_add_access_ids():
+    """Test for __add_access_ids()."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(endpoints=ENDPOINT_CONFIG)
     objects = json.loads(open(data_objects_path, "r").read())
-    mock_data = objects[0]
+    mock_data = objects[0]['access_methods']
     with app.app_context():
-        res = prepare_access_data(mock_data)
-        assert isinstance(res, dict)
+        res = __add_access_ids(mock_data)
+        print(res)
+        assert isinstance(res, list)
+
+
+def test_generate_id():
+    """Test for 'generate_id()'."""
+    random_id = generate_id()
+    assert isinstance(random_id, str)
