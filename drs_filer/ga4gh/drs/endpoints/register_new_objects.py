@@ -1,13 +1,14 @@
 """Controller for registering new DRS objects."""
 
+import logging
 from random import choice
-import string  # noqa: F401
+import string
 from typing import Dict
 
 from flask import (current_app, request)
 from pymongo.errors import DuplicateKeyError
 
-from drs_filer.app import logger
+logger = logging.getLogger(__name__)
 
 
 def register_new_objects(request: request) -> str:
@@ -23,9 +24,12 @@ def register_new_objects(request: request) -> str:
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
     )
+    data = request.json
 
     # Add unique access identifiers for each access method
-    data = __add_access_ids(data=request.json["access_methods"])
+    data['access_methods'] = __add_access_ids(
+        data=data['access_methods']
+    )
 
     while True:
         # Add object identifier and DRS URL
