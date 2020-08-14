@@ -4,7 +4,11 @@ from drs_filer.errors.exceptions import (
     URLNotFound,
     ObjectNotFound,
     InternalServerError)
-from drs_filer.ga4gh.drs.server import GetObject, GetAccessURL, RegisterObjects
+from drs_filer.ga4gh.drs.server import (
+    DeleteObject,
+    GetObject,
+    GetAccessURL,
+    RegisterObjects)
 import mongomock
 import pytest
 
@@ -12,11 +16,7 @@ from foca.models.config import Config
 from flask import Flask
 
 INDEX_CONFIG = {
-    'keys': [('last_name', -1)],
-    'name': 'indexLastName',
-    'unique': True,
-    'background': False,
-    'sparse': False,
+    'keys': [('last_name', -1)]
 }
 
 COLLECTION_CONFIG = {
@@ -37,19 +37,30 @@ MONGO_CONFIG = {
     },
 }
 
+ENDPOINT_CONFIG = {
+    "objects": {
+        "id_charset": 'string.digits',
+        "id_length": 6
+    },
+    "access_methods": {
+        "id_charset": "string.digits",
+        "id_length": 6
+    }
+}
+
 data_objects_path = "tests/data_objects.json"
 
 
 def test_RegisterObjects():
     """Test for registering new DRSObject"""
     app = Flask(__name__)
-    app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
     app.config['FOCA'].db.dbs['drsStore']. \
         collections['objects'].client = mongomock.MongoClient().db.collection
-
-    with app.test_request_context(json={"id": "1"}):
+    with app.test_request_context(json={"name": "drsObject"}):
         res = RegisterObjects.__wrapped__()
-        assert res == "1"
+        assert isinstance(res, str)
 
 
 def test_GetObject():
@@ -169,7 +180,7 @@ def test_GetAccessURL_Key_Error():
 
 
 def test_GetAccessURL_Duplicate_Access_Id():
-    """GetAccessURL should return Internal Server Error on duplicate access keys
+    """GetAccessURL should return Internal Server Error on duplicate access keys.
     """
     app = Flask(__name__)
     app.config['FOCA'] = Config(db=MongoConfig(**MONGO_CONFIG))
@@ -184,3 +195,37 @@ def test_GetAccessURL_Duplicate_Access_Id():
     with app.app_context():
         with pytest.raises(InternalServerError):
             GetAccessURL.__wrapped__("a003", "3")
+
+
+def test_DeleteObject():
+    """DeleteObject should return the id of the deleted object"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        res = DeleteObject.__wrapped__("a001")
+        assert res == "a001"
+
+
+def test_DeleteObject_Not_Found():
+    """ObjectNotFound should be raised if object id is not found"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        with pytest.raises(ObjectNotFound):
+            DeleteObject.__wrapped__("01")

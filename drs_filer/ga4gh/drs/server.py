@@ -73,3 +73,26 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
     # Access IDs should be unique
     else:
         raise InternalServerError
+
+
+@log_traffic
+def DeleteObject(object_id):
+    """Delete DRS object.
+
+    Args:
+        object_id: Identifier of DRS object to be deleted.
+
+    Returns:
+        `object_id` of deleted object.
+    """
+
+    db_collection = (
+        current_app.config['FOCA'].db.dbs['drsStore'].
+        collections['objects'].client
+    )
+    obj = db_collection.find_one({"id": object_id})
+    if not obj:
+        raise ObjectNotFound
+    else:
+        db_collection.delete_one({"id": object_id})
+        return object_id
