@@ -77,13 +77,13 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
 
 @log_traffic
 def DeleteObject(object_id):
-    """Deletes the DRS object.
+    """Delete DRS object.
 
     Args:
         object_id: Identifier of DRS object to be deleted.
 
     Returns:
-        The id of the object which was deleted.
+        `object_id` of deleted object.
     """
 
     db_collection = (

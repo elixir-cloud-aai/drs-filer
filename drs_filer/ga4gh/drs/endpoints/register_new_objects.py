@@ -1,15 +1,17 @@
-"""Controller for adding new DRS objects."""
+"""Controller for registering new DRS objects."""
 
-from drs_filer.app import logger
+from random import choice
 import string  # noqa: F401
 from typing import Dict
+
 from flask import (current_app, request)
-from random import choice
 from pymongo.errors import DuplicateKeyError
+
+from drs_filer.app import logger
 
 
 def register_new_objects(request: request) -> str:
-    """Add new objects to DRS registry.
+    """Register data object.
 
     Args:
         request: API request object.
@@ -22,60 +24,68 @@ def register_new_objects(request: request) -> str:
         collections['objects'].client
     )
 
-    data = request.json
-    data = prepare_access_data(data)
+    # Add unique access identifiers for each access method
+    data = __add_access_ids(data=request.json["access_methods"])
 
     while True:
-        # Fill in the main fields
+        # Add object identifier and DRS URL
+        id_charset = eval(
+            current_app.config['FOCA'].endpoints['objects']['id_charset']
+        )
+        id_length = (
+            current_app.config['FOCA'].endpoints['objects']['id_length']
+        )
+        data['id'] = generate_id(charset=id_charset, length=id_length)
+        data['self_uri'] = (
+            f"drs://{current_app.config['FOCA'].server.host}/{data['id']}"
+        )
         try:
-            id_charset = eval(current_app.config['FOCA'].
-                              endpoints['objects']['id_charset'])
-            id_length = current_app.config['FOCA'].\
-                endpoints['objects']['id_length']
-            generated_object_id = __create_id(id_charset, id_length)
-            data['id'] = generated_object_id
-            data['self_uri'] = \
-                f"drs://{current_app.config['FOCA'].server.host}/{data['id']}"
             db_collection.insert_one(data)
         except DuplicateKeyError:
             continue
-        except Exception as e:
-            raise e
-        logger.info(f"object with id: {data['id']} created.")
+        logger.info(f"Object with id '{data['id']}' created.")
         break
 
     return data['id']
 
 
-def prepare_access_data(data: Dict) -> Dict:
-    """Prepare acess data before registering into database
+def __add_access_ids(data: Dict) -> Dict:
+    """Add access identifiers to posted access methods metadata.
 
     Args:
-        data: The data to be registered.
+        data: List of access method metadata objects.
 
     Returns:
-        The modified data suitable for registering.
+        Access methods metadata complete with unique access identifiers.
     """
-
-    # Generate the access_ids
-    try:
-        access_data = data["access_methods"]
-        id_charset = eval(current_app.config['FOCA'].
-                          endpoints['access_methods']['id_charset'])
-        id_length = current_app.config['FOCA'].\
-            endpoints['access_methods']['id_length']
-        access_id_set = set()
-        for method in access_data:
-            generated_access_id = __create_id(id_charset, id_length)
-            if generated_access_id not in access_id_set:
-                method['access_id'] = generated_access_id
-                access_id_set.add(generated_access_id)
-    except KeyError:
-        pass
+    id_charset = eval(
+        current_app.config['FOCA'].endpoints['access_methods']['id_charset']
+    )
+    id_length = (
+        current_app.config['FOCA'].endpoints['access_methods']['id_length']
+    )
+    access_ids = []
+    for method in data:
+        access_id = generate_id(id_charset, id_length)
+        if access_id not in access_ids:
+            method['access_id'] = access_id
+            access_ids.append(access_id)
 
     return data
 
 
-def __create_id(charset, length) -> str:
-    """Creates random ID."""
+def generate_id(
+    charset: str = ''.join([string.ascii_letters, string.digits]),
+    length: int = 6
+) -> str:
+    """Generate random string based on allowed set of characters.
+
+    Args:
+        charset: String of allowed characters.
+        length: Length of returned string.
+
+    Returns:
+        Random string of specified length and composed of defined set of
+        allowed characters.
+    """
     return ''.join(choice(charset) for __ in range(length))

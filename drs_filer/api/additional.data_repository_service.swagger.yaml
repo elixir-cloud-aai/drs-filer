@@ -1,29 +1,15 @@
 paths:
   '/objects':
     post:
-      summary: Get info about a `DrsObject`
-      description: "Posts object metadata, and a list of access methods that can be used to fetch object bytes."
+      summary: Create object.
+      description: |-
+        Register metadata of a data object.
       operationId: RegisterObjects
       responses:
         '200':
-          description: The `DrsObject` was found successfully.
+          description: The `DrsObject` was successfully created.
           schema:
             type: string
-        '202':
-          description: >
-            The operation is delayed and will continue asynchronously.
-            The client should retry this same request after the delay specified by Retry-After header.
-          headers:
-            Retry-After:
-              description: >
-                Delay in seconds. The client should retry this same request after waiting for this duration.
-                To simplify client response processing, this must be an integral relative time in seconds.
-                This value SHOULD represent the minimum duration the client should wait before attempting
-                the operation again with a reasonable expectation of success. When it is not feasible
-                for the server to determine the actual expected delay, the server may return a
-                brief, fixed value instead.
-              type: integer
-              format: int64
         '400':
           description: The request is malformed.
           schema:
@@ -34,10 +20,6 @@ paths:
             $ref: '#/definitions/Error'
         '403':
           description: The requester is not authorized to perform this action.
-          schema:
-            $ref: '#/definitions/Error'
-        '404':
-          description: The requested `DrsObject` wasn't found
           schema:
             $ref: '#/definitions/Error'
         '500':
@@ -46,39 +28,24 @@ paths:
             $ref: '#/definitions/Error'
       parameters:
         - in: body
-          name: DrsPostObject
-          description: The DrsObject info
+          name: PostDrsObject
+          description: Data object metadata.
           schema:
-            $ref: '#/definitions/DrsObject'
+            $ref: '#/definitions/PostDrsObject'
       tags:
         - DataRepositoryService
       x-swagger-router-controller: ga4gh.drs.server
   '/objects/{object_id}':
     delete:
-      summary: Deletes the existing 'DrsObject'.
+      summary: Delete object.
       description: >-
-        Deletes the existing DrsObject
+        Delete existing `DrsObject`.
       operationId: DeleteObject
       responses:
         '200':
           description: The `DrsObject` was successfully deleted.
           schema:
             type: string
-        '202':
-          description: >
-            The operation is delayed and will continue asynchronously.
-            The client should retry this same request after the delay specified by Retry-After header.
-          headers:
-            Retry-After:
-              description: >
-                Delay in seconds. The client should retry this same request after waiting for this duration.
-                To simplify client response processing, this must be an integral relative time in seconds.
-                This value SHOULD represent the minimum duration the client should wait before attempting
-                the operation again with a reasonable expectation of success. When it is not feasible
-                for the server to determine the actual expected delay, the server may return a
-                brief, fixed value instead.
-              type: integer
-              format: int64
         '400':
           description: The request is malformed.
           schema:
@@ -92,7 +59,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         '404':
-          description: The requested `DrsObject` wasn't found
+          description: The requested `DrsObject` wasn't found.
           schema:
             $ref: '#/definitions/Error'
         '500':
@@ -107,9 +74,8 @@ paths:
       tags:
         - DataRepositoryService
       x-swagger-router-controller: ga4gh.drs.server
-
 definitions:
-  DrsPostObject:
+  PostDrsObject:
     type: object
     required: ['size', 'created_time', 'checksums']
     properties:
@@ -117,13 +83,16 @@ definitions:
         type: string
         description: |-
           A string that can be used to name a `DrsObject`.
-          This string is made up of uppercase and lowercase letters, decimal digits, hypen, period, and underscore [A-Za-z0-9.-_]. See http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_282[portable filenames].
+          This string is made up of uppercase and lowercase letters, decimal
+          digits, hyphen, period, and underscore [A-Za-z0-9.-_]. See
+          http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_282[portable filenames].
       size:
         type: integer
         format: int64
         description: |-
           For blobs, the blob size in bytes.
-          For bundles, the cumulative size, in bytes, of items in the `contents` field.
+          For bundles, the cumulative size, in bytes, of items in the
+          `contents` field.
       created_time:
         type: string
         format: date-time
@@ -213,8 +182,8 @@ definitions:
           about this `DrsObject` from external metadata sources. These
           aliases can be used to represent secondary
           accession numbers or external GUIDs.
-
   AccessPostMethod:
+    description: Method through which object bytes can be fetched.
     type: object
     required:
       - type
@@ -243,4 +212,3 @@ definitions:
           Name of the region in the cloud service provider that the object belongs to.
         example:
           us-east-1
-    
