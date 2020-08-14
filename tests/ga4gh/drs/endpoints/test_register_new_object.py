@@ -101,11 +101,6 @@ def test_add_access_ids():
     """Test for __add_access_ids()."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(endpoints=ENDPOINT_CONFIG)
-
-def test_add_access_ids():
-    """Test for __add_access_ids()."""
-    app = Flask(__name__)
-    app.config['FOCA'] = Config(endpoints=ENDPOINT_CONFIG)
     objects = json.loads(open(data_objects_path, "r").read())
     mock_data = objects[0]['access_methods']
     with app.app_context():

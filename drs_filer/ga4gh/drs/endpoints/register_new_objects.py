@@ -3,7 +3,7 @@
 import logging
 from random import choice
 import string
-from typing import (Dict, List)
+from typing import (List)
 
 from flask import (current_app, request)
 from pymongo.errors import DuplicateKeyError
