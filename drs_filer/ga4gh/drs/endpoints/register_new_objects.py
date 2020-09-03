@@ -41,8 +41,12 @@ def register_new_objects(request: request) -> str:
             current_app.config['FOCA'].endpoints['objects']['id_length']
         )
         data['id'] = generate_id(charset=id_charset, length=id_length)
+        url_prefix = current_app.config['FOCA'].endpoints['url_prefix']
+        external_host = current_app.config['FOCA'].endpoints['external_host']
+        external_port = current_app.config['FOCA'].endpoints['external_port']
+        api_path = current_app.config['FOCA'].endpoints['api_path']
         data['self_uri'] = (
-            f"drs://{current_app.config['FOCA'].server.host}/{data['id']}"
+            f"{url_prefix}://{external_host}:{external_port}/{api_path}/{data['id']}"
         )
         try:
             db_collection.insert_one(data)

@@ -45,7 +45,11 @@ ENDPOINT_CONFIG = {
     "access_methods": {
         "id_charset": "string.digits",
         "id_length": 6
-    }
+    },
+    "url_prefix": "http",
+    "external_host": "1.2.3.4",
+    "external_port": 8080,
+    "api_path": "ga4gh/drs/v1"
 }
 
 data_objects_path = "tests/data_objects.json"
