@@ -64,3 +64,7 @@ endpoints:
     access_methods:
         id_charset: 'string.ascii_letters + string.digits + ".-_~"'
         id_length: 6
+    url_prefix: http
+    external_host: 193.166.24.114
+    external_port: 8080
+    api_path: ga4gh/drs/v1
