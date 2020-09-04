@@ -15,5 +15,7 @@ services:
     mongodb: 
         image: mongo:3.6
         restart: unless-stopped
+        volumes:
+            - ../data/drs/db:/data/db
         ports:
             - "27017:27017"
