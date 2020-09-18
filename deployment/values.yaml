@@ -1,0 +1,14 @@
+# Default values for drs-filer.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+clusterType: openshift
+
+host_name: drs-filer-test.c03.k8s-popup.csc.fi
+
+drs_filer:
+  image: lvarin/drs-filer:latest
+
+mongodb:
+  image: mongo:3.6
+  volumeSize: 1Gi
