@@ -77,6 +77,7 @@ paths:
 definitions:
   PostDrsObject:
     type: object
+    additionalProperties: false
     required: ['size', 'created_time', 'checksums']
     properties:
       name:
@@ -185,6 +186,7 @@ definitions:
   AccessPostMethod:
     description: Method through which object bytes can be fetched.
     type: object
+    additionalProperties: false
     required:
       - type
     properties:
