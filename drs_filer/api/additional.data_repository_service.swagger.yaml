@@ -229,8 +229,6 @@ definitions:
         description: >-
           An optional list of headers to include in the HTTP request to `url`.
           These headers can be used to provide auth tokens required to fetch the object bytes.
-        example:
-          Authorization: Basic Z2E0Z2g6ZHJz
   ChecksumRegister:
     type: object
     additionalProperties: false
@@ -279,7 +277,8 @@ definitions:
           that may be used to obtain the object.
           These URIs may be external to this DRS instance.
         example:
-          drs://drs.example.org/314159
+          - drs://drs.example.org/314159
+          - drs://drs.example.org/213512
         items:
           type: string
       contents:
@@ -290,6 +289,7 @@ definitions:
           describe the objects within the nested bundle.
         items:
           $ref: '#/definitions/ContentsObjectRegister'
+        example: []
     required:
       - name
 tags:
