@@ -261,5 +261,42 @@
           "type": "md5"
         }
       ]
+    },
+    {
+     "id": "a011",
+     "name": "Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+     "size": 987000000,
+     "created": "2019-05-24T00:25:43-06:00",
+     "updated": "2019-07-22T00:24:05-03:00",
+     "version": "1",
+     "mime_type": "",
+     "checksums": [
+       {
+         "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
+         "type": "md5"
+       }
+     ],
+     "access_methods": [
+       {
+         "type": "ftp",
+         "access_url": {
+           "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+           "headers":  [
+             "None"
+           ]
+         },
+         "access_id": "1"
+       },
+       {
+        "type": "ftp",
+        "access_url": {
+          "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+          "headers":  [
+            "None"
+          ]
+        },
+        "access_id": "2"
+      }
+     ]
     }
   ]

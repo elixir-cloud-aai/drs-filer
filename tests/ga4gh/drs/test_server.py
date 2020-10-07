@@ -1,10 +1,12 @@
 from flask import json
 from foca.models.config import MongoConfig
 from drs_filer.errors.exceptions import (
+    BadRequest,
     URLNotFound,
     ObjectNotFound,
     InternalServerError)
 from drs_filer.ga4gh.drs.server import (
+    DeleteAccessMethod,
     DeleteObject,
     GetObject,
     GetAccessURL,
@@ -233,3 +235,88 @@ def test_DeleteObject_Not_Found():
     with app.app_context():
         with pytest.raises(ObjectNotFound):
             DeleteObject.__wrapped__("01")
+
+
+def test_DeleteAccessMethod():
+    """DeleteAccessMethod should return the id of the deleted access method"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        res = DeleteAccessMethod.__wrapped__("a011", "2")
+        assert res == "2"
+
+
+def test_DeleteAccessMethod_Object_Not_Found():
+    """ObjectNotFound should be raised if object id is not found"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        with pytest.raises(ObjectNotFound):
+            DeleteAccessMethod.__wrapped__("01", "2")
+
+
+def test_DeleteAccessMethod_Bad_Request():
+    """BadRequest should be raised access method is the last remaining one"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        with pytest.raises(BadRequest):
+            DeleteAccessMethod.__wrapped__("a001", "1")
+
+
+def test_DeleteAccessMethod_Url_Not_Found():
+    """URLNotFound should be raised if access method is not found"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        with pytest.raises(URLNotFound):
+            DeleteAccessMethod.__wrapped__("a001", "7")
+
+
+def test_DeleteAccessMethod_InternalServerError():
+    """InternalServerError should be raised if access_methods key not found"""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        obj['_id'] = app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj).inserted_id
+    del objects[0]['_id']
+    with app.app_context():
+        with pytest.raises(InternalServerError):
+            DeleteAccessMethod.__wrapped__("a010", "1")
