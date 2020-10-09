@@ -33,7 +33,7 @@ paths:
           schema:
             $ref: '#/definitions/DrsObjectRegister'
       tags:
-        - DataRepositoryService
+        - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
   '/objects/{object_id}':
     delete:
@@ -72,50 +72,50 @@ paths:
           required: true
           type: string
       tags:
-        - DataRepositoryService
+        - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
   '/objects/{object_id}/access/{access_id}':
     delete:
       summary: Delete object's access method.
       description: >-
-        Delete existing `access_method` of object.
+        Delete existing `AccessMethod` of `DrsObject`.
       operationId: DeleteAccessMethod
       responses:
-      '200':
-          description: The `AccessMethod` was successfully deleted.
-          schema:
-            type: string
-      '400':
-          description: The request is malformed.
-          schema:
-            $ref: '#/definitions/Error'
-      '401':
-          description: The request is unauthorized.
-          schema:
-            $ref: '#/definitions/Error'
-      '403':
-          description: The requester is not authorized to perform this action.
-          schema:
-            $ref: '#/definitions/Error'
-      '404':
-          description: The requested resource was not found.
-          schema:
-            $ref: '#/definitions/Error'
-      '500':
-          description: An unexpected error occurred.
-          schema:
-            $ref: '#/definitions/Error'
+        '200':
+            description: The `AccessMethod` was successfully deleted.
+            schema:
+              type: string
+        '400':
+            description: The request is malformed.
+            schema:
+              $ref: '#/definitions/Error'
+        '401':
+            description: The request is unauthorized.
+            schema:
+              $ref: '#/definitions/Error'
+        '403':
+            description: The requester is not authorized to perform this action.
+            schema:
+              $ref: '#/definitions/Error'
+        '404':
+            description: The requested resource was not found.
+            schema:
+              $ref: '#/definitions/Error'
+        '500':
+            description: An unexpected error occurred.
+            schema:
+              $ref: '#/definitions/Error'
       parameters:
         - name: object_id
-            in: path
-            required: true
-            type: string
+          in: path
+          required: true
+          type: string
         - name: access_id
-            in: path
-            required: true
-            type: string
+          in: path
+          required: true
+          type: string
       tags:
-        - DataRepositoryService
+        - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server    
 definitions:
   DrsObjectRegister:

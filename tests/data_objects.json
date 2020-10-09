@@ -1,302 +1,302 @@
 [
-    {
-      "id": "a001",
-      "name": "Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",
-      "size": 16700000,
-      "created": "2018-04-21T00:00:00-00:00",
-      "updated": "2018-08-08T16:00:00-05:00",
-      "version": "38",
-      "mime_type": "application/json",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-96/fasta/homo_sapiens/dna//Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",
-            "headers": [
-             "None"
-            ]
-          },
-        "access_id": "1"
-        }
-      ]
-    },
-    {
-      "id": "a002",
-      "name": "gerp_constrained_elements.tetraodon_nigroviridis.bed.gz",
-      "size": 320000000,
-      "created": "2015-04-21T00:25:43-06:00",
-      "updated": "2018-04-21T18:25:43-05:00",
-      "version": "1",
-      "mime_type": "application/json",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/11_teleost_fish.gerp_constrained_elements/gerp_constrained_elements.tetraodon_nigroviridis.bed.gz",
-            "headers": [
-              "None"
-            ]
-          },
-          "access_id": "2"
-        }
-      ]
-    },
-    {
-      "id": "a003",
-      "name": "Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
-      "size": 1000000000,
-      "created": "2019-05-24T00:25:43-06:00",
-      "updated": "2019-07-08T00:00:00-00:00",
-      "version": "",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-97/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
-            "headers": [
-              "None"
-            ]
-          },
-          "access_id": "3"
-        },
-        {
-          "type": "http",
-          "access_url": {
-            "url": "http://http.ensembl.org/pub/release-97/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
-            "headers": [
-              "None"
-            ]
-          },
-          "access_id": "3"
-        }
-      ]
-    },
-    {
-      "id": "a004",
-      "name": "README",
-      "size": 565,
-      "created": "2019-05-20T00:12:34-07:00",
-      "updated": "2019-04-24T05:23:43-06:00",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/11_teleost_fish.gerp_constrained_elements/README",
-            "headers":  [
-              "None"
-            ]
-          },
-          "access_id": "4"
-        }
-      ]
-    },
-     {
-      "id": "a005",
-      "name": "gerp_constrained_elements.ailuropoda_melanoleuca.bed.gz",
-      "size": 11500000,
-      "created": "2016-11-02T20:12:42-02:00",
-      "updated": "2019-05-24T00:20:00-00:00",
-      "version": "1",
-      "mime_type": "18c2f5517e4ddc02cd57f6c7554b8e88",
-      "checksums": [
-        {
-          "checksum": "None",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/39_eutherian_mammals.gerp_constrained_elements/gerp_constrained_elements.ailuropoda_melanoleuca.bed.gz",
-            "headers": [
-              "None"
-            ]
-          }
-        }
-      ]
-    },
-     {
-      "id": "a006",
-      "name": "MD5SUM",
-      "size": 3200,
-      "created": "2019-01-24T00:25:03-03:00",
-      "updated": "2019-02-24T00:15:33-00:00",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/39_eutherian_mammals.gerp_constrained_elements/MD5SUM",
-            "headers":  [
-              "None"
-            ]
-          }
-        }
-      ]
-    },
-     {
-      "id": "a007",
-      "name": "Homo_sapiens.GRCh38.ncrna.fa.gz",
-      "size": 8500,
-      "created": "2012-03-04T00:24:04-03:00",
-      "updated": "2019-05-24T00:24:43-05:40",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/ncrna/Homo_sapiens.GRCh38.ncrna.fa.gz",
-            "headers": [
-              "None"
-            ]
-          }
-        }
-      ]
-    },
-     {
-      "id": "a008",
-      "name": "Homo_sapiens.GRCh38.dna.chromosome.X.fa.gz",
-      "size": 44000000,
-      "created": "2016-03-24T00:20:44-04:00",
-      "updated": "2019-05-24T00:35:46-05:00",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.chromosome.X.fa.gz",
-            "headers":  [
-              "None"
-            ]
-          }
-        }
-      ]
-    },
-     {
-      "id": "a009",
-      "name": "Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-      "size": 987000000,
-      "created": "2019-05-24T00:25:43-06:00",
-      "updated": "2019-07-22T00:24:05-03:00",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ],
-      "access_methods": [
-        {
-          "type": "ftp",
-          "access_url": {
-            "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-            "headers":  [
-              "None"
-            ]
-          }
-        }
-      ]
-    },
-     {
-      "id": "a010",
-      "name": "",
-      "size": 1000000000,
-      "created": "2018-12-04T00:25:43-06:00",
-      "updated": "2019-03-02T00:04:43-05:00",
-      "version": "1",
-      "mime_type": "",
-      "checksums": [
-        {
-          "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-          "type": "md5"
-        }
-      ]
-    },
-    {
-     "id": "a011",
-     "name": "Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-     "size": 987000000,
-     "created": "2019-05-24T00:25:43-06:00",
-     "updated": "2019-07-22T00:24:05-03:00",
-     "version": "1",
-     "mime_type": "",
-     "checksums": [
-       {
-         "checksum": "18c2f5517e4ddc02cd57f6c7554b8e88",
-         "type": "md5"
-       }
-     ],
-     "access_methods": [
-       {
-         "type": "ftp",
-         "access_url": {
-           "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-           "headers":  [
-             "None"
-           ]
-         },
-         "access_id": "1"
-       },
-       {
-        "type": "ftp",
-        "access_url": {
-          "url": "ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-          "headers":  [
+  {
+    "id":"a001",
+    "name":"Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",
+    "size":16700000,
+    "created":"2018-04-21T00:00:00-00:00",
+    "updated":"2018-08-08T16:00:00-05:00",
+    "version":"38",
+    "mime_type":"application/json",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-96/fasta/homo_sapiens/dna//Homo_sapiens.GRCh38.dna.chromosome.19.fa.gz",
+          "headers":[
             "None"
           ]
         },
-        "access_id": "2"
+        "access_id":"1"
       }
-     ]
-    }
-  ]
+    ]
+  },
+  {
+    "id":"a002",
+    "name":"gerp_constrained_elements.tetraodon_nigroviridis.bed.gz",
+    "size":320000000,
+    "created":"2015-04-21T00:25:43-06:00",
+    "updated":"2018-04-21T18:25:43-05:00",
+    "version":"1",
+    "mime_type":"application/json",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/11_teleost_fish.gerp_constrained_elements/gerp_constrained_elements.tetraodon_nigroviridis.bed.gz",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"2"
+      }
+    ]
+  },
+  {
+    "id":"a003",
+    "name":"Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
+    "size":1000000000,
+    "created":"2019-05-24T00:25:43-06:00",
+    "updated":"2019-07-08T00:00:00-00:00",
+    "version":"",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-97/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"3"
+      },
+      {
+        "type":"http",
+        "access_url":{
+          "url":"http://http.ensembl.org/pub/release-97/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.toplevel.fa.gz",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"3"
+      }
+    ]
+  },
+  {
+    "id":"a004",
+    "name":"README",
+    "size":565,
+    "created":"2019-05-20T00:12:34-07:00",
+    "updated":"2019-04-24T05:23:43-06:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/11_teleost_fish.gerp_constrained_elements/README",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"4"
+      }
+    ]
+  },
+  {
+    "id":"a005",
+    "name":"gerp_constrained_elements.ailuropoda_melanoleuca.bed.gz",
+    "size":11500000,
+    "created":"2016-11-02T20:12:42-02:00",
+    "updated":"2019-05-24T00:20:00-00:00",
+    "version":"1",
+    "mime_type":"18c2f5517e4ddc02cd57f6c7554b8e88",
+    "checksums":[
+      {
+        "checksum":"None",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/39_eutherian_mammals.gerp_constrained_elements/gerp_constrained_elements.ailuropoda_melanoleuca.bed.gz",
+          "headers":[
+            "None"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id":"a006",
+    "name":"MD5SUM",
+    "size":3200,
+    "created":"2019-01-24T00:25:03-03:00",
+    "updated":"2019-02-24T00:15:33-00:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/bed/ensembl-compara/39_eutherian_mammals.gerp_constrained_elements/MD5SUM",
+          "headers":[
+            "None"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id":"a007",
+    "name":"Homo_sapiens.GRCh38.ncrna.fa.gz",
+    "size":8500,
+    "created":"2012-03-04T00:24:04-03:00",
+    "updated":"2019-05-24T00:24:43-05:40",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/ncrna/Homo_sapiens.GRCh38.ncrna.fa.gz",
+          "headers":[
+            "None"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id":"a008",
+    "name":"Homo_sapiens.GRCh38.dna.chromosome.X.fa.gz",
+    "size":44000000,
+    "created":"2016-03-24T00:20:44-04:00",
+    "updated":"2019-05-24T00:35:46-05:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.chromosome.X.fa.gz",
+          "headers":[
+            "None"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id":"a009",
+    "name":"Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+    "size":987000000,
+    "created":"2019-05-24T00:25:43-06:00",
+    "updated":"2019-07-22T00:24:05-03:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+          "headers":[
+            "None"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id":"a010",
+    "name":"",
+    "size":1000000000,
+    "created":"2018-12-04T00:25:43-06:00",
+    "updated":"2019-03-02T00:04:43-05:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ]
+  },
+  {
+    "id":"a011",
+    "name":"Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+    "size":987000000,
+    "created":"2019-05-24T00:25:43-06:00",
+    "updated":"2019-07-22T00:24:05-03:00",
+    "version":"1",
+    "mime_type":"",
+    "checksums":[
+      {
+        "checksum":"18c2f5517e4ddc02cd57f6c7554b8e88",
+        "type":"md5"
+      }
+    ],
+    "access_methods":[
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"1"
+      },
+      {
+        "type":"ftp",
+        "access_url":{
+          "url":"ftp://ftp.ensembl.org/pub/release-81/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
+          "headers":[
+            "None"
+          ]
+        },
+        "access_id":"2"
+      }
+    ]
+  }
+]

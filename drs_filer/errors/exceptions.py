@@ -12,6 +12,12 @@ from werkzeug.exceptions import (
 )
 
 
+class AccessMethodNotFound(NotFound):
+    """Raised when access method of object with given object and access
+    identifiers was not found."""
+    pass
+
+
 class ObjectNotFound(NotFound):
     """Raised when object with given object identifier was not found."""
     pass
@@ -49,6 +55,10 @@ exceptions = {
     },
     NotFound: {
         "msg": "The requested resource wasn't found.",
+        "status_code": '404',
+    },
+    AccessMethodNotFound: {
+        "msg": "The requested access method wasn't found.",
         "status_code": '404',
     },
     ObjectNotFound: {

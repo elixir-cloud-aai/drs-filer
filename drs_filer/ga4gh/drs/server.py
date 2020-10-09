@@ -1,11 +1,13 @@
 """Controllers for DRS endpoints."""
 
+import logging
 from typing import Dict
 
 from flask import (current_app, request)
 from foca.utils.logging import log_traffic
 
 from drs_filer.errors.exceptions import (
+    AccessMethodNotFound,
     InternalServerError,
     ObjectNotFound,
     URLNotFound,
@@ -14,6 +16,8 @@ from drs_filer.errors.exceptions import (
 from drs_filer.ga4gh.drs.endpoints.register_new_objects import (
     register_new_objects,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @log_traffic
@@ -117,20 +121,19 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         current_app.config['FOCA'].db.dbs['drsStore'].
         collections['objects'].client
     )
-    obj = db_collection.find_one({"id": object_id})
 
-    if not obj:
-        raise ObjectNotFound
-    try:
-        access_methods = obj["access_methods"]
-    except KeyError:
-        raise InternalServerError
+    obj = GetObject.__wrapped__(object_id=object_id)
+    access_methods = obj['access_methods']
 
-    if access_id in [a.get('access_id', None) for a in access_methods]:
-        if len(access_methods) == 1:
-            raise BadRequest
-    else:
-        raise URLNotFound
+    if access_id not in [m.get('access_id', None) for m in access_methods]:
+        raise AccessMethodNotFound
+
+    if len(access_methods) == 1:
+        logger.error(
+            "Will not delete only remaining access method for object: "
+            f"{object_id}"
+        )
+        raise BadRequest
 
     del_access_methods = db_collection.update_one(
         filter={'id': object_id},
