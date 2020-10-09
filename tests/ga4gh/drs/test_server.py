@@ -1,10 +1,13 @@
 from flask import json
 from foca.models.config import MongoConfig
 from drs_filer.errors.exceptions import (
+    AccessMethodNotFound,
+    BadRequest,
     URLNotFound,
     ObjectNotFound,
     InternalServerError)
 from drs_filer.ga4gh.drs.server import (
+    DeleteAccessMethod,
     DeleteObject,
     GetObject,
     GetAccessURL,
@@ -14,6 +17,8 @@ import pytest
 
 from foca.models.config import Config
 from flask import Flask
+
+MOCK_ID_NA = "unavailable"
 
 INDEX_CONFIG = {
     'keys': [('last_name', -1)]
@@ -233,3 +238,111 @@ def test_DeleteObject_Not_Found():
     with app.app_context():
         with pytest.raises(ObjectNotFound):
             DeleteObject.__wrapped__("01")
+
+
+def test_DeleteAccessMethod():
+    """Test for deleting an access method `access_id` of an object associated
+    with a given `object_id`.
+    """
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['objects'].client = \
+        mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj)
+    with app.app_context():
+        res = DeleteAccessMethod.__wrapped__("a011", "2")
+        assert res == "2"
+
+
+def test_DeleteAccessMethod_ObjectNotFound():
+    """Test for deleting an access method `access_id` of an object associated
+    with a given `object_id` when an object with the specified identifier is
+    not available.
+    """
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['objects'].client = \
+        mongomock.MongoClient().db.collection
+    with app.app_context():
+        with pytest.raises(ObjectNotFound):
+            DeleteAccessMethod.__wrapped__(MOCK_ID_NA, MOCK_ID_NA)
+
+
+def test_DeleteAccessMethod_AccessMethodNotFound():
+    """Test for deleting an access method `access_id` of an object associated
+    with a given `object_id` when an access method with the specified
+    identifier is not available.
+    """
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['objects'].client = \
+        mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj)
+    with app.app_context():
+        with pytest.raises(AccessMethodNotFound):
+            DeleteAccessMethod.__wrapped__("a011", MOCK_ID_NA)
+
+
+def test_DeleteAcessMethod_BadRequest(monkeypatch):
+    """Test for deleting an access method `access_id` of an object associated
+    with a given `object_id` when that access method is the last remaining
+    access method associated with object.
+    """
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['objects'].client = \
+        mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj)
+    with app.app_context():
+        with pytest.raises(BadRequest):
+            DeleteAccessMethod.__wrapped__("a001", "1")
+
+
+def test_DeleteAccessMethod_InternalServerError(monkeypatch):
+    """Test for deleting an access method `access_id` of an object associated
+    with a given `object_id` when the deletion did not succeed.
+    """
+    class MongoMockResponse:
+        def __init__(self, modified_count):
+            self.modified_count = modified_count
+
+    mock_response = MongoMockResponse(modified_count=0)
+    monkeypatch.setattr(
+        'mongomock.collection.Collection.update_one',
+        lambda *args, **kwargs: mock_response
+    )
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['objects'].client = \
+        mongomock.MongoClient().db.collection
+    objects = json.loads(open(data_objects_path, "r").read())
+    for obj in objects:
+        app.config['FOCA'].db.dbs['drsStore']. \
+            collections['objects'].client.insert_one(obj)
+    with app.app_context():
+        with pytest.raises(InternalServerError):
+            DeleteAccessMethod.__wrapped__("a011", "2")
