@@ -19,6 +19,7 @@ def register_new_objects(
 
     Args:
         request: API request object.
+        object_id: DRS object identifier. Auto generated if not provided.
 
     Returns:
         A unique identifier for the object.
