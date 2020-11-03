@@ -3,7 +3,7 @@
 import logging
 from random import choice
 import string
-from typing import (List)
+from typing import (List, Optional)
 
 from flask import (current_app, request)
 from pymongo.errors import DuplicateKeyError
@@ -11,7 +11,10 @@ from pymongo.errors import DuplicateKeyError
 logger = logging.getLogger(__name__)
 
 
-def register_new_objects(request: request) -> str:
+def register_new_objects(
+    request: request,
+    object_id: Optional[str] = None
+) -> str:
     """Register data object.
 
     Args:
@@ -25,6 +28,7 @@ def register_new_objects(request: request) -> str:
         collections['objects'].client
     )
     data = request.json
+    replace = True
 
     # Add unique access identifiers for each access method
     if 'access_methods' in data:
@@ -34,13 +38,17 @@ def register_new_objects(request: request) -> str:
 
     while True:
         # Add object identifier and DRS URL
-        id_charset = eval(
-            current_app.config['FOCA'].endpoints['objects']['id_charset']
-        )
-        id_length = (
-            current_app.config['FOCA'].endpoints['objects']['id_length']
-        )
-        data['id'] = generate_id(charset=id_charset, length=id_length)
+        if object_id is None:
+            replace = False
+            id_charset = eval(
+                current_app.config['FOCA'].endpoints['objects']['id_charset']
+            )
+            id_length = (
+                current_app.config['FOCA'].endpoints['objects']['id_length']
+            )
+            data['id'] = generate_id(charset=id_charset, length=id_length)
+        else:
+            data['id'] = object_id
         url_prefix = current_app.config['FOCA'].endpoints['url_prefix']
         external_host = current_app.config['FOCA'].endpoints['external_host']
         external_port = current_app.config['FOCA'].endpoints['external_port']
@@ -49,6 +57,19 @@ def register_new_objects(request: request) -> str:
             f"{url_prefix}://{external_host}:{external_port}/"
             f"{api_path}/{data['id']}"
         )
+
+        if replace is True:
+            result_object = db_collection.replace_one(
+                filter={'id': data['id']},
+                replacement=data
+            )
+
+            if result_object.modified_count:
+                logger.info(
+                    f"Replaced DRS object with id '{data['id']}'."
+                )
+                break
+
         try:
             db_collection.insert_one(data)
         except DuplicateKeyError:

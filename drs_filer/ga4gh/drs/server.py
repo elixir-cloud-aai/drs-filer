@@ -148,3 +148,17 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         return access_id
     else:
         raise InternalServerError
+
+
+@log_traffic
+def PutObject(object_id: str):
+    """Add/replace DRS object with a user-supplied ID.
+
+    Args:
+        object_id: Identifier of DRS object to be created/updated.
+
+    Returns:
+        Identifier of created/updated DRS object.
+
+    """
+    return register_new_objects(request, object_id)
