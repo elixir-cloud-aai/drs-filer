@@ -29,6 +29,7 @@ def register_new_objects(
         collections['objects'].client
     )
     data = request.json
+    # If an existing DRS object needs to be updated, then replace is True
     replace = True
 
     # Add unique access identifiers for each access method
@@ -38,7 +39,7 @@ def register_new_objects(
         )
 
     while True:
-        # Add object identifier and DRS URL
+        # If a new DRS object needs to be created, then replace should be false
         if object_id is None:
             replace = False
             id_charset = eval(
@@ -50,6 +51,7 @@ def register_new_objects(
             data['id'] = generate_id(charset=id_charset, length=id_length)
         else:
             data['id'] = object_id
+        # Add object identifier and DRS URL
         url_prefix = current_app.config['FOCA'].endpoints['url_prefix']
         external_host = current_app.config['FOCA'].endpoints['external_host']
         external_port = current_app.config['FOCA'].endpoints['external_port']
