@@ -64,7 +64,6 @@ paths:
           schema:
             $ref: '#/definitions/Error'
       parameters:
-        parameters:
         - name: object_id
           in: path
           required: true
