@@ -10,7 +10,7 @@ from drs_filer.ga4gh.drs.server import (
     DeleteAccessMethod,
     DeleteObject,
     GetObject,
-    GetAccessURL,
+    GetAccessURL, PutObject,
     RegisterObjects)
 import mongomock
 import pytest
@@ -58,6 +58,12 @@ ENDPOINT_CONFIG = {
 }
 
 data_objects_path = "tests/data_objects.json"
+
+MOCK_DATA_OBJECT = {
+    "id": "a011",
+    "description": "mock_object",
+    "name": "mock_object"
+}
 
 
 def test_RegisterObjects():
@@ -346,3 +352,29 @@ def test_DeleteAccessMethod_InternalServerError(monkeypatch):
     with app.app_context():
         with pytest.raises(InternalServerError):
             DeleteAccessMethod.__wrapped__("a011", "2")
+
+
+def test_PutObject():
+    """Test for creating a object; identifier provided by user."""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    with app.test_request_context(json={"name": "drsObject"}):
+        res = PutObject.__wrapped__("a011")
+        assert isinstance(res, str)
+
+
+def test_PutObject_update():
+    """Test for updating an existing DRS object."""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client.insert_one(MOCK_DATA_OBJECT)
+    with app.test_request_context(json={"name": "drsObject"}):
+        res = PutObject.__wrapped__("a011")
+        assert isinstance(res, str)
