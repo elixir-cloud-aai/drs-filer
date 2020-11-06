@@ -4,7 +4,7 @@ paths:
       summary: Create object.
       description: |-
         Register metadata of a data object.
-      operationId: RegisterObjects
+      operationId: PostObject
       responses:
         '200':
           description: The `DrsObject` was successfully created.
@@ -36,6 +36,46 @@ paths:
         - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
   '/objects/{object_id}':
+    put:
+      summary: Create or update an object.
+      description: |-
+        Create a DRS object with a predefined ID. Overwrites any
+        existing DRS object with the same ID.
+      operationId: PutObject
+      responses:
+        '200':
+          description: The `DrsObject` was successfully created/updated.
+          schema:
+            type: string
+        '400':
+          description: The request is malformed.
+          schema:
+            $ref: '#/definitions/Error'
+        '401':
+          description: The request is unauthorized.
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: The requester is not authorized to perform this action.
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: An unexpected error occurred.
+          schema:
+            $ref: '#/definitions/Error'
+      parameters:
+        - name: object_id
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: DrsObjectRegister
+          description: Data object metadata.
+          schema:
+            $ref: '#/definitions/DrsObjectRegister'
+      tags:
+        - DRS-Filer
+      x-swagger-router-controller: ga4gh.drs.server
     delete:
       summary: Delete object.
       description: >-
