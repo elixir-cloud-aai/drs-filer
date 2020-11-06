@@ -4,7 +4,7 @@ paths:
       summary: Create object.
       description: |-
         Register metadata of a data object.
-      operationId: RegisterObjects
+      operationId: PostObject
       responses:
         '200':
           description: The `DrsObject` was successfully created.

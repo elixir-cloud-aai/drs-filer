@@ -10,8 +10,10 @@ from drs_filer.ga4gh.drs.server import (
     DeleteAccessMethod,
     DeleteObject,
     GetObject,
-    GetAccessURL, PutObject,
-    RegisterObjects)
+    GetAccessURL,
+    PostObject,
+    PutObject,
+)
 import mongomock
 import pytest
 
@@ -64,18 +66,6 @@ MOCK_DATA_OBJECT = {
     "description": "mock_object",
     "name": "mock_object"
 }
-
-
-def test_RegisterObjects():
-    """Test for registering new DRSObject"""
-    app = Flask(__name__)
-    app.config['FOCA'] = \
-        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
-    app.config['FOCA'].db.dbs['drsStore']. \
-        collections['objects'].client = mongomock.MongoClient().db.collection
-    with app.test_request_context(json={"name": "drsObject"}):
-        res = RegisterObjects.__wrapped__()
-        assert isinstance(res, str)
 
 
 def test_GetObject():
@@ -354,20 +344,34 @@ def test_DeleteAccessMethod_InternalServerError(monkeypatch):
             DeleteAccessMethod.__wrapped__("a011", "2")
 
 
-def test_PutObject():
-    """Test for creating a object; identifier provided by user."""
+def test_PostObject():
+    """Test for creating a new object with an auto-generated identifier."""
     app = Flask(__name__)
     app.config['FOCA'] = \
         Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
     app.config['FOCA'].db.dbs['drsStore']. \
         collections['objects'].client = mongomock.MongoClient().db.collection
+
+    with app.test_request_context(json={"name": "drsObject"}):
+        res = PostObject.__wrapped__()
+        assert isinstance(res, str)
+
+
+def test_PutObject():
+    """Test for creating a new object with a user-supplied identigier."""
+    app = Flask(__name__)
+    app.config['FOCA'] = \
+        Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore']. \
+        collections['objects'].client = mongomock.MongoClient().db.collection
+
     with app.test_request_context(json={"name": "drsObject"}):
         res = PutObject.__wrapped__("a011")
         assert isinstance(res, str)
 
 
 def test_PutObject_update():
-    """Test for updating an existing DRS object."""
+    """Test for updating an existing object."""
     app = Flask(__name__)
     app.config['FOCA'] = \
         Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
@@ -375,6 +379,7 @@ def test_PutObject_update():
         collections['objects'].client = mongomock.MongoClient().db.collection
     app.config['FOCA'].db.dbs['drsStore']. \
         collections['objects'].client.insert_one(MOCK_DATA_OBJECT)
+
     with app.test_request_context(json={"name": "drsObject"}):
         res = PutObject.__wrapped__("a011")
         assert isinstance(res, str)
