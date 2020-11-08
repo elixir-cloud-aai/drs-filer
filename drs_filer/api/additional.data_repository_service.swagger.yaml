@@ -115,6 +115,50 @@ paths:
         - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
   '/objects/{object_id}/access/{access_id}':
+    put:
+      summary: Create or update an access method.
+      description: |-
+        Create a access method with a predefined ID. Overwrites any
+        existing access method with the same ID.
+      operationId: PutAccessMethod
+      responses:
+        '200':
+          description: The `AccessMethod` was successfully created/updated.
+          schema:
+            type: string
+        '400':
+          description: The request is malformed.
+          schema:
+            $ref: '#/definitions/Error'
+        '401':
+          description: The request is unauthorized.
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: The requester is not authorized to perform this action.
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: An unexpected error occurred.
+          schema:
+            $ref: '#/definitions/Error'
+      parameters:
+        - name: object_id
+          in: path
+          required: true
+          type: string
+        - name: access_id
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: AccessMethodRegister
+          description: Access method metadata.
+          schema:
+            $ref: '#/definitions/AccessMethodRegister'
+      tags:
+        - DRS-Filer
+      x-swagger-router-controller: ga4gh.drs.server
     delete:
       summary: Delete object's access method.
       description: >-
@@ -156,7 +200,53 @@ paths:
           type: string
       tags:
         - DRS-Filer
-      x-swagger-router-controller: ga4gh.drs.server    
+      x-swagger-router-controller: ga4gh.drs.server  
+
+  '/objects/{object_id}/access':
+    post:
+      summary: Add an object's access method.
+      description: >-
+        Add `AccessMethod` of an existing `DrsObject`.
+      operationId: PostAccessMethod
+      responses:
+        '200':
+            description: The `AccessMethod` was successfully added.
+            schema:
+              type: string
+        '400':
+            description: The request is malformed.
+            schema:
+              $ref: '#/definitions/Error'
+        '401':
+            description: The request is unauthorized.
+            schema:
+              $ref: '#/definitions/Error'
+        '403':
+            description: The requester is not authorized to perform this action.
+            schema:
+              $ref: '#/definitions/Error'
+        '404':
+            description: The requested resource was not found.
+            schema:
+              $ref: '#/definitions/Error'
+        '500':
+            description: An unexpected error occurred.
+            schema:
+              $ref: '#/definitions/Error'
+      parameters:
+        - name: object_id
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: AccessMethodRegister
+          description: Access method metadata.
+          schema:
+            $ref: '#/definitions/AccessMethodRegister'
+      tags:
+        - DRS-Filer
+      x-swagger-router-controller: ga4gh.drs.server
+
 definitions:
   DrsObjectRegister:
     type: object
