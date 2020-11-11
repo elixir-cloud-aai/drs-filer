@@ -1,5 +1,8 @@
 """Controllers for DRS endpoints."""
 
+from drs_filer.ga4gh.drs.endpoints.register_access_methods import (
+    register_access_method
+)
 import logging
 from typing import Dict
 
@@ -164,4 +167,21 @@ def PutObject(object_id: str):
     return register_object(
         data=request.json,
         object_id=object_id,
+    )
+
+
+@log_traffic
+def PostAccessMethod(object_id: str):
+    return register_access_method(
+        data=request.json,
+        object_id=object_id
+    )
+
+
+@log_traffic
+def PutAccessMethod(object_id: str, access_id: str):
+    return register_access_method(
+        data=request.json,
+        object_id=object_id,
+        access_id=access_id
     )
