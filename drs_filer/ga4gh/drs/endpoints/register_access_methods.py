@@ -11,14 +11,22 @@ from drs_filer.errors.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
-
-
+    
 def register_access_method(
     data: Dict,
     object_id: str,
     access_id: Optional[str] = None,
 ) -> str:
-    """TODO: Add documentation"""
+    """Register access method.
+
+    Args:
+        data: Request object of type `AccessMethodRegister`.
+        object_id: DRS object identifier.
+        access_id: Access method identifier. Auto-generated if not provided.
+
+    Returns:
+        A unique identifier for the access method.
+    """
     # Set parameters
     db_collection = (
         current_app.config['FOCA'].db.dbs['drsStore'].
@@ -47,14 +55,14 @@ def register_access_method(
     if access_id is not None:
         data['access_id'] = access_id
     else:
-        data[access_id] = generate_unique_id(
+        data['access_id'] = generate_unique_id(
             data_object=obj,
             charset=id_charset,  # type: ignore
             length=id_length,  # type: ignore
         )
 
     if replace:
-        db_collection.update_one(
+        result = db_collection.update_one(
             filter={'id': object_id},
             update={
                 '$set': {
@@ -62,25 +70,33 @@ def register_access_method(
                 }
             },
             array_filters=[{'element.access_id': data['access_id']}],
-            upsert=True
         )
-        logger.info(
-            f"Replaced Access Method with access_id: {data['access_id']}"
-            " to object with id: {object_id}"
-        )
-    else:
-        db_collection.update_one(
-            filter={'id': object_id},
-            update={
-                '$push': {
-                    'access_methods': data
-                }
+
+        if(result.modified_count):
+            logger.info(
+                f"Replaced access method with access_id: {data['access_id']}"
+                f" of DRS object with id: {object_id}"
+            )
+            return data['access_id']
+    
+    # Try adding the access method incase of POST or incase
+    # no element matches with the filter in case of replacement.
+    result = db_collection.update_one(
+        filter={'id': object_id},
+        update={
+            '$push': {
+                'access_methods': data
             }
-        )
+        }
+    )
+    if(result.modified_count):
         logger.info(
-            f"Added Access Method with access_id: {data['access_id']}"
-            " to object with id: {object_id}"
+            f"Added access method with access_id: {data['access_id']}"
+            f" to DRS object with id: {object_id}"
         )
+    # Access method neither added nor updated.
+    else:
+        raise InternalServerError
     return data['access_id']
 
 
@@ -93,8 +109,11 @@ def generate_unique_id(
     """Generate random string based on allowed set of characters.
 
     Args:
+        data_object: The DRS object
         charset: String of allowed characters.
         length: Length of returned string.
+        retries: If `access_id` is not supplied, how many times should the
+            generation of a random identifier take place.
 
     Returns:
         Random string of specified length and composed of defined set of
