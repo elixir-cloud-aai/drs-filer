@@ -194,7 +194,7 @@ def PutAccessMethod(object_id: str, access_id: str):
     Args:
         object_id: Identifier of the DRS object, to which the
             `AccessMethod` is to be added.
-        access_id: Identifier of the `AccessMethod` which is to 
+        access_id: Identifier of the `AccessMethod` which is to
             be added/updated.
 
     Returns:

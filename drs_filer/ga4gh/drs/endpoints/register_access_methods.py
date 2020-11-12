@@ -11,7 +11,8 @@ from drs_filer.errors.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
-    
+
+
 def register_access_method(
     data: Dict,
     object_id: str,
@@ -78,7 +79,7 @@ def register_access_method(
                 f" of DRS object with id: {object_id}"
             )
             return data['access_id']
-    
+
     # Try adding the access method incase of POST or incase
     # no element matches with the filter in case of replacement.
     result = db_collection.update_one(
