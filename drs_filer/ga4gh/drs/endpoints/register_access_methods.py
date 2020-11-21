@@ -39,6 +39,7 @@ def register_access_method(
     )
     obj = db_collection.find_one({"id": object_id})
     if not obj:
+        logger.error(f"DRS object with id: {object_id} not found.")
         raise ObjectNotFound
 
     # Set flags and parameters for POST/PUT routes
