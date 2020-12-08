@@ -1,4 +1,49 @@
 paths:
+  '/service-info':
+    post:
+      summary: Register service info.
+      description: Create or update the service info.
+      operationId: PostServiceInfo
+      responses:
+        '201':
+          description: The service info was successfully created.
+        '400':
+          description: The request is malformed.
+          schema:
+            $ref: '#/definitions/Error'
+        '401':
+          description: The request is unauthorized.
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: The requester is not authorized to perform this action.
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: An unexpected error occurred.
+          schema:
+            $ref: '#/definitions/Error'
+      parameters:
+        - in: body
+          name: ServiceRegister
+          required: true
+          schema:
+            $ref: '#/definitions/ServiceRegister'
+      tags:
+        - service-info
+      x-swagger-router-controller: ga4gh.drs.server
+    get:
+      summary: Show information about this service.
+      operationId: GetServiceInfo
+      responses:
+        '200':
+          description: 'A successful operation to request the service information about this running service.'
+          schema:
+            $ref: '#/definitions/Service'
+      tags:
+        - service-info
+      x-swagger-router-controller: ga4gh.drs.server
+
   '/objects':
     post:
       summary: Create object.
