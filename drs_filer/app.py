@@ -7,12 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    app = foca(
-        os.path.join(
-            os.path.dirname(__file__),
-            "config.yaml",
-        )
-    )
+    app = foca("config.yaml")
     app.run(port=app.port)
 
 
