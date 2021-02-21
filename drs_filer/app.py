@@ -1,5 +1,4 @@
 import logging
-import os
 
 from foca.foca import foca
 
