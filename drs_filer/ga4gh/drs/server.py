@@ -16,6 +16,9 @@ from drs_filer.errors.exceptions import (
 from drs_filer.ga4gh.drs.endpoints.register_objects import (
     register_object,
 )
+from drs_filer.ga4gh.drs.endpoints.service_info import (
+    RegisterServiceInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +75,17 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
     # Access IDs should be unique
     else:
         raise InternalServerError
+
+
+@log_traffic
+def getServiceInfo() -> Dict:
+    """Show information about this service.
+
+    Returns:
+        An empty 201 response with headers.
+    """
+    service_info = RegisterServiceInfo()
+    return service_info.get_service_info()
 
 
 @log_traffic

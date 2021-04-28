@@ -28,6 +28,10 @@ class URLNotFound(NotFound):
     pass
 
 
+class ValidationError(Exception):
+    """Value or object is not compatible with required type or schema."""
+
+
 exceptions = {
     Exception: {
         "msg": "An unexpected error occurred.",

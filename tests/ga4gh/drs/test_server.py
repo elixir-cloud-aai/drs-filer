@@ -1,5 +1,14 @@
+import mongomock
+import pytest
+
+from copy import deepcopy
+
+from flask import Flask
 from flask import json
+
+from foca.models.config import Config
 from foca.models.config import MongoConfig
+
 from drs_filer.errors.exceptions import (
     AccessMethodNotFound,
     BadRequest,
@@ -11,14 +20,11 @@ from drs_filer.ga4gh.drs.server import (
     DeleteObject,
     GetObject,
     GetAccessURL,
+    getServiceInfo,
     PostObject,
     PutObject,
 )
-import mongomock
-import pytest
 
-from foca.models.config import Config
-from flask import Flask
 
 MOCK_ID_NA = "unavailable"
 
@@ -33,6 +39,7 @@ COLLECTION_CONFIG = {
 DB_CONFIG = {
     'collections': {
         'objects': COLLECTION_CONFIG,
+        'service_info': COLLECTION_CONFIG,
     },
 }
 
@@ -44,6 +51,27 @@ MONGO_CONFIG = {
     },
 }
 
+SERVICE_INFO_CONFIG = {
+    "contactUrl": "mailto:support@example.com",
+    "createdAt": "2019-06-04T12:58:19Z",
+    "description": "This service provides...",
+    "documentationUrl": "https://docs.myservice.example.com",
+    "environment": "test",
+    "id": "org.ga4gh.myservice",
+    "name": "My project",
+    "organization": {
+        "name": "My organization",
+        "url": "https://example.com"
+    },
+    "type": {
+        "artifact": "beacon",
+        "group": "org.ga4gh",
+        "version": "1.0.0"
+    },
+    "updatedAt": "2019-06-04T12:58:19Z",
+    "version": "1.0.0"
+}
+
 ENDPOINT_CONFIG = {
     "objects": {
         "id_charset": 'string.digits',
@@ -53,6 +81,7 @@ ENDPOINT_CONFIG = {
         "id_charset": "string.digits",
         "id_length": 6
     },
+    "service_info": deepcopy(SERVICE_INFO_CONFIG),
     "url_prefix": "http",
     "external_host": "1.2.3.4",
     "external_port": 8080,
@@ -383,3 +412,22 @@ def test_PutObject_update():
     with app.test_request_context(json={"name": "drsObject"}):
         res = PutObject.__wrapped__("a011")
         assert isinstance(res, str)
+
+
+# GET /service-info
+def test_getServiceInfo():
+    """Test for getting service info."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client = mongomock.MongoClient().db.collection
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client.insert_one(mock_resp)
+
+    with app.app_context():
+        res = getServiceInfo.__wrapped__()
+        assert res == SERVICE_INFO_CONFIG
