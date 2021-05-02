@@ -1,9 +1,13 @@
+"""Main app module."""
+
 import logging
 import os
 
 
 from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
 from foca.foca import foca
+
+from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
 
 logger = logging.getLogger(__name__)
 
