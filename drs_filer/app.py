@@ -1,9 +1,8 @@
-import logging
-import os
-
-
 from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
 from foca.foca import foca
+
+import logging
+import os
 
 logger = logging.getLogger(__name__)
 
