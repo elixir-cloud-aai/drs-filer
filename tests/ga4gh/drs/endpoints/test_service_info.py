@@ -76,7 +76,7 @@ ENDPOINT_CONFIG = {
 SERVICE_CONFIG = {
     "url_prefix": "http",
     "external_host": "1.2.3.4",
-    "external_port": 80,
+    "external_port": 8080,
     "api_path": "ga4gh/drs/v1",
 }
 HEADERS_SERVICE_INFO = {
@@ -199,14 +199,14 @@ def test_get_service_info_duplicatekey():
         assert get_service_info == SERVICE_INFO_CONFIG
 
 
-def test_set_service_info_from_app_context(self):
+def test_set_service_info_from_app_context():
     """Test for setting service info from app context."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    app.config['FOCA'].db.dbs['trsStore'].collections['service_info'] \
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
         .client = mongomock.MongoClient().db.collection
 
     with app.app_context():
@@ -216,14 +216,15 @@ def test_set_service_info_from_app_context(self):
         )
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
-def test__upsert_service_info_insert(self):
+
+def test__upsert_service_info_insert():
     """Test for creating service info document in database."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    app.config['FOCA'].db.dbs['trsStore'].collections['service_info'] \
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
         .client = mongomock.MongoClient().db.collection
 
     data = deepcopy(SERVICE_INFO_CONFIG)
@@ -234,7 +235,8 @@ def test__upsert_service_info_insert(self):
         assert service_info.get_service_info() == data
         assert service_info.get_service_info() != SERVICE_INFO_CONFIG
 
-def test__upsert_service_info_update(self):
+
+def test__upsert_service_info_update():
     """Test for replacing service info document in database."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(
@@ -242,9 +244,9 @@ def test__upsert_service_info_update(self):
         endpoints=ENDPOINT_CONFIG,
     )
     mock_resp = deepcopy(SERVICE_INFO_CONFIG)
-    app.config['FOCA'].db.dbs['trsStore'].collections['service_info'] \
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
         .client = mongomock.MongoClient().db.collection
-    app.config['FOCA'].db.dbs['trsStore'].collections['service_info'] \
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
         .client.insert_one(mock_resp)
 
     data = deepcopy(SERVICE_INFO_CONFIG)
@@ -255,7 +257,8 @@ def test__upsert_service_info_update(self):
         assert service_info.get_service_info() == data
         assert service_info.get_service_info() != SERVICE_INFO_CONFIG
 
-def test__get_headers(self):
+
+def test__get_headers():
     """Test for response headers getter."""
     app = Flask(__name__)
     app.config['FOCA'] = Config(
