@@ -22,6 +22,7 @@ from drs_filer.ga4gh.drs.server import (
     GetAccessURL,
     getServiceInfo,
     PostObject,
+    postServiceInfo,
     PutObject,
 )
 
@@ -429,5 +430,22 @@ def test_getServiceInfo():
         .client.insert_one(mock_resp)
 
     with app.app_context():
+        res = getServiceInfo.__wrapped__()
+        assert res == SERVICE_INFO_CONFIG
+
+
+# POST /service-info
+def test_postServiceInfo():
+    """Test for creating service info."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client = mongomock.MongoClient().db.collection
+
+    with app.test_request_context(json=deepcopy(SERVICE_INFO_CONFIG)):
+        postServiceInfo.__wrapped__()
         res = getServiceInfo.__wrapped__()
         assert res == SERVICE_INFO_CONFIG
