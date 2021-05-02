@@ -19,10 +19,17 @@ db:
                               id: 1
                           options: 
                             'unique': True
+                service_info:
+                    indexes:
+                        - keys:
+                              id: 1
+                          options:
+                            'unique': True
 
 api:
     specs:
         - path:
+            - api/20200131.11d2c12.service-info.yaml
             - api/20200622.383121d.data_repository_service.swagger.yaml
             - api/additional.data_repository_service.swagger.yaml
           append: null
@@ -64,6 +71,23 @@ endpoints:
     access_methods:
         id_charset: 'string.ascii_letters + string.digits + ".-_~"'
         id_length: 6
+    service_info:
+        id: "TEMPID1"
+        name: "TEMP_STUB"
+        type:
+            group: "TEMP_GROUP"
+            artifact: "TEMP_ARTIFACT"
+            version: "v1"
+        description: "Description of service."
+        organization:
+            name: "Parent organization"
+            url: "parent/abc"
+        contactUrl: "contact/abc"
+        documentationUrl: "docs/abc"
+        createdAt: "2020-01-01"
+        updatedAt: "2020-01-01"
+        environment: "ENV"
+        version: "0.0.0"
     url_prefix: http
     external_host: 193.166.24.114
     external_port: 8080
