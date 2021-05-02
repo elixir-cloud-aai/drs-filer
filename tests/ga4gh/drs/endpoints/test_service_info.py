@@ -73,6 +73,20 @@ ENDPOINT_CONFIG = {
     "external_port": 8080,
     "api_path": "ga4gh/drs/v1"
 }
+SERVICE_CONFIG = {
+    "url_prefix": "http",
+    "external_host": "1.2.3.4",
+    "external_port": 8080,
+    "api_path": "ga4gh/drs/v1",
+}
+HEADERS_SERVICE_INFO = {
+    'Content-type': 'application/json',
+    'Location': (
+        f"{SERVICE_CONFIG['url_prefix']}://{SERVICE_CONFIG['external_host']}:"
+        f"{SERVICE_CONFIG['external_port']}/{SERVICE_CONFIG['api_path']}/"
+        "service-info"
+    )
+}
 
 
 def test_get_service_info():
@@ -183,3 +197,76 @@ def test_get_service_info_duplicatekey():
     with app.app_context():
         get_service_info = RegisterServiceInfo().get_service_info()
         assert get_service_info == SERVICE_INFO_CONFIG
+
+
+def test_set_service_info_from_app_context():
+    """Test for setting service info from app context."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client = mongomock.MongoClient().db.collection
+
+    with app.app_context():
+        service_info = RegisterServiceInfo()
+        service_info.set_service_info_from_app_context(
+            data=SERVICE_INFO_CONFIG,
+        )
+        assert service_info.get_service_info() == SERVICE_INFO_CONFIG
+
+
+def test__upsert_service_info_insert():
+    """Test for creating service info document in database."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client = mongomock.MongoClient().db.collection
+
+    data = deepcopy(SERVICE_INFO_CONFIG)
+    del data['contactUrl']
+    with app.app_context():
+        service_info = RegisterServiceInfo()
+        service_info._upsert_service_info(data=data)
+        assert service_info.get_service_info() == data
+        assert service_info.get_service_info() != SERVICE_INFO_CONFIG
+
+
+def test__upsert_service_info_update():
+    """Test for replacing service info document in database."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client = mongomock.MongoClient().db.collection
+    app.config['FOCA'].db.dbs['drsStore'].collections['service_info'] \
+        .client.insert_one(mock_resp)
+
+    data = deepcopy(SERVICE_INFO_CONFIG)
+    del data['contactUrl']
+    with app.app_context():
+        service_info = RegisterServiceInfo()
+        service_info._upsert_service_info(data=data)
+        assert service_info.get_service_info() == data
+        assert service_info.get_service_info() != SERVICE_INFO_CONFIG
+
+
+def test__get_headers():
+    """Test for response headers getter."""
+    app = Flask(__name__)
+    app.config['FOCA'] = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+
+    with app.app_context():
+        service_info = RegisterServiceInfo()
+        headers = service_info._get_headers()
+        assert headers == HEADERS_SERVICE_INFO

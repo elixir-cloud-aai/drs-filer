@@ -104,3 +104,33 @@ class RegisterServiceInfo:
             replacement=data,
             upsert=True,
         )
+
+    def set_service_info_from_app_context(
+        self,
+        data: Dict,
+    ) -> Dict:
+        """Return service info.
+
+        Arguments:
+            data: Service info according to API specification.
+
+        Returns:
+            Response headers.
+        """
+        self._upsert_service_info(data=data)
+        return self._get_headers()
+
+    def _get_headers(self) -> Dict:
+        """Build dictionary of response headers.
+
+        Returns:
+            Response headers.
+        """
+        headers: Dict = {
+            'Content-type': 'application/json',
+        }
+        headers['Location'] = (
+            f"{self.url_prefix}://{self.host_name}:{self.external_port}/"
+            f"{self.api_path}/service-info"
+        )
+        return headers
