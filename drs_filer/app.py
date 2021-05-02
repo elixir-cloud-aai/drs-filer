@@ -1,3 +1,5 @@
+"""Main app module."""
+
 import logging
 import os
 
