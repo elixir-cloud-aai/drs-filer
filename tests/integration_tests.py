@@ -1,7 +1,7 @@
 import json
 import requests
 
-from tests.mock_data import (
+from mock_data import (
     MOCK_OBJECT,
     MOCK_SERVICE_INFO
 )
