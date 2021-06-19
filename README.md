@@ -219,7 +219,7 @@ tracker][drs-filer-issues] to request features or report bugs.
 
 ![Logo_banner][img-logo-banner]
 
-[badge-build-status]:<https://travis-ci.com/github/elixir-cloud-aai/drs-filer.svg?branch=dev>
+[badge-build-status]:<https://travis-ci.com/elixir-cloud-aai/drs-filer.svg?branch=dev>
 [badge-coverage]:<https://img.shields.io/coveralls/github/elixir-cloud-aai/drs-filer>
 [badge-license]:<https://img.shields.io/badge/license-Apache%202.0-blue.svg>
 [badge-url-build-status]:<https://travis-ci.com/elixir-cloud-aai/drs-filer>
