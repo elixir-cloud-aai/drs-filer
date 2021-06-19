@@ -155,17 +155,13 @@ the configuration options that are specific to DRS-Filer. These are:
   replaced for each individual deployment, in accordance with the schemas and
   documentation provided in the [GA4GH Service Info
   specification][ga4gh-service-info].
-* `tool`, `version` & `toolclass`: The parameters in these sections define the
-  behavior for generating the `id` and `meta_version` identifiers for tools,
-  tool versions and tool classes, respectively, as required by the [DRS
-  specification][ga4gh-drs].
+* `objects` & `access_methods`: The parameters in these sections define the
+  behavior for generating the `id` identifier for objects and access methods, 
+  respectively, as required by the [DRS specification][ga4gh-drs].
   * For `id`-type identifiers, random strings of a specified `length` are
     generated from a set of allowed characters (`charset`). The latter option
     accepts either a string, indicating the allowed characters, or a Python
     expression that evaluates to such a string.
-  * For `meta_version`-type identifiers, increasing natural numbers are
-    generated that start with the value of `init` and are increased by
-    `increment` for each new resource.
 
 ## Extension
 
@@ -174,13 +170,13 @@ It is easy to add additional endpoints or modify the behavior of existing ones.
 All OpenAPI specifications are available in [`drs_filer.api`][drs-filer-api].
 Custom endpoints, i.e., those that are not specified in either the [GA4GH
 DRS][ga4gh-drs] or the [GA4GH Service Info][ga4gh-service-info] specifications,
-are included in file [`additions.openapi.yaml`][drs-filer-api-custom].
+are included in file [`additional.data_repository_service.swagger.yaml`][drs-filer-api-custom].
 
 When specifying new endpoints, the `operationId` directive indicates the name
 of the corresponding controller. By default, all controllers need to be
 implemented in the [`ga4gh.drs.server`][drs-filer-controllers] module. For
 example, when specifying an `operationId` of `myController` for a new endpoint
-in [`additions.openapi.yaml`][drs-filer-api-custom], the application would
+in [`additional.data_repository_service.swagger.yaml`][drs-filer-api-custom], the application would
 expect the corresponding controller to be implemented in function/class
 `ga4gh.drs.server.myController()`.
 
@@ -253,7 +249,7 @@ tracker][drs-filer-issues] to request features or report bugs.
 [res-swagger-ui]: <https://swagger.io/tools/swagger-ui/>
 [res-web-apis]: <https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Client-side_web_APIs/Introduction>
 [drs-filer-api]: drs_filer/api
-[drs-filer-api-custom]: drs_filer/api/additions.openapi.yaml
+[drs-filer-api-custom]: drs_filer/api/additional.data_repository_service.swagger.yaml
 [drs-filer-compose-config]: docker-compose.yaml
 [drs-filer-config]: drs_filer/config.yaml
 [drs-filer-controllers]: drs_filer/ga4gh/drs/server.py
