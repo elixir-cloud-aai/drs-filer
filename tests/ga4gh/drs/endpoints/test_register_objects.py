@@ -38,10 +38,12 @@ ENDPOINT_CONFIG = {
         "id_charset": 'string.digits',
         "id_length": 6
     },
-    "url_prefix": "http",
-    "external_host": "1.2.3.4",
-    "external_port": 8080,
-    "api_path": "ga4gh/drs/v1"
+    "service": {
+        "url_prefix": "http",
+        "external_host": "1.2.3.4",
+        "external_port": 8080,
+        "api_path": "ga4gh/drs/v1"
+    }
 }
 
 
@@ -70,7 +72,7 @@ def test_register_object_invalid_config():
     """
     app = Flask(__name__)
     endpoint_config = deepcopy(ENDPOINT_CONFIG)
-    del endpoint_config['url_prefix']
+    del endpoint_config['service']['url_prefix']
     app.config['FOCA'] = \
         Config(
             db=MongoConfig(**MONGO_CONFIG),

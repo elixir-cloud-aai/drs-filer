@@ -35,10 +35,10 @@ class RegisterServiceInfo:
             conf_info: Service info details as per enpoints config.
         """
         conf = current_app.config['FOCA'].endpoints
-        self.url_prefix = conf['url_prefix']
-        self.host_name = conf['external_host']
-        self.external_port = conf['external_port']
-        self.api_path = conf['api_path']
+        self.url_prefix = conf['service']['url_prefix']
+        self.host_name = conf['service']['external_host']
+        self.external_port = conf['service']['external_port']
+        self.api_path = conf['service']['api_path']
         self.conf_info = conf['service_info']
         self.db_coll_info = (
             current_app.config['FOCA'].db.dbs['drsStore']
