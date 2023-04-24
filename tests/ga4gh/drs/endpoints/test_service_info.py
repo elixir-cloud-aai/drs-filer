@@ -68,10 +68,12 @@ ENDPOINT_CONFIG = {
         "id_length": 6
     },
     "service_info": deepcopy(SERVICE_INFO_CONFIG),
-    "url_prefix": "http",
-    "external_host": "1.2.3.4",
-    "external_port": 8080,
-    "api_path": "ga4gh/drs/v1"
+    "service": {
+        "url_prefix": "http",
+        "external_host": "1.2.3.4",
+        "external_port": 8080,
+        "api_path": "ga4gh/drs/v1"
+    }
 }
 SERVICE_CONFIG = {
     "url_prefix": "http",
