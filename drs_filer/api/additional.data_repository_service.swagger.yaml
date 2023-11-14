@@ -129,6 +129,10 @@ paths:
           description: The requester is not authorized to perform this action.
           schema:
             $ref: '#/definitions/Error'
+        '409':
+          description: Conflict - Object with the same ID already exists.
+          schema:
+             $ref: '#/definitions/Error'
         '500':
           description: An unexpected error occurred.
           schema:
@@ -538,3 +542,20 @@ definitions:
       - name
 tags:
   - name: DataRepositoryService
+AdditionalAccessMethod:
+  type: object
+  properties:
+    method_id:
+      type: string
+      description: ID of the access method.
+    method_type:
+      type: string
+      description: Type of the access method (e.g., S3, HTTPS).
+    method_url:
+      type: string
+      description: URL for the access method.
+  required:
+    - method_id
+    - method_type
+    - method_url
+
