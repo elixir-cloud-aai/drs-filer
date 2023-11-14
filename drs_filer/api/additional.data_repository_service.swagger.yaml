@@ -110,6 +110,47 @@ paths:
       tags:
         - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
+'/objects/{object_id}/access':
+    post:
+      summary: Add additional access method to an existing object.
+      operationId: PostObjectAccess
+      responses:
+        '201':
+          description: Successfully added access method.
+        '400':
+          description: The request is malformed.
+          schema:
+            $ref: '#/definitions/Error'
+        '401':
+          description: The request is unauthorized.
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: The requester is not authorized to perform this action.
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Conflict - Object with the same ID already exists.
+          schema:
+             $ref: '#/definitions/Error'
+        '500':
+          description: An unexpected error occurred.
+          schema:
+            $ref: '#/definitions/Error'
+      parameters:
+        - name: object_id
+          in: path
+          required: true
+          type: string
+        - in: body
+          name: AdditionalAccessMethod
+          description: Additional access method details.
+          schema:
+            $ref: '#/definitions/AdditionalAccessMethod'
+      tags:
+        - DRS-Filer
+      x-swagger-router-controller: ga4gh.drs.server
+
     delete:
       summary: Delete object.
       description: >-
@@ -148,7 +189,7 @@ paths:
       tags:
         - DRS-Filer
       x-swagger-router-controller: ga4gh.drs.server
-  '/objects/{object_id}/access/{access_id}':
+'/objects/{object_id}/access/{access_id}':
     delete:
       summary: Delete object's access method.
       description: >-
@@ -501,3 +542,20 @@ definitions:
       - name
 tags:
   - name: DataRepositoryService
+AdditionalAccessMethod:
+  type: object
+  properties:
+    method_id:
+      type: string
+      description: ID of the access method.
+    method_type:
+      type: string
+      description: Type of the access method (e.g., S3, HTTPS).
+    method_url:
+      type: string
+      description: URL for the access method.
+  required:
+    - method_id
+    - method_type
+    - method_url
+
