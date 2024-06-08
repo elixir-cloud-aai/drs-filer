@@ -16,6 +16,83 @@ API specification.
 
 ## Usage
 
+Once [deployed](#installation), the API is served here:
+
+```console
+http://localhost:8080/ga4gh/drs/v1/
+```
+
+> Note that host (`localhost`) and port (`8080`) in the URL above may differ,
+> depending on how the service was deployed. Indicated values are for
+> `docker-compose`-based installations using the default
+> [configuration][drs-filer-compose-config].
+
+The easiest way to explore available endpoints is via the
+[Swagger UI][res-swagger-ui]:
+
+```console
+http://localhost:8080/ga4gh/drs/v1/ui
+```
+
+You can also access DRS-Filer's [OpenAPI][res-openapi] specification:
+
+```console
+http://localhost:8080/ga4gh/trs/v2/openapi.json
+```
+
+## Installation
+
+To quickly install the service for development/testing purposes, we recommend
+deployment via [`docker-compose`][res-docker-compose], as described below. For
+more durable deployments on cloud native infrastructure, we also provide a
+[Helm][res-helm] chart and [basic deployment instructions][drs-filer-
+deployment] (details may need to be adapted for your specific infrastructure).
+
+### Requirements
+
+The following software needs to be available on your system:
+
+- [`git`][res-git] `v2.17.1`
+- [`docker`][res-docker] `v18.09.6`
+- [`docker-compose`][res-docker-compose] `v1.23.1`
+
+> Indicated versions were used during development. Other versions may work as
+> well, especially newer ones.
+
+### Deployment
+
+First, clone the repository and traverse into the service's root directory
+with:
+
+```bash
+git clone git@github.com:elixir-cloud-aai/drs-filer.git
+cd drs-filer
+```
+
+Then simply start up the service with:
+
+```bash
+docker-compose up --build -d
+```
+
+_**That's it!**_
+
+You should now be able to use/explore the API as described in the [usage
+section](#usage).
+
+### Other useful commands
+
+To shut down the service, run:
+
+```bash
+docker-compose down
+```
+
+If you need to inspect the logs, call:
+
+```bash
+docker-compose logs
+```
 
 ## Contributing
 
