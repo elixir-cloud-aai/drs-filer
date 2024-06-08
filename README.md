@@ -34,12 +34,6 @@ The easiest way to explore available endpoints is via the
 http://localhost:8080/ga4gh/drs/v1/ui
 ```
 
-You can also access DRS-Filer's [OpenAPI][res-openapi] specification:
-
-```console
-http://localhost:8080/ga4gh/trs/v2/openapi.json
-```
-
 ## Installation
 
 To quickly install the service for development/testing purposes, we recommend
