@@ -175,6 +175,10 @@ paths:
             description: The requested resource was not found.
             schema:
               $ref: '#/definitions/Error'
+        '409':
+            description: Refusing to delete the last remaining access method.
+            schema:
+              $ref: '#/definitions/Error'
         '500':
             description: An unexpected error occurred.
             schema:

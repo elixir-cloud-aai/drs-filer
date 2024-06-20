@@ -6,10 +6,17 @@ from connexion.exceptions import (
 )
 
 from werkzeug.exceptions import (
+    Conflict,
     BadRequest,
     InternalServerError,
     NotFound,
 )
+
+
+class AccessMethodNotDeleted(Conflict):
+    """Raised when the client attempts to delete the last remaining access
+    method of an object."""
+    pass
 
 
 class AccessMethodNotFound(NotFound):
@@ -64,6 +71,10 @@ exceptions = {
     AccessMethodNotFound: {
         "msg": "The requested access method wasn't found.",
         "status_code": '404',
+    },
+    AccessMethodNotDeleted: {
+        "msg": "Refusing to delete the last remaining access method.",
+        "status_code": '409',
     },
     ObjectNotFound: {
         "msg": "The requested `DrsObject` wasn't found.",

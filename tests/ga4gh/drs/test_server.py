@@ -10,8 +10,8 @@ from foca.models.config import Config
 from foca.models.config import MongoConfig
 
 from drs_filer.errors.exceptions import (
+    AccessMethodNotDeleted,
     AccessMethodNotFound,
-    BadRequest,
     URLNotFound,
     ObjectNotFound,
     InternalServerError)
@@ -324,7 +324,7 @@ def test_DeleteAccessMethod_AccessMethodNotFound():
             DeleteAccessMethod.__wrapped__("a011", MOCK_ID_NA)
 
 
-def test_DeleteAcessMethod_BadRequest(monkeypatch):
+def test_DeleteAcessMethod_AccessMethodNotDeleted(monkeypatch):
     """Test for deleting an access method `access_id` of an object associated
     with a given `object_id` when that access method is the last remaining
     access method associated with object.
@@ -341,7 +341,7 @@ def test_DeleteAcessMethod_BadRequest(monkeypatch):
         app.config.foca.db.dbs['drsStore']. \
             collections['objects'].client.insert_one(obj)
     with app.app_context():
-        with pytest.raises(BadRequest):
+        with pytest.raises(AccessMethodNotDeleted):
             DeleteAccessMethod.__wrapped__("a001", "1")
 
 
