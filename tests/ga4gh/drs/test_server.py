@@ -324,7 +324,7 @@ def test_DeleteAccessMethod_AccessMethodNotFound():
             DeleteAccessMethod.__wrapped__("a011", MOCK_ID_NA)
 
 
-def test_DeleteAcessMethod_AccessMethodNotDeleted(monkeypatch):
+def test_DeleteAccessMethod_AccessMethodNotDeleted(monkeypatch):
     """Test for deleting an access method `access_id` of an object associated
     with a given `object_id` when that access method is the last remaining
     access method associated with object.
