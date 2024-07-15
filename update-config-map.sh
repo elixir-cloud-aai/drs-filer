@@ -10,12 +10,19 @@ then
 	env
 	exit 1
 fi
+
+if [ -z "$MONGO_HOST" ];
+then
+  MONGO_HOST='mongodb'
+fi
+
 echo "Inputs:"
 echo " CONFIG MAP NAME: $CONFIG_MAP_NAME"
 echo " API SERVER:      $APISERVER"
 echo " APP CONFIG PATH: $APP_CONFIG_PATH"
 echo " WES APP NAME:    $APP_NAME"
 echo " HOST NAME:       $HOST_NAME"
+echo " MONGO_HOST:      $MONGO_HOST"
 
 NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
 
@@ -33,7 +40,8 @@ echo " * Getting current default configuration"
 APP_CONFIG=$(yq --arg HOST_NAME "$HOST_NAME" \
     '.endpoints.url_prefix = "https" |
      .endpoints.external_host = $HOST_NAME |
-     .endpoints.external_port = 443' \
+     .endpoints.external_port = 443 |
+     .db.host = $MONGO_HOST' \
     "$APP_CONFIG_PATH") || exit 4
 
 echo " * Getting current configMap"
