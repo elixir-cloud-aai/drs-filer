@@ -5,6 +5,9 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, 3.10]
         
     steps:
     - name: Checkout repository
@@ -40,3 +43,6 @@ jobs:
         pytest tests/test.py -v -p no:warnings
       env:
         DRS_FILER_URL: http://localhost:8080/ga4gh/drs/v1
+
+    - name: Stop and remove Docker Compose services
+      run: docker-compose down
