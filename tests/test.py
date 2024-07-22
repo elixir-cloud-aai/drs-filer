@@ -3,34 +3,34 @@ import requests
 import time
 import pytest
 
-DRS_FILER_URL = os.getenv('DRS_FILER_URL')
+# DRS_FILER_URL = os.getenv('DRS_FILER_URL')
+DRS_FILER_URL= 'http://localhost:8080/ga4gh/drs/v1'
 
 @pytest.fixture(scope="function")
 def get_object_id():
-    object_id = test_create_object()
-    yield object_id
+    yield test_create_object()
 
 @pytest.fixture(scope="function")
 def get_access_id(get_object_id):
-    access_id = test_get_object(get_object_id).get('access_methods')[0].get('access_id')
-    yield access_id
+    yield test_get_object(get_object_id).get('access_methods')[0].get('access_id')  
 
 def handle_error(response):
     """Helper function to handle common error cases."""
     if response.status_code == 400:
-        print(f"400 Bad Request: {response.json().get('msg')}")
+        assert False, "Bad Request: The server could not understand the request."
     elif response.status_code == 401:
-        print(f"401 Unauthorized: {response.json().get('msg')}")
+        assert False, "Unauthorized: Access is denied due to invalid credentials."
     elif response.status_code == 403:
-        print(f"403 Forbidden: {response.json().get('msg')}")
+        assert False, "Forbidden: The server understood the request, but refuses to authorize it."
     elif response.status_code == 404:
-        print(f"404 Not Found: {response.json().get('msg')}")
+        assert False, "Not Found: The requested resource could not be found."
     elif response.status_code == 409:
-        print(f"409 Conflict: {response.json()}")
+        assert False, "Conflict: The request could not be completed due to a conflict with the current state of the target resource."
     elif response.status_code == 500:
-        print(f"500 Internal Server Error: {response.json().get('msg')}")
+        assert False, f"Internal Server Error"
     else:
-        print(f"Unexpected status code {response.status_code}: {response.json().get('msg')}")
+        assert False, f"Unexpected Status Code: {response.status_code} - {response.json().get('msg')}"
+
 
 def test_create_object():
     data = {
@@ -64,7 +64,8 @@ def test_create_object():
     }
     
     response = requests.post(f"{DRS_FILER_URL}/objects", json=data)
-    
+    assert response.status_code == 200
+
     if response.status_code == 200:
         object_id = response.json()
         print(f"Created object with ID: {object_id}")
