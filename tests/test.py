@@ -75,6 +75,9 @@ def test_create_object():
 
 def test_get_objects():
     response = requests.get(f"{DRS_FILER_URL}/objects")
+    assert response.status_code == 200
+    assert response.json() is not None
+    assert isinstance(response.json(), list)
     if response.status_code == 200:
         print("Following are the objects: ")
         print(response.json())
@@ -85,6 +88,8 @@ def test_get_object(get_object_id):
     object_id = get_object_id
 
     response = requests.get(f"{DRS_FILER_URL}/objects/{object_id}")
+    assert response.status_code == 200
+    assert response.json()['id'] == object_id
     
     if response.status_code == 200:
         print(f"Following is the object retrieved based on {object_id}:")
@@ -102,6 +107,8 @@ def test_get_object(get_object_id):
 def test_get_object_access(get_object_id, get_access_id):
     object_id = get_object_id
     access_id = get_access_id
+    assert object_id is not None, "Object ID should not be None"
+    assert access_id is not None, "Access ID should not be None"
 
     response = requests.get(f"{DRS_FILER_URL}/objects/{object_id}/access/{access_id}")
     
@@ -127,6 +134,14 @@ def test_update_object(get_object_id):
                     "url": "string"
                 },
                 "region": "us-east-1",
+                "type": "s3"
+            },
+            {
+                "access_url": {
+                    "headers": ["string"],
+                    "url": "string"
+                },
+                "region": "us-east-2",
                 "type": "s3"
             }
         ],
@@ -158,6 +173,7 @@ def test_update_object(get_object_id):
     }
     
     response = requests.put(f"{DRS_FILER_URL}/objects/{object_id}", json=data)
+    assert response.status_code == 200
     
     if response.status_code == 200:
         print(f"Updated the object with ID: {object_id}")
@@ -212,7 +228,8 @@ def test_post_service_info():
     }
     
     response = requests.post(f"{DRS_FILER_URL}/service-info", json=data)
-    
+    assert response.status_code == 201
+     
     if response.status_code == 201:
         print("Service info was successfully created.")
     else:
@@ -220,18 +237,7 @@ def test_post_service_info():
 
 def test_get_service_info():
     response = requests.get(f"{DRS_FILER_URL}/service-info")
-    if response.status_code == 200:
-        print("Retrieved service info:")
-        print(response.json())
-    else:
-        handle_error(response)
-
-if __name__ == "__main__":
-    test_get_objects()
-    test_get_object()
-    test_get_object_access()
-    test_update_object()
-    test_delete_object_access()
-    test_delete_object()
-    test_post_service_info()
-    test_get_service_info()
+    assert response.status_code == 200
+    service_info = response.json()
+    assert "name" in service_info
+    assert "version" in service_info

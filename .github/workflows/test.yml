@@ -16,7 +16,14 @@ jobs:
     - name: Wait for the services to be ready
       run: |
         echo "Waiting for the services to be ready..."
-        sleep 30  # Wait for 30 seconds to ensure the services are up
+        for i in {1..10}; do
+          if curl -sSf http://localhost:8080/ga4gh/drs/v1 > /dev/null; then
+            echo "Service is up!"
+            break
+          fi
+          echo "Waiting for the service to be ready..."
+          sleep 3
+        done
       
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5.1.0
