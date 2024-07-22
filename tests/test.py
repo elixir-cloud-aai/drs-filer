@@ -3,8 +3,7 @@ import requests
 import time
 import pytest
 
-# DRS_FILER_URL = os.getenv('DRS_FILER_URL')
-DRS_FILER_URL= 'http://localhost:8080/ga4gh/drs/v1'
+DRS_FILER_URL = os.getenv('DRS_FILER_URL')
 
 @pytest.fixture(scope="function")
 def get_object_id():
