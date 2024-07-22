@@ -1,0 +1,35 @@
+name: Test Drs-filer API Endpoints
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4.1.7
+    
+    - name: Build and run Docker Compose
+      run: docker-compose up --build -d
+
+    - name: Wait for the services to be ready
+      run: |
+        echo "Waiting for the services to be ready..."
+        sleep 30  # Wait for 30 seconds to ensure the services are up
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5.1.0
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest requests
+        
+    - name: Test with pytest
+      run: |
+        pytest tests/test.py -v -p no:warnings
+      env:
+        DRS_FILER_URL: http://localhost:8080/ga4gh/drs/v1
