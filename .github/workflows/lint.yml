@@ -38,4 +38,8 @@ jobs:
         run: |
           coverage run --source drs_filer -m pytest
           coverage report -m
-          coveralls
+      
+      - name: Send coverage data to Coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: coveralls
