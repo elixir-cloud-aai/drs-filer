@@ -1,9 +1,9 @@
 import requests
 import time
 import pytest
+import os
 
-# DRS_FILER_URL = os.getenv('DRS_FILER_URL')
-DRS_FILER_URL = "http://localhost:8080/ga4gh/drs/v1"
+DRS_FILER_URL = os.getenv('DRS_FILER_URL')
 
 
 @pytest.fixture(scope="function")
@@ -31,13 +31,19 @@ def handle_error(response):
     elif response.status_code == 409:
         assert (
             False
-        ), "Conflict: The request could not be completed due to a conflict with the current state of the target resource."
+        ), (
+            "Conflict: The request could not be completed due to a conflict with the "
+            "current state of the target resource."
+        )
     elif response.status_code == 500:
-        assert False, f"Internal Server Error"
+        assert False, "Internal Server Error"
     else:
         assert (
             False
-        ), f"Unexpected Status Code: {response.status_code} - {response.json().get('msg')}"
+        ), (
+            f"Unexpected Status Code: {response.status_code} - "
+            f"{response.json().get('msg')}"
+        )
 
 
 def object_exists(object_id):
@@ -108,7 +114,8 @@ def test_get_object(get_object_id, max_retries=5, retry_count=0):
         if retry_count < max_retries:
             retry_after = int(response.headers.get("Retry-After", 5))
             print(
-                f"202 Accepted: Operation is delayed. Retry after {retry_after} seconds. Retry count: {retry_count + 1}"
+                f"Accepted: Operation is delayed. Retry after {retry_after} seconds. "
+                f"Retry count: {retry_count + 1}"
             )
             time.sleep(retry_after)
             return test_get_object(object_id, max_retries, retry_count + 1)
@@ -207,7 +214,8 @@ def test_delete_object_access(get_object_id, get_access_id):
         print(f"Object with ID {object_id} or access ID {access_id} not found.")
     elif response.status_code == 409:
         print(
-            f"Refusing to delete the last remaining access method for object {object_id}."
+            f"Refusing to delete the last remaining access method for object "
+            f"{object_id}."
         )
     elif response.status_code == 200:
         print(f"Deleted access method with ID {access_id} for object {object_id}.")

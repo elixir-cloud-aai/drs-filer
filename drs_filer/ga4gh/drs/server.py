@@ -22,6 +22,7 @@ from drs_filer.ga4gh.drs.endpoints.service_info import (
 
 logger = logging.getLogger(__name__)
 
+
 @log_traffic
 def ListDrsObjects() -> List[Dict]:
     """Get all DRS objects.
@@ -33,10 +34,10 @@ def ListDrsObjects() -> List[Dict]:
         current_app.config.foca.db.dbs['drsStore'].
         collections['objects'].client
     )
-    cursor = db_collection.find({}, {'_id': 0})  
-    objects = []  
-    for obj in cursor:  
-        objects.append(obj)  
+    cursor = db_collection.find({}, {'_id': 0})
+    objects = []
+    for obj in cursor:
+        objects.append(obj)
     return objects
 
 

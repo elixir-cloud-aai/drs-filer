@@ -5,9 +5,6 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.11]
         
     steps:
     - name: Checkout repository
@@ -28,10 +25,10 @@ jobs:
           sleep 3
         done
       
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v5.1.0
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.11
         
     - name: Install dependencies
       run: |
