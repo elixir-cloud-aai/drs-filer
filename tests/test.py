@@ -3,7 +3,7 @@ import time
 import pytest
 import os
 
-DRS_FILER_URL = os.getenv('DRS_FILER_URL')
+DRS_FILER_URL = os.getenv('DRS_FILER_URL', 'http://localhost:8080/ga4gh/drs/v1')
 
 
 @pytest.fixture(scope="function")
