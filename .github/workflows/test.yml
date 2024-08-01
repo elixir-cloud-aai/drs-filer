@@ -1,0 +1,45 @@
+name: Test Drs-filer API Endpoints
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4.1.7
+    
+    - name: Build and run Docker Compose
+      run: docker-compose up --build -d
+
+    - name: Wait for the services to be ready
+      run: |
+        echo "Waiting for the services to be ready..."
+        for i in {1..10}; do
+          if curl -sSf http://localhost:8080/ga4gh/drs/v1 > /dev/null; then
+            echo "Service is up!"
+            break
+          fi
+          echo "Waiting for the service to be ready..."
+          sleep 3
+        done
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5.1.0
+      with:
+        python-version: 3.11
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest requests
+        
+    - name: Test with pytest
+      run: |
+        pytest tests/test.py -v -p no:warnings
+      env:
+        DRS_FILER_URL: http://localhost:8080/ga4gh/drs/v1
+
+    - name: Stop and remove Docker Compose services
+      run: docker-compose down
