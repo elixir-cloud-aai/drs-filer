@@ -38,6 +38,7 @@ echo "Current Kubernetes namespace: $NAMESPACE"; echo
 echo " * Getting current default configuration"
 
 APP_CONFIG=$(yq --arg HOST_NAME "$HOST_NAME" \
+                --arg MONGO_HOST "$MONGO_HOST" \
     '.endpoints.url_prefix = "https" |
      .endpoints.external_host = $HOST_NAME |
      .endpoints.external_port = 443 |
