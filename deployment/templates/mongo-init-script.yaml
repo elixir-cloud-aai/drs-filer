@@ -9,7 +9,7 @@ data:
     // Create the 'objects' and 'service_info' collections
     // Database configuration from https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/config.yaml#L10
     db.createCollection('objects')
-    db.runs.createIndex(
+    db.objects.createIndex(
       { id: 1 },
       { unique: true }
     );
