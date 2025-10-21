@@ -1,4 +1,4 @@
-{{ if and (.Capabilities.APIVersions.Has "route.openshift.io/v1") }}
+{{ if and (.Capabilities.APIVersions.Has "route.openshift.io/v1") (eq .Values.drs_filer.ingress false) }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -15,6 +15,4 @@ spec:
     name: drs-filer
     weight: 100
   wildcardPolicy: None
-status:
-  ingress: []
 {{ end }}
