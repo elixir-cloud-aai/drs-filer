@@ -1,4 +1,4 @@
-Elixir Cloud proTES is being deployed!
+Elixir Cloud DRS-Filer is being deployed!
 
 Once deployed:
 
