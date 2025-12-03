@@ -27,7 +27,7 @@ spec:
         ports:
         - containerPort: 8080
           protocol: TCP
-        resources: {}
+        resources: {{- toYaml .Values.drs_filer.resources | nindent 10 }}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
