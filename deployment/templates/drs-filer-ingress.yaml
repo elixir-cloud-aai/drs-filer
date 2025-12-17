@@ -9,7 +9,7 @@ spec:
       http:
         paths:
           - path: /ga4gh/drs/v1
-            pathType: prefix
+            pathType: Prefix
             backend:
               service:
                 name: drs-filer
