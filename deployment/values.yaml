@@ -2,14 +2,30 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-host_name: drs-filer-test.2.rahtiapp.fi
+host_name: ""
 
 drs_filer:
-  image: lvarin/drs-filer:latest
+  # if ingress: false, it will deploy an OpenShift Route (https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/network_apis/route-route-openshift-io-v1)
+  ingress: true
+  image: elixircloud/drs-filer:20210502
   appName: drs-filer
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 apiServer: kubernetes.default.svc:443 # address of k8s API server
 
 mongodb:
-  image: mongo:3.6
+  image: docker.io/library/mongo:noble
   volumeSize: 1Gi
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 512Mi
