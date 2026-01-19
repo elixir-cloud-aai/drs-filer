@@ -29,7 +29,7 @@ spec:
         - name: HOST_NAME
           value:  {{ .Values.host_name }}
         - name: MONGO_HOST
-          value: mongodb-{{ .Values.drs_filer.appName }}
+          value: mongodb
       restartPolicy: Never
       serviceAccountName: {{ .Values.drs_filer.appName }}-configurer
 status: {}
