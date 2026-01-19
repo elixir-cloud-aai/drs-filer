@@ -7,7 +7,7 @@ host_name: ""
 drs_filer:
   # if ingress: false, it will deploy an OpenShift Route (https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/network_apis/route-route-openshift-io-v1)
   ingress: true
-  image: elixircloud/drs-filer:20210502
+  image: elixircloud/drs-filer:dev
   appName: drs-filer
   resources:
     limits:
