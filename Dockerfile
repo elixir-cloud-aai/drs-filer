@@ -16,15 +16,16 @@ LABEL maintainer.organisation="ELIXIR Cloud & AAI"
 COPY ./ /app
 
 ## Install dependencies (including Gunicorn) and app; the app files stay owned
-## by root and read-only for the app's user (whatever the umask of the build
-## host), so that the app cannot change its own code or config; the code is
-## compiled here, as the app's user cannot write bytecode caches
+## by root and readable, but not writable, for the app's user (whatever the
+## file modes and umask of the build host), so that the app cannot change its
+## own code or config; executables (`update-config-map.sh`) stay executable.
+## The code is compiled here, as the app's user cannot write bytecode caches
 RUN cd /app \
   && pip install --no-cache-dir -r requirements.txt yq \
   && python setup.py develop \
   && python -m compileall -q /app/drs_filer \
   && cd / \
-  && chmod -R go-w /app
+  && chmod -R u+rwX,go=rX /app
 
 ## Run as non-root user (group 0, as for arbitrary user IDs, e.g., on
 ## OpenShift)
