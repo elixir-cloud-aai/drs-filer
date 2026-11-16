@@ -103,6 +103,11 @@ cd drs_filer
 python app.py
 ```
 
+The shipped config runs the development server without debug mode and
+reloader. For Flask's debugger and reloader, set `server.debug: True`,
+`server.environment: development` and `server.use_reloader: True` in a local
+copy of the config only; never commit or deploy it.
+
 ### Other useful commands
 
 To shut down the service, run:

@@ -8,6 +8,10 @@ https://docs.gunicorn.org/en/stable/settings.html).
 
 The app is not preloaded (no ``preload_app``): each worker creates it after
 forking, as MongoDB clients must not be shared across forks.
+
+Forwarded headers (``X-Forwarded-*``) are trusted from Gunicorn's default
+(``127.0.0.1``, or ``FORWARDED_ALLOW_IPS``) only, not from any client; behind
+a proxy that sets them, set ``FORWARDED_ALLOW_IPS`` to its addresses.
 """
 
 import os
@@ -18,9 +22,6 @@ from typing import Optional
 # 8080 (the app config's `server` settings apply to the development server
 # only)
 bind = ["0.0.0.0:8080"]
-# Forwarded headers (`X-Forwarded-*`) are trusted from Gunicorn's default
-# (`127.0.0.1`, or `FORWARDED_ALLOW_IPS`) only, not from any client; behind a
-# proxy that sets them, set `FORWARDED_ALLOW_IPS` to its addresses
 
 # One process with a few threads, as each worker loads the whole app
 worker_class = "gthread"

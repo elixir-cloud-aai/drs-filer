@@ -1,6 +1,10 @@
 # Only send the files needed at runtime to the build context
 *
-!drs_filer/
+# The package: code, config and API specifications only, so that other local
+# files in it (e.g., config copies, logs) don't reach the image
+!drs_filer/**/*.py
+!drs_filer/config.yaml
+!drs_filer/api/*.yaml
 !LICENSE
 !README.md
 !requirements.txt
@@ -12,7 +16,7 @@
 **/__pycache__
 **/*.py[cod]
 **/*.egg-info
-# Modified API specifications that FOCA writes at runtime
+# Modified API specifications (written at runtime by some FOCA versions)
 drs_filer/api/*.modified.yaml
 # Local secrets (e.g., `.env`, `.env.local`, `.envrc`) must never reach the
 # build, also not within the included paths; no example is re-included, as

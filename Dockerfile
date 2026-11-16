@@ -15,17 +15,17 @@ LABEL maintainer.organisation="ELIXIR Cloud & AAI"
 ## Copy app files (only those listed in `.dockerignore`)
 COPY ./ /app
 
-## Install dependencies (including Gunicorn) and app; FOCA writes the modified
-## API specifications into `drs_filer/api/` at startup, so the app's user
-## (1000, group 0 for arbitrary user IDs, e.g., on OpenShift) may write there
+## Install dependencies (including Gunicorn) and app; the app files stay owned
+## by root and read-only for the app's user (whatever the umask of the build
+## host), so that the app cannot change its own code or config
 RUN cd /app \
   && pip install --no-cache-dir -r requirements.txt yq \
   && python setup.py develop \
   && cd / \
-  && chown -R 1000:0 /app/drs_filer/api/ \
-  && chmod -R g+w /app/drs_filer/api/
+  && chmod -R go-w /app
 
-## Run as non-root user
+## Run as non-root user (group 0, as for arbitrary user IDs, e.g., on
+## OpenShift)
 USER 1000:0
 
 ## The API specifications in the config are relative to the working directory
