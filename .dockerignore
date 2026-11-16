@@ -1,15 +1,38 @@
-# Ignore Git- and GitHub-specific files and dirs
-.git
-.github
-.gitignore
+# Only send the files needed at runtime to the build context
+*
+# The package: code, config and API specifications only, so that other local
+# files in it (e.g., config copies, logs) don't reach the image
+!drs_filer/**/*.py
+!drs_filer/config.yaml
+!drs_filer/api/*.yaml
+!LICENSE
+!README.md
+!requirements.txt
+!setup.py
+# Run by the Helm chart's ConfigMap Job
+!update-config-map.sh
 
-# Remove all docs but README.md from root directory
-*.md
-!README*.md
-
-# Ignore build-specific files and dirs
+# Exclude caches and local files within the included paths
+**/__pycache__
+**/*.py[cod]
 **/*.egg-info
-src
-
-# Ignore CI-related files and dirs
-.travis.yml
+# Modified API specifications (written at runtime by some FOCA versions)
+drs_filer/api/*.modified.yaml
+# Local secrets (e.g., `.env`, `.env.local`, `.envrc`) must never reach the
+# build, also not within the included paths; no example is re-included, as
+# the build copies none (and an exception with wildcards makes Docker walk
+# all excluded directories)
+**/.env*
+# Other common names of secret files
+**/*.env
+**/*.pem
+**/*.key
+**/id_rsa*
+**/id_ed25519*
+**/id_ecdsa*
+**/*.p12
+**/*.pfx
+**/.git-credentials
+**/.pypirc
+**/credentials*.json
+**/.netrc
