@@ -8,7 +8,8 @@ services:
         restart: unless-stopped
         links: 
             - mongodb
-        command: bash -c "cd /app/drs_filer; python app.py"
+        # Gunicorn, as set in the image (`CMD` of `Dockerfile`)
+        command: ["gunicorn", "--config", "python:drs_filer.gunicorn_config", "drs_filer.app:create_app()"]
         ports:
             - "8080:8080"
 

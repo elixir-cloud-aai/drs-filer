@@ -74,6 +74,35 @@ _**That's it!**_
 You should now be able to use/explore the API as described in the [usage
 section](#usage).
 
+The image (and thus Docker Compose and the Helm chart) serves the app with
+[Gunicorn][res-gunicorn], as a non-root user (UID 1000, group 0). Its
+settings are in [`drs_filer/gunicorn_config.py`][drs-filer-gunicorn-config];
+override them with the environment variable `GUNICORN_CMD_ARGS`, e.g.,
+`GUNICORN_CMD_ARGS="--workers 2"`. Behind a reverse proxy that sets
+`X-Forwarded-*` headers, set `FORWARDED_ALLOW_IPS` to the proxy's addresses.
+The shipped config ([`drs_filer/config.yaml`][drs-filer-config]) disables
+Flask's debug mode; never enable it in a deployment, as the debugger allows
+code execution for anyone who can reach an error page.
+
+The image contains only the files listed in [`.dockerignore`][dockerignore]
+(an allowlist); local secret files, such as `.env` files, are never copied
+into it.
+
+### Running locally for development
+
+For development only, the app can be run with Flask's development server,
+from the `drs_filer/` directory (the paths of the API specifications in the
+config are relative to it), with a MongoDB instance reachable at the host
+and port set in `db` of the config (e.g., `docker-compose up -d mongodb` and
+`db.host: localhost`):
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+cd drs_filer
+python app.py
+```
+
 ### Other useful commands
 
 To shut down the service, run:
@@ -123,11 +152,15 @@ question etc.
 [badge-url-coverage]:<https://coveralls.io/github/elixir-cloud-aai/drs-filer>
 [badge-url-github-tag]:<https://github.com/elixir-cloud-aai/drs-filer/releases>
 [badge-url-license]:<http://www.apache.org/licenses/LICENSE-2.0>
+[dockerignore]: .dockerignore
+[drs-filer-config]: drs_filer/config.yaml
+[drs-filer-gunicorn-config]: drs_filer/gunicorn_config.py
 [license]: LICENSE
 [license-apache]: <https://www.apache.org/licenses/LICENSE-2.0>
 [org-elixir-cloud]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai>
 [org-ga4gh]: <https://www.ga4gh.org/>
 [res-elixir-cloud-coc]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai/blob/dev/CODE_OF_CONDUCT.md>
 [res-elixir-cloud-contributing]: <https://github.com/elixir-cloud-aai/elixir-cloud-aai/blob/dev/CONTRIBUTING.md>
+[res-gunicorn]: <https://gunicorn.org/>
 [res-semver]: <https://semver.org/>
 [res-ga4gh-drs]: https://github.com/ga4gh/data-repository-service-schemas
