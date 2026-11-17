@@ -1,9 +1,9 @@
 """Controllers for DRS endpoints."""
 
 import logging
-from typing import (Dict, List, Tuple)
+from typing import Dict, List, Tuple
 
-from flask import (current_app, request)
+from flask import current_app, request
 from foca.utils.logging import log_traffic
 
 from drs_filer.errors.exceptions import (
@@ -31,10 +31,9 @@ def ListDrsObjects() -> List[Dict]:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
     db_collection = (
-        current_app.config.foca.db.dbs['drsStore'].
-        collections['objects'].client
+        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
     )
-    cursor = db_collection.find({}, {'_id': 0})
+    cursor = db_collection.find({}, {"_id": 0})
     objects = []
     for obj in cursor:
         objects.append(obj)
@@ -52,8 +51,7 @@ def GetObject(object_id: str) -> Dict:
         DRS object as dictionary, JSONified if returned in app context.
     """
     db_collection = (
-        current_app.config.foca.db.dbs['drsStore'].
-        collections['objects'].client
+        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
     )
     obj = db_collection.find_one({"id": object_id})
     if not obj:
@@ -79,8 +77,7 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
     try:
         access_methods = obj["access_methods"]
         access_urls = [
-            d['access_url'] for d in access_methods
-            if d['access_id'] == access_id
+            d["access_url"] for d in access_methods if d["access_id"] == access_id
         ]
     # An access methods dictionary is required for every object and it needs
     # to contain a list of dictionaries wth keys `access_url` and `access_id`
@@ -115,7 +112,7 @@ def postServiceInfo() -> Tuple[None, str, Dict]:
     """
     service_info = RegisterServiceInfo()
     headers = service_info.set_service_info_from_app_context(data=request.json)
-    return None, '201', headers
+    return None, "201", headers
 
 
 @log_traffic
@@ -130,8 +127,7 @@ def DeleteObject(object_id):
     """
 
     db_collection = (
-        current_app.config.foca.db.dbs['drsStore'].
-        collections['objects'].client
+        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
     )
     obj = db_collection.find_one({"id": object_id})
     if not obj:
@@ -158,28 +154,26 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
     """
 
     db_collection = (
-        current_app.config.foca.db.dbs['drsStore'].
-        collections['objects'].client
+        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
     )
 
     obj = GetObject.__wrapped__(object_id=object_id)
-    access_methods = obj['access_methods']
+    access_methods = obj["access_methods"]
 
-    if access_id not in [m.get('access_id', None) for m in access_methods]:
+    if access_id not in [m.get("access_id", None) for m in access_methods]:
         raise AccessMethodNotFound
 
     if len(access_methods) == 1:
         logger.error(
-            "Will not delete only remaining access method for object: "
-            f"{object_id}"
+            f"Will not delete only remaining access method for object: {object_id}"
         )
         raise AccessMethodNotDeleted
 
     del_access_methods = db_collection.update_one(
-        filter={'id': object_id},
+        filter={"id": object_id},
         update={
-            '$pull': {
-                'access_methods': {'access_id': access_id},
+            "$pull": {
+                "access_methods": {"access_id": access_id},
             },
         },
     )

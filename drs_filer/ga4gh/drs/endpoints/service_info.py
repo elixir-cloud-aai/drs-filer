@@ -35,14 +35,15 @@ class RegisterServiceInfo:
             conf_info: Service info details as per enpoints config.
         """
         conf = current_app.config.foca.endpoints
-        self.url_prefix = conf['url_prefix']
-        self.host_name = conf['external_host']
-        self.external_port = conf['external_port']
-        self.api_path = conf['api_path']
-        self.conf_info = conf['service_info']
+        self.url_prefix = conf["url_prefix"]
+        self.host_name = conf["external_host"]
+        self.external_port = conf["external_port"]
+        self.api_path = conf["api_path"]
+        self.conf_info = conf["service_info"]
         self.db_coll_info = (
-            current_app.config.foca.db.dbs['drsStore']
-            .collections['service_info'].client
+            current_app.config.foca.db.dbs["drsStore"]
+            .collections["service_info"]
+            .client
         )
 
     def get_service_info(self) -> Dict:
@@ -52,15 +53,17 @@ class RegisterServiceInfo:
             Latest service info details.
         """
         try:
-            return self.db_coll_info.find(
-                {},
-                {'_id': False}
-            ).sort([('_id', -1)]).limit(1).next()
+            return (
+                self.db_coll_info.find({}, {"_id": False})
+                .sort([("_id", -1)])
+                .limit(1)
+                .next()
+            )
         except StopIteration:
             raise NotFound
 
     def set_service_info_from_config(
-            self,
+        self,
     ) -> None:
         """Create or update service info from service configuration.
 
@@ -86,21 +89,17 @@ class RegisterServiceInfo:
                     "API specification."
                 )
                 raise ValidationError
-            logger.info(
-                "Service info registered."
-            )
+            logger.info("Service info registered.")
         else:
-            logger.info(
-                "Using available service info."
-            )
+            logger.info("Using available service info.")
 
     def _upsert_service_info(
-            self,
-            data: Dict,
+        self,
+        data: Dict,
     ) -> None:
         """Insert or updated service info document."""
         self.db_coll_info.replace_one(
-            filter={'id': data['id']},
+            filter={"id": data["id"]},
             replacement=data,
             upsert=True,
         )
@@ -127,9 +126,9 @@ class RegisterServiceInfo:
             Response headers.
         """
         headers: Dict = {
-            'Content-type': 'application/json',
+            "Content-type": "application/json",
         }
-        headers['Location'] = (
+        headers["Location"] = (
             f"{self.url_prefix}://{self.host_name}:{self.external_port}/"
             f"{self.api_path}/service-info"
         )

@@ -50,7 +50,7 @@ def _to_regex(pattern: str) -> "re.Pattern[str]":
             i += 1
         elif pattern[i] == "[":
             end = pattern.index("]", i)
-            regex += pattern[i:end + 1]
+            regex += pattern[i : end + 1]
             i = end + 1
         else:
             regex += re.escape(pattern[i])

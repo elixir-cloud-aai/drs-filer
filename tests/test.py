@@ -3,7 +3,7 @@ import time
 import pytest
 import os
 
-DRS_FILER_URL = os.getenv('DRS_FILER_URL', 'http://localhost:8080/ga4gh/drs/v1')
+DRS_FILER_URL = os.getenv("DRS_FILER_URL", "http://localhost:8080/ga4gh/drs/v1")
 
 
 @pytest.fixture(scope="function")
@@ -23,24 +23,20 @@ def handle_error(response):
     elif response.status_code == 401:
         assert False, "Unauthorized: Access is denied due to invalid credentials."
     elif response.status_code == 403:
-        assert (
-            False
-        ), "Forbidden: The server understood the request, but refuses to authorize it."
+        assert False, (
+            "Forbidden: The server understood the request, but refuses to authorize it."
+        )
     elif response.status_code == 404:
         assert False, "Not Found: The requested resource could not be found."
     elif response.status_code == 409:
-        assert (
-            False
-        ), (
+        assert False, (
             "Conflict: The request could not be completed due to a conflict with the "
             "current state of the target resource."
         )
     elif response.status_code == 500:
         assert False, "Internal Server Error"
     else:
-        assert (
-            False
-        ), (
+        assert False, (
             f"Unexpected Status Code: {response.status_code} - "
             f"{response.json().get('msg')}"
         )

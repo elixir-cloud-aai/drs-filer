@@ -475,9 +475,7 @@ def test_build_tools_removed() -> None:
         if command.startswith("apt-get purge")
     ]
     assert len(purges) == 1, purges
-    assert {"build-essential", "python3-dev", "git", "curl", "jq"} <= set(
-        purges[0]
-    )
+    assert {"build-essential", "python3-dev", "git", "curl", "jq"} <= set(purges[0])
     assert "--auto-remove" in purges[0]
     uninstalls = [
         args

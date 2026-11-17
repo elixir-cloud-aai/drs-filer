@@ -58,9 +58,11 @@ def _write(path: Path, content: Dict[str, Any]) -> str:
 
 def test_create_app():
     """The app is created from the packaged config, with the service info."""
-    with patch.object(app_module, "Foca") as foca, patch.object(
-        app_module, "RegisterServiceInfo"
-    ) as service_info, patch.dict(os.environ):
+    with (
+        patch.object(app_module, "Foca") as foca,
+        patch.object(app_module, "RegisterServiceInfo") as service_info,
+        patch.dict(os.environ),
+    ):
         os.environ.pop(app_module.OVERLAY_VARIABLE, None)
         app = app_module.create_app()
     assert foca.call_args.kwargs["config_file"] == PACKAGE_DIR / "config.yaml"
@@ -144,9 +146,7 @@ def test_create_app_overlay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     overlay.write_text("")
     monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(overlay))
     calls = _create_app(monkeypatch)
-    assert calls["content"] == yaml.safe_load(
-        (PACKAGE_DIR / "config.yaml").read_text()
-    )
+    assert calls["content"] == yaml.safe_load((PACKAGE_DIR / "config.yaml").read_text())
 
 
 def test_create_app_overlay_not_mapping(
@@ -165,9 +165,7 @@ def test_create_app_overlay_not_mapping(
         _create_app(monkeypatch)
 
 
-def test_create_app_overlay_relative(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+def test_create_app_overlay_relative(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     """Relative overlay paths are relative to the working directory.
 
     Not to the package directory, in which FOCA parses the config: a local
@@ -198,9 +196,7 @@ def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str):
     assert calls["file"] == PACKAGE_DIR / "config.yaml"
 
 
-def test_create_app_overlay_missing(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+def test_create_app_overlay_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     """A missing overlay fails the start, naming the file.
 
     A typo in a deployment's overlay path must not start the app with the
