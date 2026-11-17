@@ -1,0 +1,44 @@
+"""App tests of the service info endpoints (`/service-info`)."""
+
+from typing import Any
+
+from flask.testing import FlaskClient
+from pymongo.collection import Collection
+import yaml
+
+from drs_filer.app import CONFIG_FILE
+from tests.mock_data import API, SERVICE_INFO, body
+
+
+def test_get_service_info_from_config(client: FlaskClient) -> None:
+    """The app starts with the service info of its config."""
+    expected = yaml.safe_load(CONFIG_FILE.read_text())["endpoints"]["service_info"]
+    response = client.get(f"{API}/service-info")
+    assert response.status_code == 200
+    assert body(response) == expected
+
+
+def test_post_service_info(client: FlaskClient) -> None:
+    """Posted service info replaces that of the config."""
+    response = client.post(f"{API}/service-info", json=SERVICE_INFO)
+    assert response.status_code == 201
+    assert response.headers["Content-Type"] == "application/json"
+    response = client.get(f"{API}/service-info")
+    assert response.status_code == 200
+    assert body(response) == SERVICE_INFO
+
+
+def test_post_service_info_invalid(client: FlaskClient) -> None:
+    """Service info without required fields is rejected."""
+    request_body = {key: value for key, value in SERVICE_INFO.items() if key != "id"}
+    response = client.post(f"{API}/service-info", json=request_body)
+    assert response.status_code == 400
+
+
+def test_get_service_info_not_found(
+    client: FlaskClient, service_info: Collection[dict[str, Any]]
+) -> None:
+    """Without service info, it is not found."""
+    service_info.delete_many({})
+    response = client.get(f"{API}/service-info")
+    assert response.status_code == 404
