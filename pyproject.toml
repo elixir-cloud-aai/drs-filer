@@ -128,7 +128,7 @@ dependencies = [
     "PyYAML>=6.0,<7",
     # FOCA 0.13 imports `pkg_resources`, which setuptools 82 removed; drop
     # with the FOCA upgrade (78.1.1 fixes CVE-2025-47273)
-    "setuptools>=78.1.1,<82",
+    "setuptools>=78.1.1,<85",
 ]
 
 [project.optional-dependencies]
