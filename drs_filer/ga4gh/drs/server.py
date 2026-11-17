@@ -103,7 +103,7 @@ def getServiceInfo() -> dict[str, Any]:
     """Show information about this service.
 
     Returns:
-        An empty 201 response with headers.
+        Service info.
     """
     service_info = RegisterServiceInfo()
     return service_info.get_service_info()
@@ -111,7 +111,7 @@ def getServiceInfo() -> dict[str, Any]:
 
 @log_traffic
 def postServiceInfo() -> tuple[None, int, dict[str, Any]]:
-    """Show information about this service.
+    """Set information about this service.
 
     Returns:
         An empty 201 response with headers.

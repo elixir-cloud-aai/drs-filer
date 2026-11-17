@@ -64,8 +64,8 @@ def object_exists(object_id: str) -> bool:
 def check_access_exists(object_id: str, access_id: str) -> bool:
     """Return whether the given access method of an object exists."""
     response = requests.get(f"{DRS_FILER_URL}/objects/{object_id}", timeout=TIMEOUT)
-    if response.status_code != 200:
-        return False
+    # Any other answer (e.g., 202 for a delayed lookup) proves nothing
+    assert response.status_code == 200, response.status_code
     access_methods = response.json().get("access_methods", [])
     return any(method.get("access_id") == access_id for method in access_methods)
 

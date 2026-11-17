@@ -55,7 +55,8 @@ repos:
       - id: gitleaks
         alias: gitleaks-all
         name: Detect hardcoded secrets (all files)
-        entry: gitleaks dir --redact --verbose
+        entry: gitleaks dir --redact --verbose .
+        pass_filenames: false
         stages: [manual]
   - repo: https://github.com/rhysd/actionlint
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12

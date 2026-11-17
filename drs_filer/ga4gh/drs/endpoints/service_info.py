@@ -102,7 +102,7 @@ class RegisterServiceInfo:
         self,
         data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Return service info.
+        """Set service info from a request.
 
         Arguments:
             data: Service info according to API specification.
