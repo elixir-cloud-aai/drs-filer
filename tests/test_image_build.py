@@ -484,4 +484,14 @@ def test_build_tools_removed() -> None:
         for args in map(_uv_args, _run_commands())
         if args is not None and args[:2] == ["pip", "uninstall"]
     ]
-    assert uninstalls == [["pip", "uninstall", "--system", "pip", "wheel"]]
+    assert uninstalls == [
+        [
+            "pip",
+            "uninstall",
+            "--system",
+            "pip",
+            "wheel",
+            "pydantic-core",
+            "annotated-types",
+        ]
+    ]

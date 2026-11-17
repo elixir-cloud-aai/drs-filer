@@ -165,6 +165,26 @@ def test_create_app_overlay_not_mapping(
         _create_app(monkeypatch)
 
 
+def test_create_app_overlay_relative(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """Relative overlay paths are relative to the working directory.
+
+    Not to the package directory, in which FOCA parses the config: a local
+    `config.yaml` overlay is read, not the package's base config.
+
+    Args:
+        monkeypatch: Fixture to set the overlay and working directory with.
+        tmp_path: Working directory with the overlay.
+    """
+    _write(tmp_path / "config.yaml", {"endpoints": {"external_host": "local"}})
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, "config.yaml")
+    calls = _create_app(monkeypatch)
+    assert calls["content"]["endpoints"]["external_host"] == "local"
+    assert Path.cwd() == tmp_path
+
+
 @pytest.mark.parametrize("overlays", ["", ":", "::"])
 def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str):
     """Without overlay paths, FOCA parses the packaged config itself.

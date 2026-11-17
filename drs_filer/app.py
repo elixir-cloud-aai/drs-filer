@@ -56,7 +56,8 @@ def _merged_config(overlays: str) -> Dict[str, Any]:
 
     Args:
         overlays: Paths of the overlays, separated by `:`, in the order in
-            which they are merged; empty paths are skipped.
+            which they are merged; empty paths are skipped. Relative paths
+            are relative to the working directory.
 
     Returns:
         The merged config.
@@ -72,7 +73,6 @@ def _merged_config(overlays: str) -> Dict[str, Any]:
         if not isinstance(overlay, Mapping):
             raise ValueError(f"Config overlay '{path}' is not a mapping")
         config = _merge(config, overlay)
-        logger.info(f"Config overlay '{path}' merged.")
     return config
 
 
@@ -82,24 +82,30 @@ def _foca() -> Foca:
     FOCA 0.13 resolves the relative paths of the API specifications against
     the working directory when it parses the config, so it parses it in the
     package directory: the paths are relative to the package, whatever the
-    working directory (e.g., of Gunicorn in the image). FOCA 0.13 reads its
-    config from a file only, so a config with overlays is merged into a
-    temporary file, which is removed once FOCA has parsed it.
+    working directory (e.g., of Gunicorn in the image). The overlays are read
+    before, so that their relative paths are relative to the working
+    directory. FOCA 0.13 reads its config from a file only, so a config with
+    overlays is merged into a temporary file, which is removed once FOCA has
+    parsed it.
 
     Returns:
         FOCA, with the parsed config.
     """
     overlays = os.environ.get(OVERLAY_VARIABLE, "")
-    with contextlib.chdir(PACKAGE_DIR):
-        if not overlays.strip(":"):
+    if not overlays.strip(":"):
+        with contextlib.chdir(PACKAGE_DIR):
             return Foca(config_file=CONFIG_FILE)
-        config = _merged_config(overlays)
-        with tempfile.NamedTemporaryFile(
-            "w", prefix="drs-filer-config-", suffix=".yaml"
-        ) as merged:
-            yaml.safe_dump(config, merged)
-            merged.flush()
-            return Foca(config_file=Path(merged.name))
+    config = _merged_config(overlays)
+    with tempfile.NamedTemporaryFile(
+        "w", prefix="drs-filer-config-", suffix=".yaml"
+    ) as merged:
+        yaml.safe_dump(config, merged)
+        merged.flush()
+        with contextlib.chdir(PACKAGE_DIR):
+            foca = Foca(config_file=Path(merged.name))
+    # Logged once FOCA has configured logging
+    logger.info(f"Config overlays merged: {overlays}")
+    return foca
 
 
 def create_app() -> App:

@@ -87,7 +87,10 @@ RUN apt-get purge -y --auto-remove build-essential python3-dev git curl jq \
 ## the packages it installed with files (`REQUESTED`) that their records
 ## (`RECORD`) don't list, which uv would leave behind on replacing them (as a
 ## second installed version), so they are removed first. pip and wheel of the
-## base image are removed, as nothing installs packages at runtime
+## base image are removed, as nothing installs packages at runtime, and so are
+## the leftovers of its pydantic 2 (pydantic-core, annotated-types); only
+## `typing`, which FOCA 0.13 requires (but doesn't use), stays unlocked
+## (`tool.uv` in `pyproject.toml`)
 COPY pyproject.toml uv.lock scripts/image_requirements.py /tmp/src/
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
   export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
@@ -97,7 +100,7 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
   && find /usr/local/lib -path "*/site-packages/*.dist-info/REQUESTED" -delete \
   && uv pip install --system --reinstall --require-hashes --only-binary :all: \
     --no-deps --compile-bytecode -r /tmp/src/requirements.txt \
-  && uv pip uninstall --system pip wheel \
+  && uv pip uninstall --system pip wheel pydantic-core annotated-types \
   && rm -f /tmp/uv-*.lock
 
 ## Install app from the wheel of the build stage (non-editable; the base
