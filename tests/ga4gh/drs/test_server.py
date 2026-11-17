@@ -344,15 +344,11 @@ def test_DeleteAccessMethod_AccessMethodNotDeleted(
         DeleteAccessMethod.__wrapped__("a001", "1")
 
 
-def test_DeleteAccessMethod_concurrent_keeps_last(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Concurrent deletions never remove the last access method of an object.
+def _seeded_app() -> tuple[Flask, Collection[dict[str, Any]]]:
+    """Create an app whose object collection holds the test objects.
 
-    Object `a011` has two access methods. The deletion of the first one runs
-    the deletion of the second one just before it writes, as a concurrent
-    request could; afterwards, exactly one access method is left, and one of
-    the deletions is refused.
+    Returns:
+        The app, and its (mongomock) object collection.
     """
     app = Flask(__name__)
     app.config.foca = Config(
@@ -363,7 +359,25 @@ def test_DeleteAccessMethod_concurrent_keeps_last(
     app.config.foca.db.dbs["drsStore"].collections["objects"].client = collection
     for obj in json.loads(Path(data_objects_path).read_text()):
         collection.insert_one(obj)
+    return app, collection
+
+
+def test_DeleteAccessMethod_concurrent_keeps_last(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent deletions never remove the last access method of an object.
+
+    Object `a011` has two access methods. The deletion of the first one runs
+    the deletion of the second one just before it writes, as a concurrent
+    request could; afterwards, exactly one access method is left, and one of
+    the deletions is refused. This simulates the interleaving that the old
+    check-then-update code lost; in production, the guarantee comes from
+    MongoDB updating a single document atomically (the API tests run the same
+    filter against a real MongoDB when `MONGODB_TEST_URI` is set).
+    """
+    app, collection = _seeded_app()
     update_one = collection.update_one
+    interleaved = False
     outcomes: list[str] = []
 
     def delete(access_id: str) -> None:
@@ -375,15 +389,17 @@ def test_DeleteAccessMethod_concurrent_keeps_last(
 
     def interleaved_update_one(*args: Any, **kwargs: Any) -> Any:
         """Run the second deletion before the first one writes."""
-        if not outcomes:
-            outcomes.append("interleaved")
+        nonlocal interleaved
+        if not interleaved:
+            interleaved = True
             delete("2")
         return update_one(*args, **kwargs)
 
     monkeypatch.setattr(collection, "update_one", interleaved_update_one)
     with app.app_context():
         delete("1")
-    assert outcomes == ["interleaved", "2", "refused"]
+    assert interleaved
+    assert outcomes == ["2", "refused"]
     obj = collection.find_one({"id": "a011"})
     assert obj is not None
     assert [method["access_id"] for method in obj["access_methods"]] == ["1"]
@@ -395,15 +411,7 @@ def test_DeleteAccessMethod_duplicate_ids_keeps_last() -> None:
     Both access methods of object `a003` have the same access ID, so deleting
     it would leave the object without access methods.
     """
-    app = Flask(__name__)
-    app.config.foca = Config(
-        db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
-    )
-    collection: Collection[dict[str, Any]] = mongomock.MongoClient().db.collection
-    app.config.foca.db.dbs["drsStore"].collections["objects"].client = collection
-    for obj in json.loads(Path(data_objects_path).read_text()):
-        collection.insert_one(obj)
+    app, collection = _seeded_app()
     with app.app_context(), pytest.raises(AccessMethodNotDeleted):
         DeleteAccessMethod.__wrapped__("a003", "3")
     obj = collection.find_one({"id": "a003"})

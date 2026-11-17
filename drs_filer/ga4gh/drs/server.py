@@ -196,6 +196,13 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
             "Will not delete only remaining access method for object: %s", object_id
         )
         raise AccessMethodNotDeleted
+    # Deletable, but not deleted: the object changed between the update and
+    # the read (e.g., a concurrent request), or the database failed
+    logger.error(
+        "Access method %s of object %s not deleted, though it could be",
+        access_id,
+        object_id,
+    )
     raise InternalServerError
 
 
