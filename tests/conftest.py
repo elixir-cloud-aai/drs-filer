@@ -12,7 +12,7 @@ variable `MONGODB_TEST_URI` is set, the MongoDB at that URI (e.g.,
 dropped before each test, so use a MongoDB without other data, one per test
 run. The tests refuse to start if the database exists already.
 
-Tests can't open network connections (`socket.socket.connect()` and
+Tests can't open connections (`socket.socket.connect()` and
 `connect_ex()`), except to the test database; FOCA's `MONGO_*` variables are
 unset, so that apps use database `DB` and no credentials.
 """
@@ -58,15 +58,20 @@ def _db_addresses(uri: str) -> frozenset[tuple[str, int]]:
         uri: MongoDB connection string (`mongodb://`), or an empty string.
 
     Returns:
-        IP address and port of each host of the URI; none for an empty string.
+        IP address and port of each host of the URI; none for an empty string,
+        or if a host can't be resolved (the ping of `_mongodb()` then ends
+        the test run with a clear message).
     """
     if not uri:
         return frozenset()
-    return frozenset(
-        (str(info[4][0]), port)
-        for host, port in uri_parser.parse_uri(uri)["nodelist"]
-        for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    )
+    try:
+        return frozenset(
+            (str(info[4][0]), port)
+            for host, port in uri_parser.parse_uri(uri)["nodelist"]
+            for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        )
+    except socket.gaierror:
+        return frozenset()
 
 
 # Addresses that the tests may connect to

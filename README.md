@@ -228,7 +228,7 @@ targets for Codecov in `codecov.yml`, once CI uploads coverage, #81):
   DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke
   ```
 
-Tests can't open network connections, except to the test database (and
+Tests can't open connections (TCP, or connected UDP), except to the test database (and
 the smoke test to the app). Shared fixtures are in `tests/conftest.py`,
 request bodies in `tests/mock_data.py`.
 
