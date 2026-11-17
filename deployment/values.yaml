@@ -17,8 +17,6 @@ drs_filer:
       cpu: 100m
       memory: 128Mi
 
-apiServer: kubernetes.default.svc:443 # address of k8s API server
-
 mongodb:
   image: docker.io/library/mongo:noble
   volumeSize: 1Gi

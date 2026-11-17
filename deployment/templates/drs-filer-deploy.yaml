@@ -17,6 +17,9 @@ spec:
   template:
     metadata:
       creationTimestamp: null
+      # Restart the app when its config changes
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/drs-filer-configmap.yaml") . | sha256sum }}
       labels:
         app: drs-filer
     spec:
@@ -30,10 +33,14 @@ spec:
         resources: {{- toYaml .Values.drs_filer.resources | nindent 10 }}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
+        # The deployment's config overlay (`drs-filer-configmap.yaml`)
+        env:
+        - name: FOCA_CONFIG_OVERLAY
+          value: /etc/drs-filer/config.yaml
         volumeMounts:
-        - mountPath: /app/drs_filer/config.yaml
+        - mountPath: /etc/drs-filer
           name: config-yaml
-          subPath: config.yaml
+          readOnly: true
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -45,6 +52,6 @@ spec:
           items:
             - key: config.yaml
               path: config.yaml
-          name: app-config
+          name: {{ .Values.drs_filer.appName }}-config
         name: config-yaml
 status:
