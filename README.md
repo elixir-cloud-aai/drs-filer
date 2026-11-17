@@ -212,8 +212,8 @@ it.
 ### Tests
 
 The tests come in three levels; `uv run pytest` runs the first two, which
-must cover the code completely (`fail_under` in `pyproject.toml`; the same
-targets for Codecov in `codecov.yml`, once CI uploads coverage, #81):
+must cover the code completely (`fail_under` in `pyproject.toml`, and the
+same targets for Codecov in `codecov.yml`):
 
 - **Unit tests** (`tests/ga4gh/`, `tests/test_*.py`): controllers and
   helpers with bare Flask apps, the config, the image and the chart.
@@ -239,9 +239,35 @@ targets for Codecov in `codecov.yml`, once CI uploads coverage, #81):
   DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke
   ```
 
-Tests can't open connections (TCP, or connected UDP), except to the test database (and
-the smoke test to the app). Shared fixtures are in `tests/conftest.py`,
+Tests can't open connections (TCP, or connected UDP), except to the test
+database (and the smoke test to the app). Shared fixtures are in `tests/conftest.py`,
 request bodies in `tests/mock_data.py`.
+
+### Continuous integration
+
+One workflow, `.github/workflows/ci.yml` (`CI`), runs on pull requests and
+pushes to `dev`; `tests/test_workflows.py` checks its names, triggers,
+gate, publishing condition and action pins. Its jobs:
+
+- **PR title** (`title`): Conventional Commits, at most 50 characters (the
+  title becomes the commit message of the squash merge).
+- **Lint** (`lint`): checks the lock file, runs all hooks of
+  `.pre-commit-config.yaml`, scans the whole checkout for secrets and
+  validates `CITATION.cff` (cffconvert).
+- **Test** (`test`): `Test (mongomock)` with coverage, uploaded to Codecov
+  (repository secret `CODECOV_TOKEN`; uploads fail the run only on pushes
+  to this repository), and `Test (MongoDB 7.0)` against a real MongoDB.
+- **Smoke test** (`smoke`): the Compose stack, built from the checkout, with
+  the smoke test against its API.
+- **Push image** (`push`): on pushes to `dev` only, once all other jobs
+  passed, the image is pushed to Docker Hub, tagged `dev` and
+  `sha-<commit>`. It runs in the environment `dev-images`, which holds the
+  secrets `DOCKERHUB_LOGIN` and `DOCKERHUB_TOKEN` and allows branch `dev`
+  only. The organization is the repository variable `DOCKERHUB_ORG`
+  (default `elixircloud`); forks publish only if they set it (and the
+  secrets).
+- **CI passed** (`passed`): the gate, the only required check; it fails if
+  any other job failed, or was skipped where it should have run.
 
 ### Other useful commands
 
@@ -331,12 +357,12 @@ AAI][org-elixir-cloud]. Follow the link to get in touch with us via chat or
 email. Please mention the name of this service for any inquiry, proposal,
 question etc.
 
-[badge-build-status]:<https://github.com/elixir-cloud-aai/drs-filer/actions/workflows/lint.yml/badge.svg?branch=dev>
-[badge-coverage]:<https://img.shields.io/coveralls/github/elixir-cloud-aai/drs-filer>
+[badge-build-status]:<https://github.com/elixir-cloud-aai/drs-filer/actions/workflows/ci.yml/badge.svg?branch=dev>
+[badge-coverage]:<https://img.shields.io/codecov/c/github/elixir-cloud-aai/drs-filer/dev>
 [badge-github-tag]:<https://img.shields.io/github/v/tag/elixir-cloud-aai/drs-filer?color=C39BD3>
 [badge-license]:<https://img.shields.io/badge/license-Apache%202.0-blue.svg>
-[badge-url-build-status]:<https://github.com/elixir-cloud-aai/drs-filer/actions/workflows/lint.yml>
-[badge-url-coverage]:<https://coveralls.io/github/elixir-cloud-aai/drs-filer>
+[badge-url-build-status]:<https://github.com/elixir-cloud-aai/drs-filer/actions/workflows/ci.yml>
+[badge-url-coverage]:<https://codecov.io/gh/elixir-cloud-aai/drs-filer>
 [badge-url-github-tag]:<https://github.com/elixir-cloud-aai/drs-filer/releases>
 [badge-url-license]:<http://www.apache.org/licenses/LICENSE-2.0>
 [citation]: CITATION.cff
