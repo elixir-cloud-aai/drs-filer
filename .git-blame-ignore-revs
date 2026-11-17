@@ -1,0 +1,6 @@
+# Formatting commits, skipped by `git blame` (`git config blame.ignoreRevsFile
+# .git-blame-ignore-revs`; GitHub uses this file by default)
+
+# style: add the shared linters and hooks (#104): the squash of the ruff
+# reformat, bundled with the lint fixes of #79
+bf2f4bd34cf7b59bd563afdad56ceddae5d09317

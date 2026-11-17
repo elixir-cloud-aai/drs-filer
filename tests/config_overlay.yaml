@@ -1,0 +1,6 @@
+# Config overlay for app tests, with the settings each deployment must make:
+# the public URL of the app, for the `self_uri` of objects
+endpoints:
+  url_prefix: https
+  external_host: drs.example.org
+  external_port: 443

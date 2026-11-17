@@ -48,50 +48,50 @@ class ValidationError(Exception):
 exceptions = {
     Exception: {
         "msg": "An unexpected error occurred.",
-        "status_code": "500",
+        "status_code": 500,
     },
     BadRequestProblem: {
         "msg": "The request is malformed.",
-        "status_code": "400",
+        "status_code": 400,
     },
     BadRequest: {
         "msg": "The request is malformed.",
-        "status_code": "400",
+        "status_code": 400,
     },
     ExtraParameterProblem: {
         "msg": "The request is malformed.",
-        "status_code": "400",
+        "status_code": 400,
     },
     Unauthorized: {
         "msg": " The request is unauthorized.",
-        "status_code": "401",
+        "status_code": 401,
     },
     Forbidden: {
         "msg": "The requester is not authorized to perform this action.",
-        "status_code": "403",
+        "status_code": 403,
     },
     NotFound: {
         "msg": "The requested resource wasn't found.",
-        "status_code": "404",
+        "status_code": 404,
     },
     AccessMethodNotFound: {
         "msg": "The requested access method wasn't found.",
-        "status_code": "404",
+        "status_code": 404,
     },
     AccessMethodNotDeleted: {
         "msg": "Refusing to delete the last remaining access method.",
-        "status_code": "409",
+        "status_code": 409,
     },
     ObjectNotFound: {
         "msg": "The requested `DrsObject` wasn't found.",
-        "status_code": "404",
+        "status_code": 404,
     },
     URLNotFound: {
         "msg": "The requested access URL wasn't found.",
-        "status_code": "404",
+        "status_code": 404,
     },
     InternalServerError: {
         "msg": "An unexpected error occurred",
-        "status_code": "500",
+        "status_code": 500,
     },
 }

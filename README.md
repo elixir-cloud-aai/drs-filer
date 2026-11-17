@@ -163,7 +163,7 @@ ConfigMap, from the value `host_name`; it doesn't set the service info.
 
 For development, install the app with its locked dependencies, including the
 `dev` extra, with [uv][res-uv] (into `.venv`), install the Git hooks, and
-run the linters and the unit tests:
+run the linters and the tests:
 
 ```bash
 uv sync --locked --extra dev
@@ -198,12 +198,39 @@ reloader. For Flask's debugger and reloader, set `server.debug: True`,
 overlay only (`config.local.yaml` is ignored by Git); never commit or deploy
 it.
 
-The Compose smoke test runs against a running service (`docker compose up`
-above); it needs only `pytest` and `requests`:
+### Tests
 
-```bash
-DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run --with requests pytest tests/test.py
-```
+The tests come in three levels; `uv run pytest` runs the first two, which
+must cover the code completely (`fail_under` in `pyproject.toml`; the same
+targets for Codecov in `codecov.yml`, once CI uploads coverage, #81):
+
+- **Unit tests** (`tests/ga4gh/`, `tests/test_*.py`): controllers and
+  helpers with bare Flask apps, the config, the image and the chart.
+- **App tests** (`tests/api/`, one module per group of endpoints): every
+  endpoint through Flask's test client, with the app created from the
+  shipped config and the test overlay (`tests/config_overlay.yaml`), so that
+  request validation and error handling are covered too. They use an
+  in-memory MongoDB (mongomock), or a real one if `MONGODB_TEST_URI` is set,
+  as in CI; the tests drop database `drsStore` there and refuse to start if
+  it exists already:
+
+  ```bash
+  docker run --detach --rm --name drs-filer-test-db -p 127.0.0.1:27018:27017 mongo:7.0
+  MONGODB_TEST_URI=mongodb://127.0.0.1:27018 uv run pytest
+  docker stop drs-filer-test-db
+  ```
+
+- **Smoke test** (`tests/smoke/`): the API of a running app, e.g., of the
+  Compose stack (`docker compose up` above); skipped unless
+  `DRS_FILER_URL` is set. It registers objects and service info:
+
+  ```bash
+  DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke
+  ```
+
+Tests can't open connections (TCP, or connected UDP), except to the test database (and
+the smoke test to the app). Shared fixtures are in `tests/conftest.py`,
+request bodies in `tests/mock_data.py`.
 
 ### Other useful commands
 
@@ -224,6 +251,8 @@ docker compose logs
 Changes that need action when upgrading from earlier versions of the
 repository's default branch:
 
+- **Error responses:** `status_code` in error bodies is an integer (e.g.,
+  `404`), as the API specification defines; it was a string (`"404"`).
 - **Packaging:** `setup.py` and `requirements*.txt` are gone. Install with
   `pip install .` (or `uv sync --locked --extra dev` for development); the
   package's version comes from Git tags.

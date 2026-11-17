@@ -23,14 +23,15 @@ jobs:
       with:
         python-version: "3.12"
 
+    # The locked dependencies, for the mock data of the smoke test
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pytest requests
+        python -m pip install "uv>=0.12"
+        uv sync --locked --extra dev --python "$(command -v python)"
 
-    - name: Test with pytest
+    - name: Run the smoke test
       run: |
-        pytest tests/test.py -v -p no:warnings
+        uv run --no-sync pytest tests/smoke -v -p no:warnings
       env:
         DRS_FILER_URL: http://localhost:8080/ga4gh/drs/v1
 

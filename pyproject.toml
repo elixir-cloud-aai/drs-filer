@@ -83,10 +83,9 @@ ignore_missing_imports = true
 
 # FOCA attaches its config to Flask's config at runtime (`app.config.foca`),
 # which the tests set up directly; the app code reads it through
-# `drs_filer.utils.get_foca_config()` (`tests/` is no package, so mypy names
-# the test modules by file name)
+# `drs_filer.utils.get_foca_config()`
 [[tool.mypy.overrides]]
-module = ["test_register_objects", "test_server", "test_service_info"]
+module = ["tests.ga4gh.*"]
 disable_error_code = ["attr-defined"]
 
 [tool.coverage.run]
@@ -94,6 +93,9 @@ source = ["drs_filer"]
 
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']
+# `coverage report` (CI) fails below 100%; Codecov's targets are the same
+# (`codecov.yml`)
+fail_under = 100
 
 [project]
 name = "drs-filer"
