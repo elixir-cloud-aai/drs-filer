@@ -1,0 +1,9 @@
+# ast-grep rules for project-specific anti-patterns; run with `ast-grep scan`
+# (and `ast-grep test` for the rule tests), or via pre-commit. The shared
+# rules of the other FOCA apps; `foca-config-attribute` and
+# `pydantic-v1-dict` follow with the FOCA upgrade (#87), as FOCA 0.13 has no
+# typed config access (`foca.get_config()`) and uses Pydantic v1
+ruleDirs:
+  - .ast-grep/rules
+testConfigs:
+  - testDir: .ast-grep/rule-tests

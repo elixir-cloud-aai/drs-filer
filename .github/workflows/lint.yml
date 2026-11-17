@@ -32,8 +32,10 @@ jobs:
           python -m pip install "uv>=0.12"
           uv sync --locked --extra dev --python "$(command -v python)"
 
-      - name: Lint with flake8
-        run: uv run --no-sync flake8
+      # ruff, mypy, ast-grep, semgrep and the other hooks of
+      # `.pre-commit-config.yaml`, until the CI workflow replaces this one
+      - name: Lint with pre-commit
+        run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 
       - name: Run unit tests with coverage
         run: |
