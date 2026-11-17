@@ -8,7 +8,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@v7.0.1
 
     # Waits until the health checks of both services pass
     - name: Build and run Docker Compose
@@ -19,7 +19,7 @@ jobs:
       run: docker compose logs
 
     - name: Set up Python
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v7.1.0
       with:
         python-version: "3.12"
 
