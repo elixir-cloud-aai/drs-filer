@@ -1,0 +1,363 @@
+# Everything that must pass on pull requests and pushes to `dev`: the pull
+# request title, lint, test (against mongomock, with coverage, and against
+# MongoDB), the smoke test of the Docker Compose stack, and, on pushes, the
+# `dev` image, once all other jobs passed. Forks, which have none of the
+# secrets, run the same checks without publishing, unless they set the
+# repository variable `DOCKERHUB_ORG` to publish to their own organization.
+# `github.repository_owner == 'elixir-cloud-aai'` marks runs of the upstream
+# repository. The gate `passed` ("CI passed") is the only required check. No
+# `paths:` filters, so that the gate always reports; skip jobs with `if:`
+# instead (and allow the skip in the gate). Runs also when a pull request is
+# edited, so that the title check follows the title; all jobs run then, as a
+# run that skipped the tests would report "CI passed" for the commit. As in
+# trs-filer (`ci.yml`), without its chart, docs, release and image scan jobs
+# (drs-filer has no docs build and no release workflow yet)
+
+name: CI
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [dev]
+
+permissions:
+  contents: read
+
+# The Docker Hub organization is the repository variable `DOCKERHUB_ORG` (by
+# default `elixircloud`)
+env:
+  IMAGE_NAME: docker.io/${{ vars.DOCKERHUB_ORG || 'elixircloud' }}/drs-filer
+  # "true" if this run publishes the image: pushes to this repository, or to
+  # a fork that sets `DOCKERHUB_ORG` (and the Docker Hub secrets). Jobs' `if:`
+  # can't read `env`, so `push` and the gate repeat the expression
+  # (`tests/test_workflows.py`)
+  PUBLISH: ${{ github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '') }}
+
+# Only a new head commit of a pull request cancels its runs in progress
+# (action `synchronize`, first attempt); runs for other actions and reruns
+# wait, so that a run on the same commit never leaves a cancelled, failed
+# `CI passed` (see "Cancelled runs" in `actions/gate/README.md` of
+# `elixir-cloud-aai/.github`). Runs for pushes get their own group, so that
+# none is dropped. Runs for edits that leave the title unchanged share a
+# group of their own, so that they don't wait for the run for the pull
+# request's commit
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event_name == 'push' && github.sha ||
+      github.event.action == 'edited' && !github.event.changes.title &&
+        format('{0}-edited', github.ref) ||
+      github.ref }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+    && github.event.action == 'synchronize'
+    && github.run_attempt == 1 }}
+
+jobs:
+
+  # Pull request titles become the commit messages on `dev` (squash merges):
+  # Conventional Commits, at most 50 characters (shared action of
+  # elixir-cloud-aai/.github, pinned to the commit of a release). Skipped on
+  # pushes and for Dependabot, whose titles can't be configured to pass,
+  # unless someone else edits the title
+  title:
+    name: PR title
+    if: >-
+      github.event_name == 'pull_request' && (
+        github.event.pull_request.user.login != 'dependabot[bot]' ||
+        github.event.changes.title &&
+        github.event.sender.login != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check PR title
+        uses: elixir-cloud-aai/.github/actions/pr-title@31f22fccc1f3c597ed7c1d1f75b2f85522155348 # v1.1.0
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # All jobs use the Python version of the base image in the `Dockerfile`
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # uv, at the version locked in `uv.lock` (a dev dependency)
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The lock must match `pyproject.toml` (run `uv lock` after changing
+      # dependencies; `uv sync --locked` below checks it too, but this step
+      # names the failure)
+      - name: Check lock file
+        run: uv lock --check
+      # The versions of `uv.lock`, checked against its hashes, into `.venv`,
+      # with the Python set up above. mypy checks imports, so runtime
+      # dependencies are needed too
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra dev --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      # ruff, mypy, semgrep, ast-grep, gitleaks, actionlint and the other
+      # hooks of `.pre-commit-config.yaml`, plus the secret scan of the whole
+      # checkout
+      - name: Run linters, type checks and security checks
+        run: |
+          pre-commit run --all-files --show-diff-on-failure
+          pre-commit run --all-files --hook-stage manual gitleaks-all
+
+  # The tests against mongomock (with coverage) and against MongoDB, the
+  # database of deployments (`MONGODB_TEST_URI`, see `tests/conftest.py`), in
+  # the version of `docker-compose.yaml`
+  test:
+    name: Test (${{ matrix.database }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: mongomock
+            image: ""
+            uri: ""
+          - database: MongoDB 7.0
+            image: mongo:7.0
+            uri: mongodb://localhost:27017
+    services:
+      # Not started for an empty image (the `mongomock` entry)
+      mongodb:
+        image: ${{ matrix.image }}
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      MONGODB_TEST_URI: ${{ matrix.uri }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # As in `lint`
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The versions of `uv.lock`, as in `lint`
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra dev --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      # Fails below 100% (`fail_under` in `pyproject.toml`)
+      - name: Calculate unit test coverage
+        if: ${{ matrix.uri == '' }}
+        run: |
+          coverage run -m pytest -W ignore::DeprecationWarning
+          coverage report
+          coverage xml
+      # Upload errors fail the workflow only on branch pushes to the upstream
+      # repository: pull requests from forks and Dependabot, and pushes in
+      # forks, have no access to its Codecov token (so failures are
+      # deliberately non-fatal there)
+      - name: Submit Report to Codecov
+        if: ${{ matrix.uri == '' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          fail_ci_if_error: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.repository_owner == 'elixir-cloud-aai' }}
+          verbose: true
+      - name: Run tests against MongoDB
+        if: ${{ matrix.uri != '' }}
+        run: pytest -W ignore::DeprecationWarning
+
+  # The app as Docker Compose runs it (image build, MongoDB, health checks),
+  # with the smoke test (`tests/smoke/`) against its API
+  smoke:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DRS_FILER_URL: http://localhost:8080/ga4gh/drs/v1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start app
+        # Waits until the containers are healthy (see their health checks)
+        run: docker compose up --detach --build --wait --wait-timeout 300
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # As in `lint`
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The versions of `uv.lock`, as in `lint`, for the mock data
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra dev --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      - name: Run smoke test
+        run: pytest tests/smoke -v -W ignore::DeprecationWarning
+      - name: Show app logs
+        if: failure()
+        run: docker compose logs
+      - name: Tear down app
+        if: always()
+        run: docker compose down --volumes
+
+  # Builds the image and pushes it, tagged `dev` and `sha-<commit>` (never
+  # `latest`, which is for releases), once all other jobs passed. Pull
+  # requests (e.g., of Dependabot and forks) and pushes in forks without
+  # `DOCKERHUB_ORG` get no Docker Hub secrets and publish nothing. Needs the
+  # environment `dev-images`, with the secrets `DOCKERHUB_LOGIN` and
+  # `DOCKERHUB_TOKEN`, restricted to branch `dev`: if it is missing, GitHub
+  # creates it on the first run, unprotected and without the secrets, and
+  # the login fails
+  push:
+    name: Push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The same expression as `PUBLISH` (`tests/test_workflows.py`)
+    if: github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')
+    needs: [lint, test, smoke]
+    environment: dev-images
+    permissions:
+      contents: read
+    # Publish one image at a time, and only for the newest commit on the
+    # branch, so that an older run cannot overwrite `dev` with older code
+    concurrency:
+      group: ${{ github.workflow }}-push-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history and tags, to derive the version
+          fetch-depth: 0
+      - name: Check that commit is still the branch head
+        id: head
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          head=$(git ls-remote "https://github.com/${REPOSITORY}.git" "${REF}" | cut -f1)
+          [ -n "${head}" ] || { echo "::error::Could not look up ${REF}"; exit 1; }
+          if [ "${head}" = "${SHA}" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping push: ${REF} has moved on to ${head}"
+          fi
+      - name: Set up Python
+        if: steps.head.outputs.current == 'true'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # The Docker build gets no Git metadata, so the version (e.g.,
+      # `0.3.1.dev4+g<commit>`) is passed as a build argument. It is derived
+      # with the build requirements (the dependency group `build-system`),
+      # exported from `uv.lock` by the uv image of the `Dockerfile` (pinned by
+      # digest; without network, as `--frozen` reads the lock only), then
+      # installed at the exact versions of the lock, checked against its
+      # hashes, as wheels only, into a virtual environment of their own
+      - name: Derive version
+        if: steps.head.outputs.current == 'true'
+        id: version
+        run: |
+          uv_image="$(sed -En 's/^FROM (ghcr\.io\/astral-sh\/uv:[^ @]+@sha256:[0-9a-f]{64}) AS uv$/\1/p' Dockerfile)"
+          if [[ -z "${uv_image}" ]]; then
+            echo "::error::No uv image pinned by digest in the Dockerfile"
+            exit 1
+          fi
+          requirements="${RUNNER_TEMP}/build-requirements.txt"
+          docker run --rm --network none --tmpfs /tmp --env UV_NO_CACHE=1 \
+            --volume "${PWD}/pyproject.toml:/src/pyproject.toml:ro" \
+            --volume "${PWD}/uv.lock:/src/uv.lock:ro" "${uv_image}" \
+            export --frozen --only-group build-system --no-emit-project \
+            --project /src > "${requirements}"
+          python -m venv "${RUNNER_TEMP}/build-env"
+          "${RUNNER_TEMP}/build-env/bin/pip" install --require-hashes \
+            --only-binary :all: --no-deps -r "${requirements}"
+          version="$("${RUNNER_TEMP}/build-env/bin/python" -m setuptools_scm)"
+          echo "Version: ${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        if: steps.head.outputs.current == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # `sha-<commit>` and `dev`, with OCI labels for the version, commit and
+      # source
+      - name: Generate image tags and labels
+        if: steps.head.outputs.current == 'true'
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=sha,format=long
+            type=raw,value=dev
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+      - name: Log in to Docker Hub
+        if: steps.head.outputs.current == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_LOGIN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push image
+        if: steps.head.outputs.current == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.version.outputs.version }}
+
+  # Gate, the only check that the ruleset requires: fails if any other job
+  # failed or was cancelled, or was skipped where it should have run. Only
+  # `title` (on pushes and for Dependabot) and `push` (where `PUBLISH` is
+  # "false": pull requests, and forks without `DOCKERHUB_ORG`) may be
+  # skipped. Every other job goes into `needs` (`tests/test_workflows.py`)
+  passed:
+    name: CI passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [title, lint, test, smoke, push]
+    if: always()
+    permissions: {}
+    steps:
+      - name: Check results of all jobs
+        uses: elixir-cloud-aai/.github/actions/gate@31f22fccc1f3c597ed7c1d1f75b2f85522155348 # v1.1.0
+        with:
+          needs: ${{ toJSON(needs) }}
+          allow-skipped: >-
+            ${{ format('title {0}',
+              !(github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')) && 'push' || '') }}
