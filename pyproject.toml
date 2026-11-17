@@ -125,7 +125,7 @@ dynamic = ["version"]
 dependencies = [
     # FOCA is bumped by hand, together with the base image in the
     # `Dockerfile`, which must have the locked FOCA release
-    "foca>=0.13.0,<0.14",
+    "foca>=0.22.0,<0.23",
     "gunicorn>=26.2.0,<28",
     "PyYAML>=6.0,<7",
     # FOCA 0.13 imports `pkg_resources`, which setuptools 82 removed; drop

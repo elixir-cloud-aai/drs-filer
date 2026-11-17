@@ -54,4 +54,4 @@ def test_post_service_info_database_error(client: FlaskClient) -> None:
     with patch.object(service_info_module, "get_collection", return_value=collection):
         response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 500
-    assert body(response)["status_code"] == 500
+    assert body(response)["status"] == 500

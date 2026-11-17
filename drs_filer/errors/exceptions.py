@@ -1,16 +1,20 @@
-"""Exceptions of the app and their mapping to HTTP responses."""
+"""Exceptions of the app and their problem details (RFC 9457).
 
-from connexion.exceptions import (
-    BadRequestProblem,
-    ExtraParameterProblem,
-    Forbidden,
-    Unauthorized,
-)
-from werkzeug.exceptions import (
+The classes are FOCA's framework-neutral ones (`foca.errors`), which replace
+those of Werkzeug and Connexion before FOCA's release on ASGI.
+"""
+
+from foca.errors import (
+    AccessDeniedProblem,
+    AuthenticationProblem,
     BadRequest,
     Conflict,
+    ExtraParameterProblem,
+    Forbidden,
     InternalServerError,
     NotFound,
+    RequestValidationProblem,
+    Unauthorized,
 )
 
 
@@ -45,53 +49,79 @@ class ValidationError(Exception):
     """Value or object is not compatible with required type or schema."""
 
 
+# Problem details of exceptions raised in app context, served by FOCA
+# (`exceptions.mapping` in `config.yaml`); exceptions not listed get those of
+# their closest listed base class
 exceptions = {
     Exception: {
-        "msg": "An unexpected error occurred.",
-        "status_code": 500,
+        "title": "Internal server error",
+        "detail": "An unexpected error occurred.",
+        "status": 500,
     },
-    BadRequestProblem: {
-        "msg": "The request is malformed.",
-        "status_code": 400,
+    RequestValidationProblem: {
+        "title": "Bad request",
+        "detail": "The request is malformed.",
+        "status": 400,
     },
     BadRequest: {
-        "msg": "The request is malformed.",
-        "status_code": 400,
+        "title": "Bad request",
+        "detail": "The request is malformed.",
+        "status": 400,
     },
     ExtraParameterProblem: {
-        "msg": "The request is malformed.",
-        "status_code": 400,
+        "title": "Bad request",
+        "detail": "The request is malformed.",
+        "status": 400,
     },
     Unauthorized: {
-        "msg": " The request is unauthorized.",
-        "status_code": 401,
+        "title": "Unauthorized",
+        "detail": "The request is unauthorized.",
+        "status": 401,
+    },
+    AuthenticationProblem: {
+        "title": "Unauthorized",
+        "detail": "The request is unauthorized.",
+        "status": 401,
     },
     Forbidden: {
-        "msg": "The requester is not authorized to perform this action.",
-        "status_code": 403,
+        "title": "Forbidden",
+        "detail": "The requester is not authorized to perform this action.",
+        "status": 403,
+    },
+    # Connexion's `Forbidden` (FOCA's access control)
+    AccessDeniedProblem: {
+        "title": "Forbidden",
+        "detail": "The requester is not authorized to perform this action.",
+        "status": 403,
     },
     NotFound: {
-        "msg": "The requested resource wasn't found.",
-        "status_code": 404,
+        "title": "Not found",
+        "detail": "The requested resource wasn't found.",
+        "status": 404,
     },
     AccessMethodNotFound: {
-        "msg": "The requested access method wasn't found.",
-        "status_code": 404,
+        "title": "Not found",
+        "detail": "The requested access method wasn't found.",
+        "status": 404,
     },
     AccessMethodNotDeleted: {
-        "msg": "Refusing to delete the last remaining access method.",
-        "status_code": 409,
+        "title": "Conflict",
+        "detail": "Refusing to delete the last remaining access method.",
+        "status": 409,
     },
     ObjectNotFound: {
-        "msg": "The requested `DrsObject` wasn't found.",
-        "status_code": 404,
+        "title": "Not found",
+        "detail": "The requested `DrsObject` wasn't found.",
+        "status": 404,
     },
     URLNotFound: {
-        "msg": "The requested access URL wasn't found.",
-        "status_code": 404,
+        "title": "Not found",
+        "detail": "The requested access URL wasn't found.",
+        "status": 404,
     },
     InternalServerError: {
-        "msg": "An unexpected error occurred",
-        "status_code": 500,
+        "title": "Internal server error",
+        "detail": "An unexpected error occurred.",
+        "status": 500,
     },
 }

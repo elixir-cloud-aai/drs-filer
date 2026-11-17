@@ -91,7 +91,7 @@ paths:
             If the object_id refers to a blob, then the query parameter is ignored.
       tags:
         - DataRepositoryService
-      x-swagger-router-controller: ga4gh.drs.server
+      x-swagger-router-controller: drs_filer.ga4gh.drs.server
   '/objects/{object_id}/access/{access_id}':
     get:
       summary: Get a URL for fetching bytes.
@@ -155,7 +155,7 @@ paths:
           description: An `access_id` from the `access_methods` list of a `DrsObject`
       tags:
         - DataRepositoryService
-      x-swagger-router-controller: ga4gh.drs.server
+      x-swagger-router-controller: drs_filer.ga4gh.drs.server
 #securityDefinitions:
 #  authToken:
 #    description: |

@@ -63,7 +63,7 @@ def test_post_object_invalid(client: FlaskClient) -> None:
     del request_body["checksums"]
     response = client.post(f"{API}/objects", json=request_body)
     assert response.status_code == 400
-    assert body(response)["status_code"] == 400
+    assert body(response)["status"] == 400
 
 
 def test_post_object_ids_exhausted(client: FlaskClient) -> None:
@@ -72,7 +72,7 @@ def test_post_object_ids_exhausted(client: FlaskClient) -> None:
         assert client.put(f"{API}/objects/taken", json=drs_object()).status_code == 200
         response = client.post(f"{API}/objects", json=drs_object())
     assert response.status_code == 500
-    assert body(response)["status_code"] == 500
+    assert body(response)["status"] == 500
 
 
 def test_put_object_new(client: FlaskClient) -> None:
