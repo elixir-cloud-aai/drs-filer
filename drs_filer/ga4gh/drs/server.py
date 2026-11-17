@@ -184,8 +184,11 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
 
     # Nothing deleted: find out why, from the current state of the object
     obj = GetObject.__wrapped__(object_id=object_id)
-    access_methods = obj.get("access_methods", [])
-    access_ids = [m.get("access_id") for m in access_methods]
+    # Every object needs access methods (as in `GetAccessURL`)
+    try:
+        access_ids = [m.get("access_id") for m in obj["access_methods"]]
+    except KeyError as err:
+        raise InternalServerError from err
     if access_id not in access_ids:
         raise AccessMethodNotFound
     if all(other == access_id for other in access_ids):
