@@ -15,6 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     name: Run linting and unit tests
+    # The app tests run against this MongoDB (`MONGODB_TEST_URI`), the
+    # version of `docker-compose.yaml`
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.7
@@ -40,7 +47,9 @@ jobs:
       - name: Scan the checkout for secrets
         run: uv run --no-sync pre-commit run --hook-stage manual gitleaks-all --all-files
 
-      - name: Run unit tests with coverage
+      - name: Run unit and app tests with coverage
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017
         run: |
           uv run --no-sync coverage run -m pytest
           uv run --no-sync coverage report -m
