@@ -1,41 +1,135 @@
-##### BASE IMAGE #####
-FROM elixircloud/foca:20240520-py3.12
+##### TOOLS #####
+## uv, to export the locked requirements (`uv.lock`) for the image build, and
+## to install them; mounted into the steps that use it only, so that the
+## image doesn't contain it. Pinned by digest
+FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
+##### BASE IMAGE #####
+## Pinned by digest, so that rebuilds use the same base image. The image of
+## FOCA 0.13 (Python 3.12; FOCA 0.13 has no image with a newer Python); its
+## tag is a date, so the FOCA release it has is given here (checked by
+## `tests/test_image_build.py`):
+## FOCA release: 0.13.0
+FROM elixircloud/foca:20240520-py3.12@sha256:022f4581a0d2279ca708777fe45a044bc11744e05a9900fdc82e0b1d6420e518 AS base
+
+##### BUILD #####
+## Build the app's wheel, in a stage of its own, so that the image doesn't
+## contain the build requirements. They (`build-system.requires` of
+## `pyproject.toml`) are locked in `uv.lock`, as the dependency group
+## `build-system`, and installed from there, as the runtime dependencies are
+## below: at the exact versions of the lock, checked against its hashes, as
+## wheels only, into a virtual environment of their own (created by uv for
+## the Python of the base image, without pip). The wheel is then built with
+## them by uv, without an isolated build environment (which would be filled
+## with downloads that aren't hash-checked), offline and without network, so
+## that it downloads nothing
+FROM base AS build
+COPY pyproject.toml uv.lock /tmp/src/
+RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
+  export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
+  && uv export --frozen --only-group build-system --no-emit-project \
+    --project /tmp/src --output-file /tmp/build-requirements.txt \
+  && uv venv --python /usr/local/bin/python /tmp/build-env \
+  && uv pip install --python /tmp/build-env --require-hashes \
+    --only-binary :all: --no-deps -r /tmp/build-requirements.txt
+## (`README.md` is the package's long description; the license text is
+## installed with the package metadata, e.g.,
+## `site-packages/drs_filer-<version>.dist-info/licenses/LICENSE`)
+## The build context has no Git metadata, so the version is passed as a build
+## argument (e.g., `--build-arg SETUPTOOLS_SCM_PRETEND_VERSION=1.2.3`);
+## without it, the app reports version `0.0.0.dev0`
+COPY README.md LICENSE /tmp/src/
+COPY drs_filer /tmp/src/drs_filer
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+RUN --network=none --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
+  export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
+  && uv build --wheel --offline --no-build-isolation \
+    --python /tmp/build-env/bin/python --out-dir /tmp/dist /tmp/src
+
+##### IMAGE #####
+FROM base
 
 ##### METADATA #####
+## OCI annotations; images built from the FOCA image inherit its own labels,
+## so all static ones are set here
+LABEL org.opencontainers.image.title="DRS-Filer"
+LABEL org.opencontainers.image.description="GA4GH Data Repository Service (DRS) implementation by ELIXIR On-Cloud"
+LABEL org.opencontainers.image.url="https://github.com/elixir-cloud-aai/drs-filer"
+LABEL org.opencontainers.image.source="https://github.com/elixir-cloud-aai/drs-filer"
+LABEL org.opencontainers.image.documentation="https://github.com/elixir-cloud-aai/drs-filer#readme"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.authors="ELIXIR On-Cloud <cloud-service@elixir-europe.org>"
+LABEL org.opencontainers.image.vendor="ELIXIR On-Cloud"
 
-LABEL software="DRS-filer"
-LABEL software.description="Flask Connexion implementation of Data Repository Schema"
-LABEL software.website="https://github.com/elixir-cloud-aai/drs-filer"
-LABEL software.license="https://spdx.org/licenses/Apache-2.0"
-LABEL maintainer="sarthakgupta072@gmail.com"
-LABEL maintainer.organisation="ELIXIR Cloud & AAI"
+## Remove the build tools and other programs of the FOCA 0.13 image that the
+## app doesn't need (compilers, headers, Git, curl, jq), as root (the FOCA
+## 0.13 image runs as root; the app runs as user 1000 below)
+USER root
+RUN apt-get purge -y --auto-remove build-essential python3-dev git curl jq \
+  && rm -rf /var/lib/apt/lists/*
 
+## Install dependencies first, so that code changes do not reinstall them.
+## Only the locked ones are installed: the runtime dependencies
+## (`project.dependencies` of `pyproject.toml`; the export leaves out the
+## extras and the dependency group `build-system`), with all their own
+## dependencies, at the exact versions of `uv.lock`, checked against its
+## hashes, as wheels only, and without resolving anything else (`--no-deps`),
+## and compiled, as the root file system of deployments may be read-only.
+## `--frozen` takes the lock as is, unchecked against `pyproject.toml` (the
+## tests check it). The build fails unless the base image has the locked FOCA
+## release (`scripts/image_requirements.py`). uv installs them into the
+## Python of the base image (`--system`), and its lock file in `/tmp` is
+## removed.
+## Unlike later FOCA images, the FOCA 0.13 image doesn't match the release:
+## its FOCA (version 0.13.0) requires pydantic 2, the release pydantic 1. So
+## the packages that it already has at the locked version are reinstalled
+## from the lock too (`--reinstall`), hash-checked, as all others. It marks
+## the packages it installed with files (`REQUESTED`) that their records
+## (`RECORD`) don't list, which uv would leave behind on replacing them (as a
+## second installed version), so they are removed first. pip and wheel of the
+## base image are removed, as nothing installs packages at runtime
+COPY pyproject.toml uv.lock scripts/image_requirements.py /tmp/src/
+RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
+  export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
+  && uv export --frozen --no-dev --no-emit-project \
+    --project /tmp/src --output-file /tmp/src/locked.txt \
+  && python /tmp/src/image_requirements.py /tmp/src/locked.txt > /tmp/src/requirements.txt \
+  && find /usr/local/lib -path "*/site-packages/*.dist-info/REQUESTED" -delete \
+  && uv pip install --system --reinstall --require-hashes --only-binary :all: \
+    --no-deps --compile-bytecode -r /tmp/src/requirements.txt \
+  && uv pip uninstall --system pip wheel \
+  && rm -f /tmp/uv-*.lock
 
-## Copy app files (only those listed in `.dockerignore`)
-COPY ./ /app
-
-## Install dependencies (including Gunicorn) and app; the app files stay owned
-## by root and readable, but not writable, for the app's user (whatever the
-## file modes and umask of the build host), so that the app cannot change its
-## own code or config; executables (`update-config-map.sh`) stay executable.
-## The code is compiled here, as the app's user cannot write bytecode caches
-RUN cd /app \
-  && pip install --no-cache-dir -r requirements.txt yq \
-  && python setup.py develop \
-  && python -m compileall -q /app/drs_filer \
-  && cd / \
-  && chmod -R u+rwX,go=rX /app
+## Install app from the wheel of the build stage (non-editable; the base
+## config and the API specifications are installed with the package, and
+## deployments override the config via `FOCA_CONFIG_OVERLAY`), without its
+## dependencies, installed above, and without an index and without network,
+## so that nothing is downloaded; then uv checks that the installed packages
+## (with those of the base image) meet each other's requirements, as nothing
+## was resolved. The installed files are owned by root, so the app's user
+## can't change its own code, config or specifications
+RUN --network=none --mount=from=build,source=/tmp/dist,target=/tmp/dist \
+  --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
+  export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
+  && uv pip install --system --offline --no-index --no-deps \
+    --compile-bytecode /tmp/dist/*.whl \
+  && uv pip check --system \
+  && rm -rf /tmp/src /tmp/uv-*.lock
 
 ## Run as non-root user (group 0, as for arbitrary user IDs, e.g., on
 ## OpenShift)
 USER 1000:0
 
-## The API specifications in the config are relative to the working directory
-WORKDIR /app/drs_filer
+## Probe the Swagger UI, which needs neither authentication nor the database;
+## set `HEALTHCHECK_URL` if Gunicorn's `--bind` changes the port, or the config
+## changes the API base path or the Swagger UI setting
+ENV HEALTHCHECK_URL=http://localhost:8080/ga4gh/drs/v1/ui/
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen(os.environ['HEALTHCHECK_URL'], timeout=4)"]
 
 ## Serve with Gunicorn (settings in `drs_filer/gunicorn_config.py`; override
-## them via `GUNICORN_CMD_ARGS`, e.g., `--workers 2`). For development,
-## `python app.py` runs Flask's development server instead
+## them via `GUNICORN_CMD_ARGS`, e.g., `--workers 2`); each worker creates the
+## app (no preloading). `python -m drs_filer.app` runs Flask's development
+## server instead
 CMD ["gunicorn", "--config", "python:drs_filer.gunicorn_config", \
   "drs_filer.app:create_app()"]

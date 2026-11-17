@@ -1,5 +1,0 @@
-flask
-flake8
-mongomock
-pytest
-pytest-cov

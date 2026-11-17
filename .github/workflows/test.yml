@@ -10,25 +10,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4.1.7
     
+    # Waits until the health checks of both services pass
     - name: Build and run Docker Compose
-      run: docker compose up --build -d
+      run: docker compose up --build --detach --wait --wait-timeout 180
 
-    - name: Wait for the services to be ready
-      run: |
-        echo "Waiting for the services to be ready..."
-        for i in {1..10}; do
-          if curl -sSf http://localhost:8080/ga4gh/drs/v1 > /dev/null; then
-            echo "Service is up!"
-            break
-          fi
-          echo "Waiting for the service to be ready..."
-          sleep 3
-        done
-      
+    - name: Show the logs of the services
+      if: failure()
+      run: docker compose logs
+
     - name: Set up Python
       uses: actions/setup-python@v5.1.0
       with:
-        python-version: 3.11
+        python-version: "3.12"
         
     - name: Install dependencies
       run: |

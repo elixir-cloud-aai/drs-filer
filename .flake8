@@ -1,0 +1,5 @@
+[flake8]
+# As Black (and ruff, which replaces flake8 later)
+max-line-length = 88
+extend-ignore = E203
+extend-exclude = .venv,.uv-cache

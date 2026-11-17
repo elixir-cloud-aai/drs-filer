@@ -1,16 +1,18 @@
-# Only send the files needed at runtime to the build context
+# Only send the files needed to build the image to the build context
 *
 # The package: code, config and API specifications only, so that other local
-# files in it (e.g., config copies, logs) don't reach the image
+# files in it (e.g., config copies, logs) don't reach the image; the wheel
+# takes only the package data listed in `pyproject.toml` of these
 !drs_filer/**/*.py
 !drs_filer/config.yaml
 !drs_filer/api/*.yaml
 !LICENSE
+!pyproject.toml
+# The lock, from which the image build installs the dependencies
+!uv.lock
 !README.md
-!requirements.txt
-!setup.py
-# Run by the Helm chart's ConfigMap Job
-!update-config-map.sh
+# Run by the image build to list the requirements to install
+!scripts/image_requirements.py
 
 # Exclude caches and local files within the included paths
 **/__pycache__
