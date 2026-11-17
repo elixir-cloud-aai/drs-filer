@@ -162,14 +162,21 @@ ConfigMap, from the value `host_name`; it doesn't set the service info.
 ### Running locally for development
 
 For development, install the app with its locked dependencies, including the
-`dev` extra, with [uv][res-uv] (into `.venv`), and run the linter and the
-unit tests:
+`dev` extra, with [uv][res-uv] (into `.venv`), install the Git hooks, and
+run the linters and the unit tests:
 
 ```bash
 uv sync --locked --extra dev
-uv run flake8
+uv run pre-commit install
+uv run pre-commit run --all-files
 uv run pytest
 ```
+
+The hooks (`.pre-commit-config.yaml`) run on every commit: ruff (linting and
+formatting), mypy (complete type hints), semgrep and ast-grep with the
+project's rules (`.semgrep/`, `.ast-grep/`) and their rule tests, gitleaks,
+actionlint and basic file checks. CI runs the same hooks on all files.
+Docstrings follow the Google style, at all levels, tests included.
 
 To change dependencies, edit `pyproject.toml` and update the lock with
 `uv lock`.
