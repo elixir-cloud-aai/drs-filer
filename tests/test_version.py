@@ -28,6 +28,13 @@ def test_installed_version() -> None:
     assert str(Version(installed)) == installed
 
 
+def test_module_version() -> None:
+    """The package's `__version__` is the installed version, not a constant."""
+    import drs_filer
+
+    assert drs_filer.__version__ == version("drs-filer")
+
+
 def test_fallback_version() -> None:
     """Builds without Git metadata get a development version."""
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())

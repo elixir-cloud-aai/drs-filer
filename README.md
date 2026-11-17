@@ -229,11 +229,19 @@ repository's default branch:
 - **Docker Compose:** the app's service is `drs-filer` (was `drs`), published
   on `127.0.0.1:8080` only, and MongoDB is 7.0 (was 3.6), not published on
   the host, with its data in the volume `mongodb-data` (was the directory
-  `../data/drs/db`). MongoDB 7.0 can't read the data files of MongoDB 3.6;
-  to keep the data, dump it with the old setup before upgrading
-  (`docker compose exec mongodb mongodump --archive > drs.archive`), then
-  restore it into the new one (`docker compose exec -T mongodb mongorestore
-  --archive < drs.archive`).
+  `../data/drs/db`). MongoDB 7.0 can't read the data files of MongoDB 3.6.
+  To keep the data, migrate it without the app running, so that no write is
+  lost:
+  1. With the old checkout: `docker compose stop drs`, then
+     `docker compose exec mongodb mongodump --archive > drs.archive`, then
+     `docker compose down`.
+  2. With the new checkout: `docker compose up --detach --wait mongodb`
+     (MongoDB only), then `docker compose exec -T mongodb mongorestore
+     --archive < drs.archive`, and only then
+     `docker compose up --build --detach --wait`.
+
+  Restored objects keep the `self_uri` and access URLs they were registered
+  with (e.g., of an earlier public URL); `drs://` self URIs come with #97.
 - **Helm chart (3.0.0):** the Job that wrote the config into the ConfigMap
   (with a service account bound to the `admin` cluster role) is replaced by
   a ConfigMap with the chart's overlay; the value `apiServer` is gone, and
