@@ -17,7 +17,7 @@ db:
                     indexes:
                         - keys:
                               id: 1
-                          options: 
+                          options:
                             'unique': True
                 service_info:
                     indexes:

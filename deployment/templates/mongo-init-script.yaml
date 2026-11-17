@@ -18,4 +18,3 @@ data:
       { id: 1 },
       { unique: true}
     );
-

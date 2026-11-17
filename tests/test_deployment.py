@@ -7,7 +7,7 @@ the chart pass in `FOCA_CONFIG_OVERLAY`, and what Compose publishes.
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 import yaml
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HELM = shutil.which("helm")
 
 
-def _compose() -> Dict[str, Any]:
+def _compose() -> dict[str, Any]:
     """Load the Compose file.
 
     Returns:
@@ -27,7 +27,7 @@ def _compose() -> Dict[str, Any]:
     return yaml.safe_load((ROOT / "docker-compose.yaml").read_text())
 
 
-def test_compose_overlay_mounted():
+def test_compose_overlay_mounted() -> None:
     """Compose's default overlay is the mounted `config.dev.yaml`."""
     service = _compose()["services"]["drs-filer"]
     default = service["environment"][app_module.OVERLAY_VARIABLE]
@@ -36,7 +36,7 @@ def test_compose_overlay_mounted():
     assert f"./config.dev.yaml:{path}:ro" in service["volumes"]
 
 
-def test_compose_published_on_loopback_only():
+def test_compose_published_on_loopback_only() -> None:
     """Only the app is published, on the host's loopback interface.
 
     DRS-Filer has no authentication, and MongoDB none in Compose.
@@ -51,7 +51,7 @@ def test_compose_published_on_loopback_only():
     }
 
 
-def _render(*args: str) -> List[Dict[str, Any]]:
+def _render(*args: str) -> list[dict[str, Any]]:
     """Render the Helm chart.
 
     Args:
@@ -71,7 +71,7 @@ def _render(*args: str) -> List[Dict[str, Any]]:
 
 
 @pytest.mark.skipif(HELM is None, reason="helm not installed")
-def test_chart_overlay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_chart_overlay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """The chart's overlay sets the public URL and MongoDB host of the app.
 
     The Deployment mounts the ConfigMap and points `FOCA_CONFIG_OVERLAY` to
@@ -113,7 +113,7 @@ def test_chart_overlay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
 
 @pytest.mark.skipif(HELM is None, reason="helm not installed")
-def test_chart_without_config_job():
+def test_chart_without_config_job() -> None:
     """The chart has no Job, and no service account with cluster roles.
 
     The Job that wrote the config needed the `admin` cluster role.

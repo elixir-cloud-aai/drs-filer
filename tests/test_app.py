@@ -2,19 +2,19 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock, patch
 
+from foca.config.config_parser import ConfigParser
 import pytest
 import yaml
-from foca.config.config_parser import ConfigParser
 
 from drs_filer import app as app_module
 
 PACKAGE_DIR = Path(app_module.__file__).resolve().parent
 
 
-def _create_app(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
+def _create_app(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Create the app with FOCA's config parsing, but without a database.
 
     Args:
@@ -25,7 +25,7 @@ def _create_app(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
         read when FOCA parsed it), the working directory (`cwd`), and the
         parsed config (`config`).
     """
-    calls: Dict[str, Any] = {}
+    calls: dict[str, Any] = {}
 
     def foca(config_file: Path) -> MagicMock:
         calls["file"] = Path(config_file)
@@ -42,7 +42,7 @@ def _create_app(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
     return calls
 
 
-def _write(path: Path, content: Dict[str, Any]) -> str:
+def _write(path: Path, content: dict[str, Any]) -> str:
     """Write a config overlay.
 
     Args:
@@ -56,11 +56,13 @@ def _write(path: Path, content: Dict[str, Any]) -> str:
     return str(path)
 
 
-def test_create_app():
+def test_create_app() -> None:
     """The app is created from the packaged config, with the service info."""
-    with patch.object(app_module, "Foca") as foca, patch.object(
-        app_module, "RegisterServiceInfo"
-    ) as service_info, patch.dict(os.environ):
+    with (
+        patch.object(app_module, "Foca") as foca,
+        patch.object(app_module, "RegisterServiceInfo") as service_info,
+        patch.dict(os.environ),
+    ):
         os.environ.pop(app_module.OVERLAY_VARIABLE, None)
         app = app_module.create_app()
     assert foca.call_args.kwargs["config_file"] == PACKAGE_DIR / "config.yaml"
@@ -70,7 +72,7 @@ def test_create_app():
 
 def test_create_app_any_working_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+) -> None:
     """The API specifications are found from any working directory.
 
     Their paths in the config are relative to the package, so that the
@@ -85,7 +87,7 @@ def test_create_app_any_working_directory(
     monkeypatch.chdir(tmp_path)
     calls = _create_app(monkeypatch)
     assert calls["cwd"] == PACKAGE_DIR
-    paths: List[Path] = [
+    paths: list[Path] = [
         path for spec in calls["config"].api.specs for path in spec.path
     ]
     assert paths
@@ -95,7 +97,7 @@ def test_create_app_any_working_directory(
     assert Path.cwd() == tmp_path
 
 
-def test_create_app_overlays(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_create_app_overlays(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Overlays from `FOCA_CONFIG_OVERLAY` are merged into the config.
 
     As in later FOCA versions: in order, separated by `:`; mappings are
@@ -133,7 +135,9 @@ def test_create_app_overlays(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     assert not calls["file"].exists()
 
 
-def test_create_app_overlay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_create_app_overlay_empty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """An empty overlay changes nothing.
 
     Args:
@@ -144,14 +148,12 @@ def test_create_app_overlay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     overlay.write_text("")
     monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(overlay))
     calls = _create_app(monkeypatch)
-    assert calls["content"] == yaml.safe_load(
-        (PACKAGE_DIR / "config.yaml").read_text()
-    )
+    assert calls["content"] == yaml.safe_load((PACKAGE_DIR / "config.yaml").read_text())
 
 
 def test_create_app_overlay_not_mapping(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+) -> None:
     """An overlay that isn't a mapping is refused.
 
     Args:
@@ -161,13 +163,13 @@ def test_create_app_overlay_not_mapping(
     overlay = tmp_path / "list.yaml"
     overlay.write_text("- a\n- b\n")
     monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(overlay))
-    with pytest.raises(ValueError, match="list.yaml"):
+    with pytest.raises(ValueError, match=r"list\.yaml"):
         _create_app(monkeypatch)
 
 
 def test_create_app_overlay_relative(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+) -> None:
     """Relative overlay paths are relative to the working directory.
 
     Not to the package directory, in which FOCA parses the config: a local
@@ -186,7 +188,7 @@ def test_create_app_overlay_relative(
 
 
 @pytest.mark.parametrize("overlays", ["", ":", "::"])
-def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str):
+def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str) -> None:
     """Without overlay paths, FOCA parses the packaged config itself.
 
     Args:
@@ -200,7 +202,7 @@ def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str):
 
 def test_create_app_overlay_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+) -> None:
     """A missing overlay fails the start, naming the file.
 
     A typo in a deployment's overlay path must not start the app with the
@@ -211,11 +213,11 @@ def test_create_app_overlay_missing(
         tmp_path: Directory without the overlay.
     """
     monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(tmp_path / "missing.yaml"))
-    with pytest.raises(FileNotFoundError, match="missing.yaml"):
+    with pytest.raises(FileNotFoundError, match=r"missing\.yaml"):
         _create_app(monkeypatch)
 
 
-def test_merge():
+def test_merge() -> None:
     """Mappings are merged recursively; other values replace the base's."""
     base = {"a": {"b": 1, "c": [1, 2]}, "d": {"e": 1}, "f": 1}
     overlay = {"a": {"c": [3], "g": 2}, "d": None, "h": {"i": 1}}
@@ -229,7 +231,7 @@ def test_merge():
     assert base == {"a": {"b": 1, "c": [1, 2]}, "d": {"e": 1}, "f": 1}
 
 
-def test_main():
+def test_main() -> None:
     """The development server runs the app on the configured port."""
     app = MagicMock()
     with patch.object(app_module, "create_app", return_value=app):

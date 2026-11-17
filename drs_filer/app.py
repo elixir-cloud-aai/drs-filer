@@ -5,12 +5,13 @@ The image serves the app with Gunicorn (`drs_filer.app:create_app()`, see
 development server, for development only.
 """
 
+from collections.abc import Mapping
 import contextlib
 import logging
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Dict, Mapping
+from typing import Any
 
 from connexion import App
 from foca import Foca
@@ -29,7 +30,7 @@ CONFIG_FILE = PACKAGE_DIR / "config.yaml"
 OVERLAY_VARIABLE = "FOCA_CONFIG_OVERLAY"
 
 
-def _merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any]:
+def _merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
     """Merge a config overlay into a config.
 
     Mappings are merged recursively; all other values of the overlay,
@@ -51,7 +52,7 @@ def _merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any
     return merged
 
 
-def _merged_config(overlays: str) -> Dict[str, Any]:
+def _merged_config(overlays: str) -> dict[str, Any]:
     """Get the base config with overlays merged into it.
 
     Args:
@@ -104,7 +105,7 @@ def _foca() -> Foca:
         with contextlib.chdir(PACKAGE_DIR):
             foca = Foca(config_file=Path(merged.name))
     # Logged once FOCA has configured logging
-    logger.info(f"Config overlays merged: {overlays}")
+    logger.info("Config overlays merged: %s", overlays)
     return foca
 
 
@@ -134,5 +135,5 @@ def main() -> None:
     app.run(port=app.port)
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

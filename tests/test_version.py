@@ -10,6 +10,8 @@ from packaging.version import Version
 import pytest
 import setuptools_scm
 
+import drs_filer
+
 ROOT = Path(__file__).parents[1]
 GIT = shutil.which("git")
 # Git options for commits and tags in a temporary repository: an identity,
@@ -30,8 +32,6 @@ def test_installed_version() -> None:
 
 def test_module_version() -> None:
     """The package's `__version__` is the installed version, not a constant."""
-    import drs_filer
-
     assert drs_filer.__version__ == version("drs-filer")
 
 

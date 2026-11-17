@@ -12,7 +12,7 @@ paths:
           name: Service info to add.
           description: Data object metadata.
           schema:
-            $ref: '#/definitions/ServiceRegister'     
+            $ref: '#/definitions/ServiceRegister'
       responses:
         '201':
           description: The service info was successfully created.
@@ -220,7 +220,7 @@ paths:
           type: string
       tags:
         - DRS-Filer
-      x-swagger-router-controller: ga4gh.drs.server    
+      x-swagger-router-controller: ga4gh.drs.server
 definitions:
   ServiceRegister:
       description: 'GA4GH service'

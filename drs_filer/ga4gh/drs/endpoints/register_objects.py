@@ -3,19 +3,19 @@
 import logging
 from random import choice
 import string
-from typing import (Dict, List, Optional)
+from typing import Any
 
-from flask import current_app
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import InternalServerError
+from drs_filer.utils import get_collection, get_foca_config
 
 logger = logging.getLogger(__name__)
 
 
 def register_object(
-    data: Dict,
-    object_id: Optional[str] = None,
+    data: dict[str, Any],
+    object_id: str | None = None,
     retries: int = 9,
 ) -> str:
     """Register data object.
@@ -31,59 +31,55 @@ def register_object(
         A unique identifier for the object.
     """
     # Set parameters
-    foca_config = current_app.config.foca
-    db_collection = (
-        foca_config.db.dbs['drsStore'].
-        collections['objects'].client
-    )
-    url_prefix = foca_config.endpoints['url_prefix']
-    external_host = foca_config.endpoints['external_host']
-    external_port = foca_config.endpoints['external_port']
-    api_path = foca_config.endpoints['api_path']
+    foca_config = get_foca_config()
+    db_collection = get_collection("objects")
+    url_prefix = foca_config.endpoints["url_prefix"]
+    external_host = foca_config.endpoints["external_host"]
+    external_port = foca_config.endpoints["external_port"]
+    api_path = foca_config.endpoints["api_path"]
 
     # Set flags and parameters for POST/PUT routes
     replace = True
     was_replaced = False
     if object_id is None:
         replace = False
-        id_length = (
-            foca_config.endpoints['objects']['id_length']
-        )
-        id_charset: str = (
-            foca_config.endpoints['objects']['id_charset']
-        )
+        id_length = foca_config.endpoints["objects"]["id_length"]
+        id_charset: str = foca_config.endpoints["objects"]["id_charset"]
         # evaluate character set expression or interpret literal string as set
+        # `eval()` of the operator's config (not of requests); replaced by a
+        # literal character set in #54
         try:
-            id_charset = eval(id_charset)
+            id_charset = eval(id_charset)  # noqa: S307
         except Exception:
-            id_charset = ''.join(sorted(set(id_charset)))
+            id_charset = "".join(sorted(set(id_charset)))
 
     # Add unique access identifiers for each access method
-    if 'access_methods' in data:
-        data['access_methods'] = __add_access_ids(
-            data=data['access_methods']
-        )
+    if "access_methods" in data:
+        data["access_methods"] = __add_access_ids(data=data["access_methods"])
 
     # Try to generate unique ID and insert object into database
     for i in range(retries + 1):
-        logger.debug(f"Trying to insert/update object: try {i}")
+        logger.debug("Trying to insert/update object: try %s", i)
 
         # Set or generate object identifier
-        data['id'] = object_id if object_id is not None else generate_id(
-            charset=id_charset,  # type: ignore
-            length=id_length,  # type: ignore
+        data["id"] = (
+            object_id
+            if object_id is not None
+            else generate_id(
+                charset=id_charset,
+                length=id_length,
+            )
         )
 
         # Generate DRS URL
-        data['self_uri'] = (
-            f"{url_prefix}://{external_host}:{external_port}/"
-            f"{api_path}/{data['id']}"
+        data["self_uri"] = (
+            f"{url_prefix}://{external_host}:{external_port}/{api_path}/{data['id']}"
         )
 
         # Replace or insert object, then return (PUT)
         if replace:
             result_object = db_collection.replace_one(
-                filter={'id': data['id']},
+                filter={"id": data["id"]},
                 replacement=data,
                 upsert=True,
             )
@@ -101,18 +97,18 @@ def register_object(
 
     else:
         logger.error(
-            f"Could not generate unique identifier. Tried {retries + 1} times."
+            "Could not generate unique identifier. Tried %s times.", retries + 1
         )
         raise InternalServerError
 
     if was_replaced:
-        logger.info(f"Replaced object with id '{data['id']}'.")
+        logger.info("Replaced object with id '%s'.", data["id"])
     else:
-        logger.info(f"Added object with id '{data['id']}'.")
-    return data['id']
+        logger.info("Added object with id '%s'.", data["id"])
+    return data["id"]
 
 
-def __add_access_ids(data: List) -> List:
+def __add_access_ids(data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Add access identifiers to posted access methods metadata.
 
     Args:
@@ -121,26 +117,23 @@ def __add_access_ids(data: List) -> List:
     Returns:
         Access methods metadata complete with unique access identifiers.
     """
-    foca_config = current_app.config.foca
-    id_charset = eval(
-        foca_config.endpoints['access_methods']['id_charset']
-    )
-    id_length = (
-        foca_config.endpoints['access_methods']['id_length']
-    )
+    foca_config = get_foca_config()
+    # `eval()` of the operator's config (not of requests); replaced by a
+    # literal character set in #54
+    id_charset = eval(foca_config.endpoints["access_methods"]["id_charset"])  # noqa: S307
+    id_length = foca_config.endpoints["access_methods"]["id_length"]
     access_ids = []
     for method in data:
         access_id = generate_id(id_charset, id_length)
         if access_id not in access_ids:
-            method['access_id'] = access_id
+            method["access_id"] = access_id
             access_ids.append(access_id)
 
     return data
 
 
 def generate_id(
-    charset: str = ''.join([string.ascii_letters, string.digits]),
-    length: int = 6
+    charset: str = "".join([string.ascii_letters, string.digits]), length: int = 6
 ) -> str:
     """Generate random string based on allowed set of characters.
 
@@ -152,4 +145,5 @@ def generate_id(
         Random string of specified length and composed of defined set of
         allowed characters.
     """
-    return ''.join(choice(charset) for __ in range(length))
+    # Identifiers, not secrets: a cryptographic generator is not needed
+    return "".join(choice(charset) for __ in range(length))  # noqa: S311
