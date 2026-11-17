@@ -1,12 +1,15 @@
 """App tests of the service info endpoints (`/service-info`)."""
 
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
 from pymongo.collection import Collection
+from pymongo.errors import PyMongoError
 import yaml
 
 from drs_filer.app import CONFIG_FILE
+from drs_filer.ga4gh.drs.endpoints import service_info as service_info_module
 from tests.mock_data import API, SERVICE_INFO, body
 
 
@@ -42,3 +45,13 @@ def test_get_service_info_not_found(
     service_info.delete_many({})
     response = client.get(f"{API}/service-info")
     assert response.status_code == 404
+
+
+def test_post_service_info_database_error(client: FlaskClient) -> None:
+    """A failing database is a server error."""
+    collection = MagicMock()
+    collection.replace_one.side_effect = PyMongoError("down")
+    with patch.object(service_info_module, "get_collection", return_value=collection):
+        response = client.post(f"{API}/service-info", json=SERVICE_INFO)
+    assert response.status_code == 500
+    assert body(response)["status_code"] == 500
