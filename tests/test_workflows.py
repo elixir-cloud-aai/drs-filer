@@ -56,6 +56,8 @@ def test_triggers() -> None:
     triggers = workflow[True]
     assert triggers["push"] == {"branches": ["dev"]}
     assert triggers["pull_request"]["branches"] == ["dev"]
+    # `edited`, so that the title check follows title changes
+    assert "edited" in triggers["pull_request"]["types"]
     for trigger in triggers.values():
         assert not {"paths", "paths-ignore"} & set(trigger)
 

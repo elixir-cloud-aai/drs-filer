@@ -12,8 +12,9 @@
 # run that skipped the tests would report "CI passed" for the commit. As in
 # trs-filer (`ci.yml`), without its chart, docs, release readiness, image
 # scan and signing jobs: the image is pushed by tag, not by digest, and isn't
-# scanned, signed or attested (drs-filer has no docs build and no release
-# workflow yet)
+# scanned or signed; it carries only BuildKit's unsigned SBOM and provenance
+# attestations, no signed GitHub attestations (drs-filer has no docs build
+# and no release workflow yet)
 
 name: CI
 on:
