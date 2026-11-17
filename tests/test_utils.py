@@ -22,9 +22,9 @@ def _app() -> Flask:
     """
     app = Flask(__name__)
     config = Config(db=MongoConfig(**MONGO_CONFIG))
-    config.db.dbs[DB].collections["objects"].client = (
-        mongomock.MongoClient().db.collection
-    )
+    config.db.dbs[DB].collections[
+        "objects"
+    ].client = mongomock.MongoClient().db.collection
     app.config.foca = config  # type: ignore[attr-defined]
     return app
 
