@@ -152,36 +152,48 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         `access_id` of deleted object.
 
     Raises:
+        drs_filer.errors.exceptions.ObjectNotFound: If the object doesn't
+            exist.
+        drs_filer.errors.exceptions.AccessMethodNotFound: If the object has
+            no access method with the given identifier.
         drs_filer.errors.exceptions.AccessMethodNotDeleted: If attempting to
-            delete the last remaining access method.
+            delete the last remaining access method, i.e., if the object has
+            no access method with another identifier.
+        drs_filer.errors.exceptions.InternalServerError: If the access method
+            could be deleted, but wasn't.
     """
     db_collection = get_collection("objects")
 
-    obj = GetObject.__wrapped__(object_id=object_id)
-    access_methods = obj["access_methods"]
-
-    if access_id not in [m.get("access_id", None) for m in access_methods]:
-        raise AccessMethodNotFound
-
-    if len(access_methods) == 1:
-        logger.error(
-            "Will not delete only remaining access method for object: %s", object_id
-        )
-        raise AccessMethodNotDeleted
-
+    # One atomic update: the access method is removed only if the object
+    # keeps an access method with another identifier, so that concurrent
+    # deletions can't remove the last one
     del_access_methods = db_collection.update_one(
-        filter={"id": object_id},
+        filter={
+            "id": object_id,
+            "access_methods.access_id": access_id,
+            "access_methods": {"$elemMatch": {"access_id": {"$ne": access_id}}},
+        },
         update={
             "$pull": {
                 "access_methods": {"access_id": access_id},
             },
         },
     )
-
     if del_access_methods.modified_count:
         return access_id
-    else:
-        raise InternalServerError
+
+    # Nothing deleted: find out why, from the current state of the object
+    obj = GetObject.__wrapped__(object_id=object_id)
+    access_methods = obj.get("access_methods", [])
+    access_ids = [m.get("access_id") for m in access_methods]
+    if access_id not in access_ids:
+        raise AccessMethodNotFound
+    if all(other == access_id for other in access_ids):
+        logger.error(
+            "Will not delete only remaining access method for object: %s", object_id
+        )
+        raise AccessMethodNotDeleted
+    raise InternalServerError
 
 
 @log_traffic
