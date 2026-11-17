@@ -178,7 +178,10 @@ paths:
     delete:
       summary: Delete object's access method.
       description: >-
-        Delete existing `AccessMethod` of `DrsObject`.
+        Delete existing `AccessMethod` of `DrsObject`. All access methods with
+        the given identifier are deleted, but only if the object keeps at
+        least one access method with another identifier (also under
+        concurrent deletions).
       operationId: DeleteAccessMethod
       responses:
         '200':
@@ -202,7 +205,9 @@ paths:
             schema:
               $ref: '#/definitions/Error'
         '409':
-            description: Refusing to delete the last remaining access method.
+            description: >-
+              Refusing to delete the last remaining access method, i.e., the
+              object has no access method with another identifier.
             schema:
               $ref: '#/definitions/Error'
         '500':

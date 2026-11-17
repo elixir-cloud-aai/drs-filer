@@ -133,3 +133,46 @@ def test_delete_access_method_not_modified(
     with patch.object(server, "get_collection", return_value=collection):
         response = client.delete(f"{API}/objects/{object_id}/access/{access_ids[0]}")
     assert response.status_code == 500
+
+
+def test_delete_access_method_duplicate_ids(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """An ID that all access methods share is not deleted; all of them stay."""
+    object_id, access_ids = _register(client, access_methods=2)
+    objects.update_one(
+        {"id": object_id},
+        {"$set": {"access_methods.1.access_id": access_ids[0]}},
+    )
+    response = client.delete(f"{API}/objects/{object_id}/access/{access_ids[0]}")
+    assert response.status_code == 409
+    obj = objects.find_one({"id": object_id})
+    assert obj is not None
+    assert len(obj["access_methods"]) == 2
+
+
+def test_delete_access_method_no_access_methods(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """Deleting from an object stored without access methods is a server error."""
+    object_id, access_ids = _register(client, access_methods=1)
+    objects.update_one({"id": object_id}, {"$unset": {"access_methods": ""}})
+    response = client.delete(f"{API}/objects/{object_id}/access/{access_ids[0]}")
+    assert response.status_code == 500
+
+
+def test_delete_access_method_other_without_id(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """An access method is deleted if another one, without an ID, stays."""
+    object_id, access_ids = _register(client, access_methods=2)
+    objects.update_one(
+        {"id": object_id}, {"$unset": {"access_methods.1.access_id": ""}}
+    )
+    response = client.delete(f"{API}/objects/{object_id}/access/{access_ids[0]}")
+    assert response.status_code == 200
+    obj = objects.find_one({"id": object_id})
+    assert obj is not None
+    # The requested method is gone; the one without an ID stays
+    assert len(obj["access_methods"]) == 1
+    assert "access_id" not in obj["access_methods"][0]
