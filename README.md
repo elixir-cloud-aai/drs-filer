@@ -108,6 +108,38 @@ config overlay file and list it in the environment variable
 overlays into the config on startup, in order. Mappings are merged
 recursively; all other values, including lists, replace those of the base
 config. Relative paths of API specifications are relative to the package.
+With overlays, the app writes the merged config to a temporary file (in
+`TMPDIR`, or `/tmp`) and removes it once parsed, so that directory must be
+writable (e.g., an `emptyDir` volume with a read-only root file system). A
+missing overlay fails the start.
+
+A deployment's overlay sets at least its public URL, from which the app
+builds the `self_uri` and access URLs of objects, and its service info
+(`GET /service-info`), as the base config has placeholders for both:
+
+```yaml
+endpoints:
+  url_prefix: https
+  external_host: drs.example.org
+  external_port: 443
+  service_info:
+    id: org.example.drs
+    name: DRS-Filer of Example
+    type:
+      group: org.ga4gh
+      artifact: drs
+      version: 1.1.0
+    description: Data Repository Service of Example
+    organization:
+      name: Example
+      url: https://example.org
+    contactUrl: mailto:drs@example.org
+    documentationUrl: https://github.com/elixir-cloud-aai/drs-filer
+    createdAt: "2026-01-01T00:00:00Z"
+    updatedAt: "2026-01-01T00:00:00Z"
+    environment: prod
+    version: 0.1.0
+```
 
 Docker Compose uses the overlay [`config.dev.yaml`][drs-filer-config-dev]
 (public URL `http://localhost:8080`, for the `self_uri` of objects). To use
@@ -125,7 +157,7 @@ services:
 ```
 
 The Helm chart writes its overlay (public URL and MongoDB host) to a
-ConfigMap, from the value `host_name`.
+ConfigMap, from the value `host_name`; it doesn't set the service info.
 
 ### Running locally for development
 

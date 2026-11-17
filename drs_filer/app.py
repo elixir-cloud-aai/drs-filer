@@ -23,11 +23,13 @@ logger = logging.getLogger(__name__)
 # The package, with the base config and the API specifications
 PACKAGE_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = PACKAGE_DIR / "config.yaml"
-# Config overlays, separated by `:`, as in later FOCA versions
+# Config overlays, separated by `:`, as in later FOCA versions, which merge
+# them themselves: remove `_merge()`, `_merged_config()` and the temporary
+# config of `_foca()` with the FOCA upgrade (#87)
 OVERLAY_VARIABLE = "FOCA_CONFIG_OVERLAY"
 
 
-def merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any]:
+def _merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any]:
     """Merge a config overlay into a config.
 
     Mappings are merged recursively; all other values of the overlay,
@@ -43,7 +45,7 @@ def merge(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> Dict[str, Any]
     merged = dict(base)
     for key, value in overlay.items():
         if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
-            merged[key] = merge(merged[key], value)
+            merged[key] = _merge(merged[key], value)
         else:
             merged[key] = value
     return merged
@@ -69,7 +71,7 @@ def _merged_config(overlays: str) -> Dict[str, Any]:
             continue
         if not isinstance(overlay, Mapping):
             raise ValueError(f"Config overlay '{path}' is not a mapping")
-        config = merge(config, overlay)
+        config = _merge(config, overlay)
         logger.info(f"Config overlay '{path}' merged.")
     return config
 

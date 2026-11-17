@@ -165,11 +165,41 @@ def test_create_app_overlay_not_mapping(
         _create_app(monkeypatch)
 
 
+@pytest.mark.parametrize("overlays", ["", ":", "::"])
+def test_create_app_no_overlays(monkeypatch: pytest.MonkeyPatch, overlays: str):
+    """Without overlay paths, FOCA parses the packaged config itself.
+
+    Args:
+        monkeypatch: Fixture to set the overlays with.
+        overlays: Value of `FOCA_CONFIG_OVERLAY` without paths.
+    """
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, overlays)
+    calls = _create_app(monkeypatch)
+    assert calls["file"] == PACKAGE_DIR / "config.yaml"
+
+
+def test_create_app_overlay_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """A missing overlay fails the start, naming the file.
+
+    A typo in a deployment's overlay path must not start the app with the
+    base config (e.g., the wrong public URL).
+
+    Args:
+        monkeypatch: Fixture to set the overlay with.
+        tmp_path: Directory without the overlay.
+    """
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(tmp_path / "missing.yaml"))
+    with pytest.raises(FileNotFoundError, match="missing.yaml"):
+        _create_app(monkeypatch)
+
+
 def test_merge():
     """Mappings are merged recursively; other values replace the base's."""
     base = {"a": {"b": 1, "c": [1, 2]}, "d": {"e": 1}, "f": 1}
     overlay = {"a": {"c": [3], "g": 2}, "d": None, "h": {"i": 1}}
-    assert app_module.merge(base, overlay) == {
+    assert app_module._merge(base, overlay) == {
         "a": {"b": 1, "c": [3], "g": 2},
         "d": None,
         "f": 1,

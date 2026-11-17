@@ -1,5 +1,5 @@
 # Config overlay for local development with Docker Compose; NOT for
-# deployments, which must set their own public URL (and service info) instead
+# deployments, which must set their own public URL and service info instead
 # (see "Configuration" in `README.md`)
 endpoints:
   # Public URL of the app as published by `docker-compose.yaml`, for the
