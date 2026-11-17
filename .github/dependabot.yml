@@ -1,0 +1,58 @@
+version: 2
+# No entry sets `target-branch`: pull requests go to the default branch
+# (`dev`) anyway, and while `target-branch` is set, GitHub doesn't apply
+# the entry's options (`labels`, `ignore`, ...) to security updates
+updates:
+  # Dependencies in `pyproject.toml` and the lock (`uv.lock`), updated
+  # together; CI's checks install the locked ones
+  - package-ecosystem: uv
+    directory: /
+    labels: ["type: dependencies"]
+    schedule:
+      interval: monthly
+    versioning-strategy: increase-if-necessary
+    ignore:
+      # connexion 3 needs a FOCA upgrade
+      - dependency-name: connexion
+        update-types: ["version-update:semver-major"]
+      # FOCA is bumped by hand, together with the base image (see the `docker`
+      # entry): the image build fails unless the base image has the locked
+      # FOCA, so separate pull requests of this entry and the `docker` entry
+      # would each fail
+      - dependency-name: foca
+    groups:
+      python-dependencies:
+        patterns: ["*"]
+        exclude-patterns: ["connexion", "foca"]
+  # Actions in the workflows
+  - package-ecosystem: github-actions
+    directory: /
+    labels: ["type: dependencies"]
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+  # Base image and uv image in the `Dockerfile` (tag and digest)
+  - package-ecosystem: docker
+    directory: /
+    labels: ["type: dependencies"]
+    schedule:
+      interval: monthly
+    ignore:
+      # FOCA is bumped by hand, in the base image and the `foca` requirement
+      # in `pyproject.toml` and `uv.lock` together (the image build fails
+      # unless the base image has the locked FOCA; see the `uv` entry)
+      - dependency-name: elixircloud/foca
+    groups:
+      docker:
+        patterns: ["*"]
+  # Hook revisions in `.pre-commit-config.yaml`
+  - package-ecosystem: pre-commit
+    directory: /
+    labels: ["type: dependencies"]
+    schedule:
+      interval: monthly
+    groups:
+      pre-commit:
+        patterns: ["*"]
