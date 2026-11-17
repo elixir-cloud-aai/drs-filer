@@ -132,6 +132,16 @@ def test_python_of_image() -> None:
     assert set(versions) == {match[1]}
 
 
+def test_citation_validated() -> None:
+    """The lint job validates `CITATION.cff` with a pinned cffconvert."""
+    commands = [step.get("run", "") for step in _ci()["jobs"]["lint"]["steps"]]
+    assert (
+        "pipx run --spec cffconvert==2.0.0 cffconvert --validate -i CITATION.cff"
+        in commands
+    )
+    assert (ROOT / "CITATION.cff").is_file()
+
+
 def test_no_job_concurrency() -> None:
     """No job has a concurrency group of its own.
 

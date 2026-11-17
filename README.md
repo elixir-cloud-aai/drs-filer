@@ -252,7 +252,8 @@ gate, publishing condition and action pins. Its jobs:
 - **PR title** (`title`): Conventional Commits, at most 50 characters (the
   title becomes the commit message of the squash merge).
 - **Lint** (`lint`): checks the lock file, runs all hooks of
-  `.pre-commit-config.yaml` and scans the whole checkout for secrets.
+  `.pre-commit-config.yaml`, scans the whole checkout for secrets and
+  validates `CITATION.cff` (cffconvert).
 - **Test** (`test`): `Test (mongomock)` with coverage, uploaded to Codecov
   (repository secret `CODECOV_TOKEN`; uploads fail the run only on pushes
   to this repository), and `Test (MongoDB 7.0)` against a real MongoDB.
