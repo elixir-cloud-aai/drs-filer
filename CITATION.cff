@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the metadata from this file.
+  Authors are listed by the number of lines they committed, then by the
+  number of their commits; equal contributors, if any, are listed
+  alphabetically by family name and marked with an asterisk (*) after their
+  family names. To add or correct your entry, open an issue or a pull
+  request.
+title: DRS-Filer
+abstract: >-
+  DRS-Filer is a microservice that implements the GA4GH Data Repository
+  Service (DRS) API, so that clients such as workflow engines and execution
+  services can resolve data objects by their IDs, and get their metadata,
+  checksums and the URLs to access them. Additional endpoints list,
+  register, update and delete objects and set the service info. It is built with FOCA
+  and deployed with Docker Compose or its Helm chart.
+type: software
+authors:
+  - given-names: Alexander
+    family-names: Kanitz
+    orcid: "https://orcid.org/0000-0002-3468-0652"
+    affiliation: >-
+      Biozentrum, University of Basel, Basel, Switzerland; SIB Swiss Institute
+      of Bioinformatics, Lausanne, Switzerland
+  - given-names: Sarthak
+    family-names: Gupta
+  - given-names: Akash
+    family-names: Saini
+  - given-names: Pratiksha
+    family-names: Sankhe
+  - given-names: Chinmay
+    family-names: Vibhute
+  - given-names: Álvaro
+    family-names: González Álvarez
+  - given-names: Joris
+    family-names: Vankerschaver
+  - given-names: Tristan
+    family-names: Perard
+repository-code: "https://github.com/elixir-cloud-aai/drs-filer"
+keywords:
+  - GA4GH
+  - Data Repository Service
+  - DRS
+  - data repository
+  - REST API
+  - OpenAPI
+  - FOCA
+license: Apache-2.0

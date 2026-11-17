@@ -89,7 +89,7 @@ module = ["tests.ga4gh.*"]
 disable_error_code = ["attr-defined"]
 
 [tool.coverage.run]
-source = ["drs_filer"]
+source = ["drs_filer", "scripts"]
 
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']
