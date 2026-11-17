@@ -201,8 +201,8 @@ it.
 ### Tests
 
 The tests come in three levels; `uv run pytest` runs the first two, which
-must cover the code completely (`fail_under` in `pyproject.toml`, and
-`codecov.yml`):
+must cover the code completely (`fail_under` in `pyproject.toml`; the same
+targets for Codecov in `codecov.yml`, once CI uploads coverage, #81):
 
 - **Unit tests** (`tests/ga4gh/`, `tests/test_*.py`): controllers and
   helpers with bare Flask apps, the config, the image and the chart.

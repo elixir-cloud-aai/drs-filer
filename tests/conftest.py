@@ -30,6 +30,7 @@ from foca.database import register_mongodb
 import mongomock
 from pymongo import MongoClient, uri_parser
 from pymongo.collection import Collection
+from pymongo.errors import PyMongoError
 import pytest
 
 from drs_filer.app import OVERLAY_VARIABLE, create_app
@@ -156,6 +157,13 @@ def _mongodb() -> Iterator[MongoClient[dict[str, Any]] | None]:
         MONGODB_TEST_URI, serverSelectionTimeoutMS=5000
     )
     try:
+        try:
+            client.admin.command("ping")
+        except PyMongoError as err:
+            pytest.exit(
+                f"MongoDB at MONGODB_TEST_URI is not reachable: {err}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
         _check_no_db(client)
         yield client
         client.drop_database(DB)

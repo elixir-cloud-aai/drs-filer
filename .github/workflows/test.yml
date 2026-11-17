@@ -23,7 +23,7 @@ jobs:
       with:
         python-version: "3.12"
 
-    # The locked dependencies, for the test fixtures and mock data
+    # The locked dependencies, for the mock data of the smoke test
     - name: Install dependencies
       run: |
         python -m pip install "uv>=0.12"
