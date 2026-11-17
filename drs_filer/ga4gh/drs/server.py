@@ -1,9 +1,9 @@
 """Controllers for DRS endpoints."""
 
 import logging
-from typing import Dict, List, Tuple
+from typing import Any, cast
 
-from flask import current_app, request
+from flask import request
 from foca.utils.logging import log_traffic
 
 from drs_filer.errors.exceptions import (
@@ -19,20 +19,28 @@ from drs_filer.ga4gh.drs.endpoints.register_objects import (
 from drs_filer.ga4gh.drs.endpoints.service_info import (
     RegisterServiceInfo,
 )
+from drs_filer.utils import get_collection
 
 logger = logging.getLogger(__name__)
 
 
+def _request_body() -> dict[str, Any]:
+    """Get the JSON body of the current request.
+
+    Returns:
+        Request body, validated by Connexion against the API specification.
+    """
+    return cast(dict[str, Any], request.json)
+
+
 @log_traffic
-def ListDrsObjects() -> List[Dict]:
+def ListDrsObjects() -> list[dict[str, Any]]:
     """Get all DRS objects.
 
     Returns:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
-    db_collection = (
-        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
-    )
+    db_collection = get_collection("objects")
     cursor = db_collection.find({}, {"_id": 0})
     objects = []
     for obj in cursor:
@@ -41,7 +49,7 @@ def ListDrsObjects() -> List[Dict]:
 
 
 @log_traffic
-def GetObject(object_id: str) -> Dict:
+def GetObject(object_id: str) -> dict[str, Any]:
     """Get DRS object.
 
     Args:
@@ -50,9 +58,7 @@ def GetObject(object_id: str) -> Dict:
     Returns:
         DRS object as dictionary, JSONified if returned in app context.
     """
-    db_collection = (
-        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
-    )
+    db_collection = get_collection("objects")
     obj = db_collection.find_one({"id": object_id})
     if not obj:
         raise ObjectNotFound
@@ -61,7 +67,7 @@ def GetObject(object_id: str) -> Dict:
 
 
 @log_traffic
-def GetAccessURL(object_id: str, access_id: str) -> Dict:
+def GetAccessURL(object_id: str, access_id: str) -> dict[str, Any]:
     """Get access URL of DRS object.
 
     Args:
@@ -81,8 +87,8 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
         ]
     # An access methods dictionary is required for every object and it needs
     # to contain a list of dictionaries wth keys `access_url` and `access_id`
-    except KeyError:
-        raise InternalServerError
+    except KeyError as err:
+        raise InternalServerError from err
     if not access_urls:
         raise URLNotFound
     elif len(access_urls) == 1:
@@ -93,7 +99,7 @@ def GetAccessURL(object_id: str, access_id: str) -> Dict:
 
 
 @log_traffic
-def getServiceInfo() -> Dict:
+def getServiceInfo() -> dict[str, Any]:
     """Show information about this service.
 
     Returns:
@@ -104,19 +110,19 @@ def getServiceInfo() -> Dict:
 
 
 @log_traffic
-def postServiceInfo() -> Tuple[None, str, Dict]:
+def postServiceInfo() -> tuple[None, int, dict[str, Any]]:
     """Show information about this service.
 
     Returns:
         An empty 201 response with headers.
     """
     service_info = RegisterServiceInfo()
-    headers = service_info.set_service_info_from_app_context(data=request.json)
-    return None, "201", headers
+    headers = service_info.set_service_info_from_app_context(data=_request_body())
+    return None, 201, headers
 
 
 @log_traffic
-def DeleteObject(object_id):
+def DeleteObject(object_id: str) -> str:
     """Delete DRS object.
 
     Args:
@@ -125,10 +131,7 @@ def DeleteObject(object_id):
     Returns:
         `object_id` of deleted object.
     """
-
-    db_collection = (
-        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
-    )
+    db_collection = get_collection("objects")
     obj = db_collection.find_one({"id": object_id})
     if not obj:
         raise ObjectNotFound
@@ -152,10 +155,7 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         drs_filer.errors.exceptions.AccessMethodNotDeleted: If attempting to
             delete the last remaining access method.
     """
-
-    db_collection = (
-        current_app.config.foca.db.dbs["drsStore"].collections["objects"].client
-    )
+    db_collection = get_collection("objects")
 
     obj = GetObject.__wrapped__(object_id=object_id)
     access_methods = obj["access_methods"]
@@ -165,7 +165,7 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
 
     if len(access_methods) == 1:
         logger.error(
-            f"Will not delete only remaining access method for object: {object_id}"
+            "Will not delete only remaining access method for object: %s", object_id
         )
         raise AccessMethodNotDeleted
 
@@ -187,11 +187,11 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
 @log_traffic
 def PostObject() -> str:
     """Register new DRS object."""
-    return register_object(data=request.json)
+    return register_object(data=_request_body())
 
 
 @log_traffic
-def PutObject(object_id: str):
+def PutObject(object_id: str) -> str:
     """Add/replace DRS object with a user-supplied ID.
 
     Args:
@@ -202,6 +202,6 @@ def PutObject(object_id: str):
 
     """
     return register_object(
-        data=request.json,
+        data=_request_body(),
         object_id=object_id,
     )

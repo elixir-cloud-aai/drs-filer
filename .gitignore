@@ -228,3 +228,7 @@ tags
 .uv-cache/
 # Local config overlays (see "Configuration" in `README.md`)
 config.local.yaml
+
+# pre-commit environments and tool caches, if kept in the working copy
+.pre-commit-cache/
+.cache/

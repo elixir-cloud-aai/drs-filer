@@ -61,6 +61,11 @@ disallow_untyped_defs = true
 disallow_any_generics = true
 warn_unused_ignores = true
 
+# FOCA 0.13 ships no type information
+[[tool.mypy.overrides]]
+module = ["foca", "foca.*"]
+ignore_missing_imports = true
+
 # Connexion 2 ships no type information
 [[tool.mypy.overrides]]
 module = ["connexion", "connexion.*"]
@@ -70,6 +75,19 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["gunicorn", "gunicorn.*"]
 ignore_missing_imports = true
+
+# mongomock ships no type information (used by the tests only)
+[[tool.mypy.overrides]]
+module = ["mongomock", "mongomock.*"]
+ignore_missing_imports = true
+
+# FOCA attaches its config to Flask's config at runtime (`app.config.foca`),
+# which the tests set up directly; the app code reads it through
+# `drs_filer.utils.get_foca_config()` (`tests/` is no package, so mypy names
+# the test modules by file name)
+[[tool.mypy.overrides]]
+module = ["test_register_objects", "test_server", "test_service_info"]
+disable_error_code = ["attr-defined"]
 
 [tool.coverage.run]
 source = ["drs_filer"]

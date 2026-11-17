@@ -1,28 +1,30 @@
+"""Exceptions of the app and their mapping to HTTP responses."""
+
 from connexion.exceptions import (
+    BadRequestProblem,
     ExtraParameterProblem,
     Forbidden,
     Unauthorized,
-    BadRequestProblem,
 )
-
 from werkzeug.exceptions import (
-    Conflict,
     BadRequest,
+    Conflict,
     InternalServerError,
     NotFound,
 )
 
 
 class AccessMethodNotDeleted(Conflict):
-    """Raised when the client attempts to delete the last remaining access
-    method of an object."""
+    """Raised when deleting the last remaining access method of an object."""
 
     pass
 
 
 class AccessMethodNotFound(NotFound):
-    """Raised when access method of object with given object and access
-    identifiers was not found."""
+    """Raised when an access method of an object was not found.
+
+    The object and access method are those of the given identifiers.
+    """
 
     pass
 

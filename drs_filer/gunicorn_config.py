@@ -16,7 +16,6 @@ a proxy that sets them, set ``FORWARDED_ALLOW_IPS`` to its addresses.
 
 import os
 from pathlib import Path
-from typing import Optional
 
 # Address of the app; the Helm chart's Service and Docker Compose expect port
 # 8080 (the app config's `server` settings apply to the development server
@@ -46,7 +45,8 @@ accesslog = None
 errorlog = "-"
 
 
-def _worker_tmp_dir(shm: Path = Path("/dev/shm")) -> Optional[str]:
+# Shared memory, not a world-writable temporary directory
+def _worker_tmp_dir(shm: Path = Path("/dev/shm")) -> str | None:  # noqa: S108
     """Get the directory for the heartbeat files of workers.
 
     The files are updated on each heartbeat, so a memory-backed directory

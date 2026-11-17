@@ -30,7 +30,7 @@ import sys
 # A requirement of FOCA that is a direct reference, and one to a commit
 FOCA_REFERENCE = re.compile(r"\s*foca\s*(\[[^\]]*\])?\s*@", re.IGNORECASE)
 FOCA_COMMIT = re.compile(
-    r"\s*foca\s*@\s*git\+https://github\.com/elixir-cloud-aai/foca@(?P<sha>[0-9a-f]{40})\s*",  # noqa: E501
+    r"\s*foca\s*@\s*git\+https://github\.com/elixir-cloud-aai/foca@(?P<sha>[0-9a-f]{40})\s*",
     re.IGNORECASE,
 )
 # Any requirement of FOCA (not of a package whose name starts with `foca`), and
