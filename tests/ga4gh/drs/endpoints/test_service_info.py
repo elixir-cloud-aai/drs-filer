@@ -1,21 +1,21 @@
 """Unit tests for `RegisterService()` controller."""
 
-import mongomock
-import pytest
-import string  # noqa: F401
-
 from copy import deepcopy
-from flask import Flask
-from foca.models.config import Config, MongoConfig
-from pymongo.errors import DuplicateKeyError
-
+import string  # noqa: F401
+from typing import Any
 from unittest.mock import MagicMock
 
-from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
+from flask import Flask
+from foca.models.config import Config, MongoConfig
+import mongomock
+from pymongo.errors import DuplicateKeyError
+import pytest
+
 from drs_filer.errors.exceptions import (
     NotFound,
     ValidationError,
 )
+from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
 
 INDEX_CONFIG = {"keys": [("id", 1)]}
 COLLECTION_CONFIG = {
@@ -47,7 +47,7 @@ SERVICE_INFO_CONFIG = {
     "updatedAt": "2019-06-04T12:58:19Z",
     "version": "1.0.0",
 }
-ENDPOINT_CONFIG = {
+ENDPOINT_CONFIG: dict[str, Any] = {
     "objects": {"id_charset": "string.digits", "id_length": 6},
     "access_methods": {"id_charset": "string.digits", "id_length": 6},
     "service_info": deepcopy(SERVICE_INFO_CONFIG),
@@ -72,7 +72,7 @@ HEADERS_SERVICE_INFO = {
 }
 
 
-def test_get_service_info():
+def test_get_service_info() -> None:
     """Test for getting service info."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -91,7 +91,7 @@ def test_get_service_info():
         assert RegisterServiceInfo().get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test_get_service_info_na():
+def test_get_service_info_na() -> None:
     """Test for getting service info if unavailable."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -102,12 +102,11 @@ def test_get_service_info_na():
         "service_info"
     ].client = mongomock.MongoClient().db.collection
 
-    with app.app_context():
-        with pytest.raises(NotFound):
-            RegisterServiceInfo().get_service_info()
+    with app.app_context(), pytest.raises(NotFound):
+        RegisterServiceInfo().get_service_info()
 
 
-def test_set_service_info_from_config():
+def test_set_service_info_from_config() -> None:
     """Test for setting service info from config."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -124,7 +123,7 @@ def test_set_service_info_from_config():
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test_set_service_info_from_config_corrupt():
+def test_set_service_info_from_config_corrupt() -> None:
     """Test for setting service info from corrupt config."""
     app = Flask(__name__)
     mock_resp = deepcopy(ENDPOINT_CONFIG)
@@ -137,16 +136,13 @@ def test_set_service_info_from_config_corrupt():
         "service_info"
     ].client = mongomock.MongoClient().db.collection
 
-    with app.app_context():
-        with pytest.raises(ValidationError):
-            service_info = RegisterServiceInfo()
-            service_info.set_service_info_from_config()
+    with app.app_context(), pytest.raises(ValidationError):
+        service_info = RegisterServiceInfo()
+        service_info.set_service_info_from_config()
 
 
-def test_set_service_info_from_config_skip():
-    """Test for skipping setting service info because it is already
-    available.
-    """
+def test_set_service_info_from_config_skip() -> None:
+    """Test for skipping setting service info that is already available."""
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
@@ -166,7 +162,7 @@ def test_set_service_info_from_config_skip():
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test_get_service_info_duplicatekey():
+def test_get_service_info_duplicatekey() -> None:
     """Test for duplicated service info config."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -193,7 +189,7 @@ def test_get_service_info_duplicatekey():
         assert get_service_info == SERVICE_INFO_CONFIG
 
 
-def test_set_service_info_from_app_context():
+def test_set_service_info_from_app_context() -> None:
     """Test for setting service info from app context."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -212,7 +208,7 @@ def test_set_service_info_from_app_context():
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test__upsert_service_info_insert():
+def test__upsert_service_info_insert() -> None:
     """Test for creating service info document in database."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -232,7 +228,7 @@ def test__upsert_service_info_insert():
         assert service_info.get_service_info() != SERVICE_INFO_CONFIG
 
 
-def test__upsert_service_info_update():
+def test__upsert_service_info_update() -> None:
     """Test for replacing service info document in database."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -256,7 +252,7 @@ def test__upsert_service_info_update():
         assert service_info.get_service_info() != SERVICE_INFO_CONFIG
 
 
-def test__get_headers():
+def test__get_headers() -> None:
     """Test for response headers getter."""
     app = Flask(__name__)
     app.config.foca = Config(

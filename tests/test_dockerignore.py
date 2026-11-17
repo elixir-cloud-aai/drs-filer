@@ -1,15 +1,14 @@
 """Tests of the build context of the image (`.dockerignore`)."""
 
-import re
 from pathlib import Path
-from typing import List
+import re
 
 import pytest
 
 DOCKERIGNORE = Path(__file__).resolve().parents[1] / ".dockerignore"
 
 
-def _patterns() -> List[str]:
+def _patterns() -> list[str]:
     """Get the patterns of `.dockerignore`, without comments and blank lines.
 
     Returns:
@@ -101,7 +100,7 @@ def _is_excluded(path: str) -> bool:
         "scripts/other.py",
     ],
 )
-def test_excluded(path: str):
+def test_excluded(path: str) -> None:
     """Secret, local and unneeded files are left out of the build context.
 
     Args:
@@ -124,7 +123,7 @@ def test_excluded(path: str):
         "LICENSE",
     ],
 )
-def test_included(path: str):
+def test_included(path: str) -> None:
     """The files the image needs are in the build context.
 
     Args:

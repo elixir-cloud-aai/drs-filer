@@ -9,7 +9,7 @@ CONFIG_PATH = ROOT / "drs_filer" / "config.yaml"
 DEV_OVERLAY_PATH = ROOT / "config.dev.yaml"
 
 
-def test_debug_mode_off():
+def test_debug_mode_off() -> None:
     """The shipped config disables Flask's debug mode.
 
     Debug mode can enable the Werkzeug debugger, which allows code execution
@@ -20,7 +20,7 @@ def test_debug_mode_off():
     assert server["environment"] == "production"
 
 
-def test_operations_routed_to_package():
+def test_operations_routed_to_package() -> None:
     """All operations are routed to the controllers of the installed package.
 
     The vendored specifications name `ga4gh.drs.server`, which is importable
@@ -34,7 +34,7 @@ def test_operations_routed_to_package():
         }
 
 
-def test_dev_overlay():
+def test_dev_overlay() -> None:
     """The Compose overlay builds URLs of the host it publishes the app on.
 
     It changes nothing else, so that it keeps Flask's debug mode off.
