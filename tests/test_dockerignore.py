@@ -95,6 +95,10 @@ def _is_excluded(path: str) -> bool:
         ".git/config",
         "tests/test.py",
         "deployment/values.yaml",
+        "config.dev.yaml",
+        "docker-compose.yaml",
+        ".venv/bin/python",
+        "scripts/other.py",
     ],
 )
 def test_excluded(path: str):
@@ -113,11 +117,11 @@ def test_excluded(path: str):
         "drs_filer/ga4gh/drs/endpoints/service_info.py",
         "drs_filer/config.yaml",
         "drs_filer/api/additional.data_repository_service.swagger.yaml",
-        "setup.py",
-        "requirements.txt",
+        "pyproject.toml",
+        "uv.lock",
+        "scripts/image_requirements.py",
         "README.md",
         "LICENSE",
-        "update-config-map.sh",
     ],
 )
 def test_included(path: str):

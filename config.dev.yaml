@@ -1,0 +1,9 @@
+# Config overlay for local development with Docker Compose; NOT for
+# deployments, which must set their own public URL and service info instead
+# (see "Configuration" in `README.md`)
+endpoints:
+  # Public URL of the app as published by `docker-compose.yaml`, for the
+  # `self_uri` and access URLs of objects
+  url_prefix: http
+  external_host: localhost
+  external_port: 8080

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.drs_filer.appName }}-config
+data:
+  # Config overlay of the deployment, merged into the config of the image on
+  # startup (`FOCA_CONFIG_OVERLAY`, set in the Deployment)
+  config.yaml: |
+    db:
+      host: mongodb
+    endpoints:
+      url_prefix: https
+      external_host: {{ .Values.host_name | quote }}
+      external_port: 443

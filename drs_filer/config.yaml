@@ -33,6 +33,10 @@ api:
             - api/20200622.383121d.data_repository_service.swagger.yaml
             - api/additional.data_repository_service.swagger.yaml
           append: null
+          # The controllers of the installed package (the vendored
+          # specifications name `ga4gh.drs.server`)
+          add_operation_fields:
+              x-swagger-router-controller: drs_filer.ga4gh.drs.server
           connexion:
               strict_validation: True
               validate_responses: True
