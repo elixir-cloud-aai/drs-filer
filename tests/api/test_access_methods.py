@@ -173,4 +173,6 @@ def test_delete_access_method_other_without_id(
     assert response.status_code == 200
     obj = objects.find_one({"id": object_id})
     assert obj is not None
+    # The requested method is gone; the one without an ID stays
     assert len(obj["access_methods"]) == 1
+    assert "access_id" not in obj["access_methods"][0]
