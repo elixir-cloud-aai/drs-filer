@@ -122,7 +122,21 @@ def test_python_of_image() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text()
     match = re.search(r"-py(\d+\.\d+)@", dockerfile)
     assert match
+    versions = [
+        step["with"]["python-version"]
+        for job in _ci()["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("uses", "").startswith("actions/setup-python@")
+    ]
+    assert versions
+    assert set(versions) == {match[1]}
+
+
+def test_no_job_concurrency() -> None:
+    """No job has a concurrency group of its own.
+
+    A pending job in a group is cancelled when another one arrives, which
+    would fail the gate of its run.
+    """
     for job in _ci()["jobs"].values():
-        for step in job.get("steps", []):
-            if step.get("uses", "").startswith("actions/setup-python@"):
-                assert step["with"]["python-version"] == match[1]
+        assert "concurrency" not in job

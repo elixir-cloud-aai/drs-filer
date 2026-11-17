@@ -235,15 +235,16 @@ request bodies in `tests/mock_data.py`.
 ### Continuous integration
 
 One workflow, `.github/workflows/ci.yml` (`CI`), runs on pull requests and
-pushes to `dev`; `tests/test_workflows.py` checks its names, gate and
-publishing condition. Its jobs:
+pushes to `dev`; `tests/test_workflows.py` checks its names, triggers,
+gate, publishing condition and action pins. Its jobs:
 
 - **PR title** (`title`): Conventional Commits, at most 50 characters (the
   title becomes the commit message of the squash merge).
-- **Lint** (`lint`): the lock file, and all hooks of
-  `.pre-commit-config.yaml`, plus the secret scan of the whole checkout.
-- **Test** (`test`): `Test (mongomock)` with coverage, uploaded to Codecov,
-  and `Test (MongoDB 7.0)` against a real MongoDB.
+- **Lint** (`lint`): checks the lock file, runs all hooks of
+  `.pre-commit-config.yaml` and scans the whole checkout for secrets.
+- **Test** (`test`): `Test (mongomock)` with coverage, uploaded to Codecov
+  (repository secret `CODECOV_TOKEN`; uploads fail the run only on pushes
+  to this repository), and `Test (MongoDB 7.0)` against a real MongoDB.
 - **Smoke test** (`smoke`): the Compose stack, built from the checkout, with
   the smoke test against its API.
 - **Push image** (`push`): on pushes to `dev` only, once all other jobs

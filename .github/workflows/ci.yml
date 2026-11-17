@@ -10,8 +10,10 @@
 # instead (and allow the skip in the gate). Runs also when a pull request is
 # edited, so that the title check follows the title; all jobs run then, as a
 # run that skipped the tests would report "CI passed" for the commit. As in
-# trs-filer (`ci.yml`), without its chart, docs, release and image scan jobs
-# (drs-filer has no docs build and no release workflow yet)
+# trs-filer (`ci.yml`), without its chart, docs, release readiness, image
+# scan and signing jobs: the image is pushed by tag, not by digest, and isn't
+# scanned, signed or attested (drs-filer has no docs build and no release
+# workflow yet)
 
 name: CI
 on:
@@ -232,7 +234,10 @@ jobs:
   # Builds the image and pushes it, tagged `dev` and `sha-<commit>` (never
   # `latest`, which is for releases), once all other jobs passed. Pull
   # requests (e.g., of Dependabot and forks) and pushes in forks without
-  # `DOCKERHUB_ORG` get no Docker Hub secrets and publish nothing. Needs the
+  # `DOCKERHUB_ORG` get no Docker Hub secrets and publish nothing. Only the
+  # newest commit of the branch is pushed (the head check below), so that an
+  # older run can't overwrite `dev`; no job-level concurrency group, which
+  # would cancel pending jobs and fail their gates. Needs the
   # environment `dev-images`, with the secrets `DOCKERHUB_LOGIN` and
   # `DOCKERHUB_TOKEN`, restricted to branch `dev`: if it is missing, GitHub
   # creates it on the first run, unprotected and without the secrets, and
@@ -247,11 +252,6 @@ jobs:
     environment: dev-images
     permissions:
       contents: read
-    # Publish one image at a time, and only for the newest commit on the
-    # branch, so that an older run cannot overwrite `dev` with older code
-    concurrency:
-      group: ${{ github.workflow }}-push-${{ github.ref }}
-      cancel-in-progress: false
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
