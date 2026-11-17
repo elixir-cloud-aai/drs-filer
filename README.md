@@ -181,6 +181,17 @@ Docstrings follow the Google style, at all levels, tests included.
 To change dependencies, edit `pyproject.toml` and update the lock with
 `uv lock`.
 
+Dependabot ([`.github/dependabot.yml`][dependabot-config]) opens grouped
+pull requests against `dev` once a month, labelled `type: dependencies`, for
+the locked Python dependencies (`uv.lock`), the actions of the workflows, the
+images of the `Dockerfile` and the hook revisions of
+`.pre-commit-config.yaml`. FOCA is bumped by hand, never by Dependabot: the
+image build fails unless the base image (`elixircloud/foca` in the
+`Dockerfile`) has the locked FOCA release (`scripts/image_requirements.py`),
+so change the `foca` requirement in `pyproject.toml`, the lock (`uv lock`)
+and the base image's tag and digest together, in one pull request. Major
+updates of connexion wait for a FOCA upgrade, too.
+
 For development only, the app can be run with Flask's development server,
 from any directory, with a MongoDB instance reachable at the host and port
 set in `db` of the config, e.g., MongoDB published on the host (`ports:
@@ -309,6 +320,15 @@ repository's default branch:
   the ConfigMap is named `<appName>-config` (was `app-config`); `helm
   upgrade` removes the old resources.
 
+## Citation
+
+If you use DRS-Filer, please cite it with the metadata in
+[`CITATION.cff`][citation]: on GitHub, "Cite this repository" in the sidebar
+of the repository formats it as APA or BibTeX. Its `version` and
+`date-released` are set shortly before each release, with
+`python scripts/citation.py set <version>`; `python scripts/citation.py check
+<version>` checks them.
+
 ## Contributing
 
 This project is a community effort and lives off your contributions, be it in
@@ -344,6 +364,8 @@ question etc.
 [badge-url-coverage]:<https://codecov.io/gh/elixir-cloud-aai/drs-filer>
 [badge-url-github-tag]:<https://github.com/elixir-cloud-aai/drs-filer/releases>
 [badge-url-license]:<http://www.apache.org/licenses/LICENSE-2.0>
+[citation]: CITATION.cff
+[dependabot-config]: .github/dependabot.yml
 [dockerignore]: .dockerignore
 [drs-filer-compose-config]: docker-compose.yaml
 [drs-filer-config]: drs_filer/config.yaml
