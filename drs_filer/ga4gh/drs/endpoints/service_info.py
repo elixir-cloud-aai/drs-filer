@@ -2,21 +2,21 @@
 
 The service info is stored as a single record, with `_id` `CURRENT_ID`,
 which `GET /service-info` serves. On startup, the service info of the config
-replaces it, if it differs; `POST /service-info` replaces it until the next
-startup. Both remove the records that earlier versions stored (one per
-service info `id`).
+(FOCA's section `service_info`, with the version of the package unless
+`service_info.service.version` is set) replaces it, if it differs; `POST
+/service-info` replaces it until the next startup. Both remove the records
+that earlier versions stored (one per service info `id`).
 """
 
 import logging
 from typing import Any
 
+from foca.api.service_info import get_service_info as get_config_service_info
 from pymongo.errors import DuplicateKeyError
 
-from drs_filer.errors.exceptions import (
-    NotFound,
-    ValidationError,
-)
-from drs_filer.utils import get_collection, get_endpoints_config
+from drs_filer.custom_config import ServiceConfig
+from drs_filer.errors.exceptions import NotFound
+from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
 
@@ -34,23 +34,11 @@ class RegisterServiceInfo:
         """Initialize class requirements.
 
         Attributes:
-            url_prefix: URL scheme of application. For constructing tool and
-                version `url` properties.
-            host_name: Name of application host. For constructing tool and
-                version `url` properties.
-            external_port: Port at which application is served. For
-                constructing tool and version `url` properties.
-            api_path: Base path at which API endpoints can be reached. For
-                constructing tool and version `url` properties.
+            service: Public URL of the app (`custom.service`), for the
+                `Location` of posted service info.
             db_coll_info: Database collection storing service info objects.
-            conf_info: Service info details as per enpoints config.
         """
-        conf = get_endpoints_config()
-        self.url_prefix = conf["url_prefix"]
-        self.host_name = conf["external_host"]
-        self.external_port = conf["external_port"]
-        self.api_path = conf["api_path"]
-        self.conf_info = conf["service_info"]
+        self.service: ServiceConfig = get_custom_config().service
         self.db_coll_info = get_collection("service_info")
 
     def get_service_info(self) -> dict[str, Any]:
@@ -76,26 +64,20 @@ class RegisterServiceInfo:
 
         Will create service info if it does not exist or current
         configuration differs from available one, replacing service info
-        set by a request (`POST /service-info`).
+        set by a request (`POST /service-info`). FOCA validates the service
+        info of the config on startup, against the service info
+        specification.
 
         Raises:
-            drs_filer.errors.exceptions.ValidationError: Service info
-                configuration does not conform to API specification.
+            RuntimeError: No service info is configured (`service_info`).
         """
-        # The config isn't validated against the specification on startup; a
-        # missing `id` (or empty service info) would only show in requests
-        if "id" not in self.conf_info:
-            logger.error(
-                "The service info configuration does not conform to the "
-                "API specification."
-            )
-            raise ValidationError
+        conf_info = get_config_service_info()
         try:
             db_info = self.get_service_info()
         except NotFound:
             db_info = {}
-        if db_info != self.conf_info:
-            self._upsert_service_info(data=self.conf_info)
+        if db_info != conf_info:
+            self._upsert_service_info(data=conf_info)
             logger.info("Service info registered.")
         else:
             logger.info("Using available service info.")
@@ -163,7 +145,7 @@ class RegisterServiceInfo:
             "Content-type": "application/json",
         }
         headers["Location"] = (
-            f"{self.url_prefix}://{self.host_name}:{self.external_port}/"
-            f"{self.api_path}/service-info"
+            f"{self.service.url_prefix}://{self.service.external_host}:"
+            f"{self.service.external_port}/{self.service.api_path}/service-info"
         )
         return headers

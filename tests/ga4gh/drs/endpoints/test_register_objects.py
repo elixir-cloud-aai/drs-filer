@@ -1,6 +1,5 @@
 """Test cases for object registration."""
 
-from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,7 @@ from pymongo.errors import DuplicateKeyError
 import pytest
 from werkzeug.exceptions import InternalServerError
 
+from drs_filer.custom_config import CustomConfig
 from drs_filer.ga4gh.drs.endpoints.register_objects import (
     __add_access_ids,
     register_object,
@@ -29,24 +29,29 @@ MONGO_CONFIG: dict[str, Any] = {
         "drsStore": DB_CONFIG,
     },
 }
-ENDPOINT_CONFIG: dict[str, Any] = {
-    "objects": {"id_charset": "0123456789", "id_length": 6},
-    "access_methods": {"id_charset": "0123456789", "id_length": 6},
-    "url_prefix": "http",
-    "external_host": "1.2.3.4",
-    "external_port": 8080,
-    "api_path": "ga4gh/drs/v1",
-}
+# The app's own config: identifiers of digits, and the public URL
+CUSTOM_CONFIG = CustomConfig.model_validate(
+    {
+        "objects": {"id": {"charset": "0123456789", "length": 6}},
+        "access_methods": {"id": {"charset": "0123456789", "length": 6}},
+        "service": {
+            "url_prefix": "http",
+            "external_host": "1.2.3.4",
+            "external_port": 8080,
+            "api_path": "ga4gh/drs/v1",
+        },
+    }
+)
 
 
 def test_register_object_literal_id_charset() -> None:
     """Test for registering an object with an ID from a literal charset."""
     app = Flask(__name__)
-    endpoint_config = deepcopy(ENDPOINT_CONFIG)
-    endpoint_config["objects"]["id_charset"] = "abcdef"
+    custom = CUSTOM_CONFIG.model_copy(deep=True)
+    custom.objects.id.charset = "abcdef"
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=endpoint_config,
+        custom=custom,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -58,20 +63,18 @@ def test_register_object_literal_id_charset() -> None:
 
 
 def test_register_object_invalid_config() -> None:
-    """Test for registering an object with an invalid endpoint configuration."""
+    """Registering an object fails without the typed custom config."""
     app = Flask(__name__)
-    endpoint_config = deepcopy(ENDPOINT_CONFIG)
-    del endpoint_config["url_prefix"]
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=endpoint_config,
+        custom={"service": {"url_prefix": "http"}},
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
 
     request_data = {"name": "mock_name"}
-    with app.app_context(), pytest.raises(KeyError):
+    with app.app_context(), pytest.raises(RuntimeError):
         register_object(request_data)
 
 
@@ -80,7 +83,7 @@ def test_register_object_exceed_retries() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     mock_resp = MagicMock(side_effect=DuplicateKeyError(""))
     app.config.foca.db.dbs["drsStore"].collections["objects"].client = MagicMock()
@@ -94,12 +97,12 @@ def test_register_object_exceed_retries() -> None:
 
 
 def test_add_access_ids() -> None:
-    """Access identifiers follow the settings of `endpoints.access_methods`.
+    """Access identifiers follow the settings of `custom.access_methods.id`.
 
     Identifiers are drawn from `0123456789`, with length 6.
     """
     app = Flask(__name__)
-    app.config.foca = Config(endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(custom=CUSTOM_CONFIG)
     objects = json.loads(Path(data_objects_path).read_text())
     mock_data = objects[0]["access_methods"]
     with app.app_context():

@@ -15,7 +15,8 @@ fullnameOverride: ""
 
 # Public host name of the app (of the Ingress, HTTPRoute or Route); required.
 # Also sets the public URL of the app, for the `self_uri` of objects
-# (`endpoints` in the app config: `https://<hostName>:443/ga4gh/drs/v1/<id>`)
+# (`custom.service` in the app config:
+# `https://<hostName>:443/ga4gh/drs/v1/<id>`)
 hostName: ""
 
 # App config overriding the base config in the image (`drs_filer/config.yaml`
@@ -25,11 +26,12 @@ hostName: ""
 # authentication: everyone who can reach it can read and write (see
 # deployment/README.md, Access). Example:
 config: {}
-#   endpoints:
-#     # Service info (GA4GH `Service` schema), served as it is; the defaults
-#     # are placeholders, so set all fields of the deployment (mappings are
-#     # merged with the defaults)
-#     service_info:
+#   # Service info (GA4GH `Service` schema), validated on startup; the
+#   # defaults are placeholders, so set all fields of the deployment (mappings
+#   # are merged with the defaults); `version` is that of the image's app,
+#   # unless set
+#   service_info:
+#     service:
 #       id: "org.example.drs"
 #       name: "My DRS"
 #       description: "Data objects of my organization"
@@ -38,7 +40,6 @@ config: {}
 #         url: "https://organization.example.org"
 #       contactUrl: "mailto:drs@example.org"
 #       environment: "prod"
-#       version: "1.0.0"
 
 drsFiler:
   # Image repository; may include a tag or digest instead of setting `tag`

@@ -56,7 +56,7 @@ from any directory, with a MongoDB instance reachable at the host and port
 set in `db` of the config, e.g., MongoDB published on the host (`ports:
 ["127.0.0.1:27017:27017"]` for `mongodb` in a `docker-compose.override.yaml`,
 then `docker compose up --detach mongodb`) and an overlay with
-`db.host: localhost` and the `endpoints` of `config.dev.yaml`:
+`db.host: localhost` and the `custom.service` of `config.dev.yaml`:
 
 ```bash
 FOCA_CONFIG_OVERLAY=config.local.yaml uv run python -m drs_filer.app

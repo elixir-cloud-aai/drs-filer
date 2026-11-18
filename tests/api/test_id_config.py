@@ -1,4 +1,4 @@
-"""App tests of the identifier settings (`endpoints.*.id_charset`).
+"""App tests of the identifier settings (`custom.*.id`).
 
 Identifiers of objects and access methods are drawn from the configured
 characters themselves, which must be unreserved characters of URLs;
@@ -21,11 +21,18 @@ def _write_ids(overlay: Path, objects: dict[str, Any], access: dict[str, Any]) -
 
     Args:
         overlay: Config overlay of the test.
-        objects: Settings of object identifiers (`endpoints.objects`).
-        access: Settings of access identifiers (`endpoints.access_methods`).
+        objects: Settings of object identifiers (`custom.objects.id`).
+        access: Settings of access identifiers (`custom.access_methods.id`).
     """
     overlay.write_text(
-        yaml.safe_dump({"endpoints": {"objects": objects, "access_methods": access}})
+        yaml.safe_dump(
+            {
+                "custom": {
+                    "objects": {"id": objects},
+                    "access_methods": {"id": access},
+                }
+            }
+        )
     )
 
 
@@ -40,10 +47,10 @@ def test_literal_charsets(
     """
     _write_ids(
         overlay,
-        objects={"id_charset": "ab", "id_length": 12},
+        objects={"charset": "ab", "length": 12},
         # Long enough that the two access identifiers practically never
         # collide (a duplicate one is left unset)
-        access={"id_charset": "xyz", "id_length": 40},
+        access={"charset": "xyz", "length": 40},
     )
     client = create_app().app.test_client()
     response = client.post(f"{API}/objects", json=drs_object(2))
@@ -62,16 +69,16 @@ def test_literal_charsets(
 @pytest.mark.parametrize(
     ("setting", "value"),
     [
-        ("id_charset", 'string.ascii_letters + string.digits + ".-_~"'),
-        ("id_charset", "string.digits"),
-        ("id_charset", "'0123456789abcdef'"),
-        ("id_charset", "ab/"),
-        ("id_charset", "a b"),
-        ("id_charset", ""),
-        ("id_charset", 123),
-        ("id_length", 0),
-        ("id_length", "6"),
-        ("id_length", True),
+        ("charset", 'string.ascii_letters + string.digits + ".-_~"'),
+        ("charset", "string.digits"),
+        ("charset", "'0123456789abcdef'"),
+        ("charset", "ab/"),
+        ("charset", "a b"),
+        ("charset", ""),
+        ("charset", 123),
+        ("length", 0),
+        ("length", "6"),
+        ("length", True),
     ],
 )
 def test_invalid_settings_fail_start(
@@ -83,6 +90,8 @@ def test_invalid_settings_fail_start(
 ) -> None:
     """Expressions and other invalid settings fail the start of the app.
 
+    The error names the invalid setting (not the value).
+
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
@@ -90,12 +99,13 @@ def test_invalid_settings_fail_start(
         setting: Name of the invalid setting.
         value: Invalid value.
     """
-    valid = {"id_charset": "abc", "id_length": 6}
+    valid = {"charset": "abc", "length": 6}
     settings = {"objects": dict(valid), "access_methods": dict(valid)}
     settings[section][setting] = value
     _write_ids(overlay, settings["objects"], settings["access_methods"])
-    with pytest.raises(ValueError, match=rf"endpoints\.{section}"):
+    with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
+    assert f"{section}.id.{setting}" in str(info.value.__cause__)
 
 
 @pytest.mark.parametrize("section", ["objects", "access_methods"])
@@ -116,11 +126,12 @@ def test_expression_not_evaluated(
     marker = tmp_path / "evaluated"
     expression = f"open({str(marker)!r}, 'w').close() or 'ab'"
     settings = {
-        "objects": {"id_charset": "abc", "id_length": 6},
-        "access_methods": {"id_charset": "abc", "id_length": 6},
+        "objects": {"charset": "abc", "length": 6},
+        "access_methods": {"charset": "abc", "length": 6},
     }
-    settings[section]["id_charset"] = expression
+    settings[section]["charset"] = expression
     _write_ids(overlay, settings["objects"], settings["access_methods"])
-    with pytest.raises(ValueError, match="not unreserved characters"):
+    with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
+    assert f"{section}.id.charset" in str(info.value.__cause__)
     assert not marker.exists()

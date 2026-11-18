@@ -66,6 +66,11 @@ plugins:
           paths: ["."]
           options:
             docstring_style: google
+            # Fields of pydantic models are documented as `Args`, but have no
+            # signature that griffe could check them against
+            docstring_options:
+              warn_unknown_params: false
+              warn_missing_types: false
             show_source: false
             show_root_heading: true
             show_root_full_path: false

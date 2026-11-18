@@ -65,23 +65,14 @@ log:
 exceptions:
     mapping: drs_filer.errors.exceptions.exceptions
 
-# Custom app configuration
-endpoints:
-    # Generated identifiers: `id_length` characters drawn from those listed
-    # in `id_charset` (the characters themselves, not an expression, which
-    # fails the start), by default all unreserved characters of URLs, the
-    # only ones allowed: letters, digits and `.-_~`
-    objects:
-        id_charset: &id_charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
-        id_length: 6
-    access_methods:
-        id_charset: *id_charset
-        id_length: 6
-    # Placeholders, to be replaced by each deployment's overlay (see
-    # `docs/configuration.md`); served as they are, so they must conform to
-    # the service info specification, including the formats of URLs (`uri`)
-    # and timestamps (`date-time`), which responses are validated against
-    service_info:
+# Service info (GA4GH `Service` schema), validated on startup and served by
+# `GET /service-info` (until replaced with `POST /service-info`, see
+# `docs/configuration.md`); `version` is that of the installed package
+# (`package`) unless set. The values in reserved example domains are
+# placeholders (FOCA warns of them on startup): deployments set their own
+service_info:
+    package: drs-filer
+    service:
         id: "org.example.drs-filer"
         name: "DRS-Filer"
         type:
@@ -94,11 +85,32 @@ endpoints:
             url: "https://example.org"
         contactUrl: "mailto:drs@example.org"
         documentationUrl: "https://github.com/elixir-cloud-aai/drs-filer"
-        createdAt: "2020-01-01T00:00:00Z"
-        updatedAt: "2020-01-01T00:00:00Z"
         environment: "dev"
-        version: "0.0.0"
-    url_prefix: http
-    external_host: 193.166.24.114
-    external_port: 8080
-    api_path: ga4gh/drs/v1
+        # Optional timestamps (RFC 3339), served only if set, e.g.:
+        # createdAt: "2020-01-01T00:00:00Z"
+        # updatedAt: "2026-11-18T00:00:00Z"
+
+# Custom app configuration, validated on startup
+# (`drs_filer.custom_config.CustomConfig`): unknown keys fail the start
+custom:
+    # Public URL of the app, for the `self_uri` of objects and the `Location`
+    # of posted service info
+    # (`<url_prefix>://<external_host>:<external_port>/<api_path>/...`);
+    # deployments set their own
+    service:
+        url_prefix: http
+        external_host: localhost
+        external_port: 8080
+        api_path: ga4gh/drs/v1
+    # Generated identifiers: `length` characters drawn from those listed in
+    # `charset` (the characters themselves, not an expression, which fails
+    # the start), by default all unreserved characters of URLs, the only
+    # ones allowed: letters, digits and `.-_~`
+    objects:
+        id:
+            charset: &id_charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
+            length: 6
+    access_methods:
+        id:
+            charset: *id_charset
+            length: 6

@@ -1,5 +1,6 @@
 """App tests of the service info endpoints (`/service-info`)."""
 
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -18,13 +19,16 @@ from tests.mock_data import API, SERVICE_INFO, body
 def _config_service_info() -> dict[str, Any]:
     """Get the service info of the base config (the overlays don't set it).
 
+    The config doesn't set the version: it is that of the package.
+
     Returns:
         Service info.
     """
-    service_info: dict[str, Any] = yaml.safe_load(CONFIG_FILE.read_text())["endpoints"][
-        "service_info"
+    service: dict[str, Any] = yaml.safe_load(CONFIG_FILE.read_text())["service_info"][
+        "service"
     ]
-    return service_info
+    assert "version" not in service
+    return {**service, "version": version("drs-filer")}
 
 
 def test_get_service_info_from_config(client: FlaskClient) -> None:
