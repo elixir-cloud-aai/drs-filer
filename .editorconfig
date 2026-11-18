@@ -29,7 +29,7 @@ trim_trailing_whitespace = false
 
 # Vendored GA4GH specifications are kept as published (as in the pre-commit
 # hooks)
-[drs_filer/api/{20200131.11d2c12,20200622.383121d}.*]
+[drs_filer/api/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].*]
 charset = unset
 end_of_line = unset
 insert_final_newline = unset

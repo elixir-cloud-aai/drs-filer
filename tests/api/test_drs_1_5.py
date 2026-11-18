@@ -5,12 +5,18 @@ fields that DRS 1.5 adds, and the operations of the specification that
 DRS-Filer doesn't implement (`501 Not Implemented`).
 """
 
+import logging
+from pathlib import Path
 from typing import Any
 
 from flask.testing import FlaskClient
 import pytest
 
+from drs_filer.errors.exceptions import DOCS_API_URL, exceptions
 from tests.mock_data import API, body, drs_object, validate_error
+
+# The API docs, with the sections that the `501` problem details link to
+DOCS_API = Path(__file__).parents[2] / "docs" / "api.md"
 
 # Link of the problem details of the passport operations
 PASSPORT_DOCS = (
@@ -142,30 +148,105 @@ def test_options_not_implemented(client: FlaskClient, path: str) -> None:
 
 
 def test_register_drs_1_5_fields(client: FlaskClient) -> None:
-    """The fields that DRS 1.5 adds to access methods are registered."""
+    """The fields that DRS 1.5 adds to access methods are registered.
+
+    Also when replacing an object (`PUT`).
+    """
     request_body = drs_object()
     request_body["access_methods"][0].update(cloud="aws", available=False)
     obj = _register(client, request_body)
     method = obj["access_methods"][0]
     assert method["cloud"] == "aws"
     assert method["available"] is False
+    request_body["access_methods"][0].update(cloud="gcp", available=True)
+    response = client.put(f"{API}/objects/{obj['id']}", json=request_body)
+    assert response.status_code == 200, body(response)
+    method = body(client.get(f"{API}/objects/{obj['id']}"))["access_methods"][0]
+    assert method["cloud"] == "gcp"
+    assert method["available"] is True
 
 
-def test_register_authorizations_rejected(client: FlaskClient) -> None:
-    """Access methods can't be registered with authorization info.
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("id", "x"), ("self_uri", "drs://drs.example.org/x")],
+)
+def test_register_server_fields_rejected(
+    client: FlaskClient, field: str, value: str
+) -> None:
+    """Objects can't be registered with the fields that DRS-Filer sets."""
+    request_body = {**drs_object(), field: value}
+    for response in (
+        client.post(f"{API}/objects/register", json=request_body),
+        client.put(f"{API}/objects/x", json=request_body),
+    ):
+        assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("access_id", "x"), ("authorizations", {"supported_types": ["None"]})],
+)
+def test_register_access_method_server_fields_rejected(
+    client: FlaskClient, field: str, value: Any
+) -> None:
+    """Access methods can't be registered with the fields that DRS-Filer sets.
 
     DRS-Filer sets `authorizations` itself, as it sets `access_id`.
     """
     request_body = drs_object()
-    request_body["access_methods"][0]["authorizations"] = {"supported_types": ["None"]}
+    request_body["access_methods"][0][field] = value
     response = client.post(f"{API}/objects/register", json=request_body)
     assert response.status_code == 400
 
 
 def test_get_object_expand(client: FlaskClient) -> None:
-    """`expand` of DRS is accepted; objects are served as registered."""
-    obj = _register(client, drs_object())
+    """`expand` of DRS is accepted; bundles are served as registered."""
+    blob = _register(client, drs_object())
+    bundle = drs_object(access_methods=0)
+    del bundle["access_methods"]
+    nested = {"name": "nested", "contents": [{"name": "inner", "id": blob["id"]}]}
+    bundle["contents"] = [{"name": "blob", "id": blob["id"]}, nested]
+    obj = _register(client, bundle)
     for value in ("true", "false"):
         response = client.get(f"{API}/objects/{obj['id']}?expand={value}")
         assert response.status_code == 200
         assert body(response) == obj
+        assert body(response)["contents"] == bundle["contents"]
+
+
+def test_passports_not_logged(
+    client: FlaskClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The passports of requests to passport operations aren't logged.
+
+    Not even at `DEBUG` for valid requests. For malformed request bodies,
+    FOCA logs the reason for rejecting them at `DEBUG`, which may quote the
+    rejected value, but not at `INFO` and above, the level of the console
+    handler of the shipped config.
+    """
+    passport = "header.passport-marker.signature"
+    caplog.set_level(logging.DEBUG)
+    response = client.post(f"{API}/objects/x", json={"passports": [passport]})
+    assert response.status_code == 501
+    assert caplog.records
+    assert passport not in caplog.text
+    caplog.clear()
+    response = client.post(f"{API}/objects", json={"passports": passport})
+    assert response.status_code == 400
+    logged = [r.getMessage() for r in caplog.records if r.levelno >= logging.INFO]
+    assert logged
+    assert not [message for message in logged if passport in message]
+
+
+def test_docs_anchors() -> None:
+    """The links of the `501` problem details point to sections of the docs."""
+    headings = {
+        line.lstrip("#").strip().lower().replace(" ", "-")
+        for line in DOCS_API.read_text(encoding="utf-8").splitlines()
+        if line.startswith("## ")
+    }
+    for problem in exceptions.values():
+        detail = str(problem["detail"])
+        if DOCS_API_URL in detail:
+            anchor = detail.split(f"{DOCS_API_URL}#", 1)[1]
+            assert anchor in headings, anchor

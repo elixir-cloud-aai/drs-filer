@@ -10,9 +10,10 @@
 # The registration schemas (`*Register`) mirror the read schemas of DRS 1.5.0
 # without the fields that DRS-Filer sets itself (`id`, `self_uri`,
 # `access_id`, `authorizations`); `tests/test_specs.py` compares them, so
-# that they follow the specification. `info.version` is the version of the
-# DRS specification, not the app's: keep it equal to
-# `service_info.service.type.version` in `config.yaml`
+# that they follow the specification. `info.version` isn't set here: it is
+# that of the vendored specification (the DRS version, not the app's), which
+# `tests/test_specs.py` compares with `service_info.service.type.version` in
+# `config.yaml`
 info:
   title: DRS-Filer
   description: |
@@ -465,7 +466,8 @@ components:
     DrsObjectRegister:
       description: >-
         Metadata of a data object to register (`DrsObject` without the
-        fields that DRS-Filer sets: `id` and `self_uri`). The DRS
+        fields that DRS-Filer sets: `id` and `self_uri`, and `access_id` and
+        `authorizations` of access methods). The DRS
         specification requires at least one access method for single blobs
         (objects without `contents`).
       type: object

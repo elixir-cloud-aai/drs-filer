@@ -235,11 +235,13 @@ def RegisterObject() -> str:
     return register_object(data=_request_body())
 
 
-# Operations of the DRS specification that DRS-Filer doesn't implement. The
-# passport operations aren't decorated with `log_traffic`, so that the
-# passports of their request bodies (credentials) aren't logged
+# Operations of the DRS specification that DRS-Filer doesn't implement.
+# `log_traffic` logs neither request bodies nor parameters (but at `DEBUG`,
+# the path), so the passports of the request bodies (credentials) aren't
+# logged
 
 
+@log_traffic
 def PostObject(**kwargs: Any) -> NoReturn:
     """Get a DRS object with passports: not implemented.
 
@@ -252,6 +254,7 @@ def PostObject(**kwargs: Any) -> NoReturn:
     raise PassportOperationNotImplemented
 
 
+@log_traffic
 def PostAccessURL(**kwargs: Any) -> NoReturn:
     """Get the access URL of a DRS object with passports: not implemented.
 
@@ -264,6 +267,7 @@ def PostAccessURL(**kwargs: Any) -> NoReturn:
     raise PassportOperationNotImplemented
 
 
+@log_traffic
 def GetBulkObjects(**kwargs: Any) -> NoReturn:
     """Get several DRS objects, with passports: not implemented.
 
@@ -276,6 +280,7 @@ def GetBulkObjects(**kwargs: Any) -> NoReturn:
     raise PassportOperationNotImplemented
 
 
+@log_traffic
 def GetBulkAccessURL(**kwargs: Any) -> NoReturn:
     """Get the access URLs of several DRS objects, with passports: not implemented.
 

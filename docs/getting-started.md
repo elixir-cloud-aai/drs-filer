@@ -56,7 +56,7 @@ Register an object (see [Registering objects](api.md#registering-objects)),
 which returns its identifier, then get it by that identifier:
 
 ```bash
-curl -X POST "http://localhost:8080/ga4gh/drs/v1/objects" \
+curl -X POST "http://localhost:8080/ga4gh/drs/v1/objects/register" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "sample.bam",
