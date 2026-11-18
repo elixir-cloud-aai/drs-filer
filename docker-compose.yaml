@@ -26,7 +26,7 @@ services:
       - "127.0.0.1:8080:8080"
     # Development settings (`config.dev.yaml`): the public URL as published
     # here. The host's `DRS_FILER_CONFIG_OVERLAY` replaces the overlays (see
-    # "Configuration" in `README.md`). The image's command serves the app
+    # `docs/configuration.md`). The image's command serves the app
     # with Gunicorn; options from the host's `GUNICORN_CMD_ARGS` (e.g.,
     # `--workers 2`) override its settings (not `--bind`, which would break
     # the published port and health check)
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     # Data in a named volume; setups before #78 kept it in `../data/drs/db`
     # (of MongoDB 3.6, which MongoDB 7.0 can't read: migrate it with
-    # `mongodump`/`mongorestore`, see "Upgrading" in `README.md`)
+    # `mongodump`/`mongorestore`, see `docs/upgrading.md`)
     volumes:
       - mongodb-data:/data/db
     healthcheck:

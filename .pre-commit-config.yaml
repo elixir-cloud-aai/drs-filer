@@ -10,8 +10,9 @@ repos:
         exclude: ^uv\.lock$
       - id: check-merge-conflict
       - id: check-yaml
-        # Helm templates are not valid YAML before rendering
-        exclude: ^deployment/templates/
+        # Helm templates are not valid YAML before rendering; `mkdocs.yml`
+        # uses MkDocs' `!ENV` tag, which the hook doesn't know
+        exclude: ^(deployment/templates/|mkdocs\.yml$)
       # Vendored GA4GH specifications are kept as published
       - id: end-of-file-fixer
         exclude: ^drs_filer/api/[0-9]{8}\.

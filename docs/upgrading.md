@@ -86,7 +86,7 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   `GET /service-info` fails with `500 Internal Server Error` otherwise. The
   placeholders of the base config (`drs_filer/config.yaml`) conform now; a
   deployment still replaces them (see
-  [Configuration](../README.md#configuration)).
+  [Configuration](configuration.md)).
 - Objects and service info stored before the upgrade with other values
   fail the validation of responses, too (`500 Internal Server Error`); one
   such object also fails `GET /objects`, which lists all objects. Once the
@@ -169,7 +169,7 @@ deployments.
   `update-config-map.sh`, curl, jq, yq or pip in the image any more. Don't
   mount a config at `/app/drs_filer/config.yaml`: mount an overlay instead
   and set `FOCA_CONFIG_OVERLAY` (see
-  [Configuration](../README.md#configuration)). The development server runs
+  [Configuration](configuration.md)). The development server runs
   with `python -m drs_filer.app`, from any directory.
 - **Docker Compose:** the app's service is `drs-filer` (was `drs`), published
   on `127.0.0.1:8080` only, and MongoDB is 7.0 (was 3.6), not published on
