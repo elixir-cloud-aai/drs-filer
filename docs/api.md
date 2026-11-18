@@ -219,7 +219,12 @@ API specification (`400 Bad Request`) also have `type`, `code` (`invalid-request
 `parameter` (the name of an invalid parameter). The `Problem` schema of the
 served specification describes them, with `FieldError` for the entries of
 `errors`. Only `title` and `status` are always set: e.g., the answer to a
-body that isn't JSON has neither `code` nor `errors`. The exceptions of the
+body that isn't JSON has neither `code` nor `errors`. Writes without a valid
+access token get `401 Unauthorized`, with a Bearer challenge
+(`WWW-Authenticate: Bearer`, with `error="invalid_token"` for invalid
+tokens), before their body is validated; writes with a valid token of a
+user without the required role get `403 Forbidden` (see
+[Authentication](access-control.md#authentication)). The exceptions of the
 app and their problem details are listed in
 [`drs_filer/errors/exceptions.py`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/errors/exceptions.py)
 (see the [API reference](reference.md#errors)).

@@ -26,7 +26,9 @@ Forbidden`. Reads stay public. Before upgrading:
    `security.access_control.claim_groups` and
    `security.access_control.group_mapping` (or `require_admin: false`, so
    that nobody can write). Without them, the app refuses to start, and the
-   chart refuses to render.
+   chart refuses to render: add them to the `config` value of your values
+   file (see the example in [Configuration](deployment.md#configuration) of
+   the chart's README).
 3. Send the token with every write, e.g.:
 
     ```bash

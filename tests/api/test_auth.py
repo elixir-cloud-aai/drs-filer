@@ -40,6 +40,10 @@ BODIES = {
     "/objects/{object_id}": drs_object,
     "/service-info": lambda: SERVICE_INFO,
 }
+# Write operations with a request body
+WRITES_WITH_BODY = [(method, path) for method, path in WRITES if path in BODIES]
+# Marks the default body of an operation (`BODIES`) in `_request()`
+DEFAULT_BODY = object()
 
 
 def _request(
@@ -47,7 +51,7 @@ def _request(
     method: str,
     path: str,
     ids: tuple[str, str],
-    json: Any = None,
+    json: Any = DEFAULT_BODY,
     headers: dict[str, str] | None = None,
 ) -> TestResponse:
     """Send a write request, with the body of its operation unless given.
@@ -57,16 +61,17 @@ def _request(
         method: HTTP method.
         path: Path template (`WRITES`).
         ids: Identifiers of an object and of one of its access methods.
-        json: Request body; that of `BODIES` if `None`.
+        json: Request body; by default, that of `BODIES` (none for
+            operations without a body).
         headers: Request headers.
 
     Returns:
         Response.
     """
     url = API + path.format(object_id=ids[0], access_id=ids[1])
-    factory: Callable[[], Any] | None = BODIES.get(path)
-    if json is None and factory is not None:
-        json = factory()
+    if json is DEFAULT_BODY:
+        factory: Callable[[], Any] | None = BODIES.get(path)
+        json = factory() if factory is not None else None
     send = getattr(client, method)
     return send(url, json=json, headers=headers or {})
 
@@ -116,12 +121,11 @@ def test_write_without_token(
     assert list(objects.find({}, {"_id": False})) == before
 
 
-@pytest.mark.parametrize("path", sorted(BODIES))
+@pytest.mark.parametrize(("method", "path"), WRITES_WITH_BODY)
 def test_write_without_token_before_validation(
-    anonymous_client: FlaskClient, ids: tuple[str, str], path: str
+    anonymous_client: FlaskClient, ids: tuple[str, str], method: str, path: str
 ) -> None:
     """Writes without a token are refused before their body is validated."""
-    method = "post" if path != "/objects/{object_id}" else "put"
     response = _request(anonymous_client, method, path, ids, json={"invalid": 1})
     _assert_unauthorized(response)
 
@@ -185,30 +189,76 @@ def test_write_by_non_admin(
     assert list(objects.find({}, {"_id": False})) == before
 
 
-@pytest.mark.parametrize(("method", "path"), WRITES)
+def _object(
+    objects: Collection[dict[str, Any]], object_id: str
+) -> dict[str, Any] | None:
+    """Get a stored object.
+
+    Args:
+        objects: Collection of the objects.
+        object_id: Identifier of the object.
+
+    Returns:
+        The object; `None` if there is none.
+    """
+    return objects.find_one({"id": object_id})
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "status"),
+    [
+        (method, path, 201 if path == "/service-info" else 200)
+        for method, path in WRITES
+    ],
+)
 def test_write_by_admin(
-    client: FlaskClient, ids: tuple[str, str], method: str, path: str
+    client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    ids: tuple[str, str],
+    method: str,
+    path: str,
+    status: int,
 ) -> None:
-    """Writes with a valid token of an admin succeed."""
+    """Writes with a valid token of an admin succeed, with their effect."""
+    object_id, access_id = ids
     response = _request(client, method, path, ids)
-    assert response.status_code in {200, 201}, body(response)
+    assert response.status_code == status, body(response)
+    stored = _object(objects, object_id)
+    if path == "/objects/register":
+        assert _object(objects, body(response)) is not None
+    elif path == "/service-info":
+        assert body(client.get(f"{API}/service-info"))["name"] == SERVICE_INFO["name"]
+    elif method == "put":
+        assert stored is not None
+        assert len(stored["access_methods"]) == 1
+    elif path == "/objects/{object_id}":
+        assert stored is None
+    else:
+        assert stored is not None
+        assert access_id not in [m["access_id"] for m in stored["access_methods"]]
 
 
 @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer not-a-jwt"}])
-def test_reads_public(
-    anonymous_client: FlaskClient, ids: tuple[str, str], headers: dict[str, str]
-) -> None:
-    """Reads need no token, and ignore invalid ones."""
-    object_id, access_id = ids
-    for path in [
+@pytest.mark.parametrize(
+    "path",
+    [
         "/objects",
-        f"/objects/{object_id}",
-        f"/objects/{object_id}/access/{access_id}",
+        "/objects/{object_id}",
+        "/objects/{object_id}/access/{access_id}",
         "/service-info",
         "/openapi.json",
-    ]:
-        response = anonymous_client.get(API + path, headers=headers)
-        assert response.status_code == 200, path
+    ],
+)
+def test_reads_public(
+    anonymous_client: FlaskClient,
+    ids: tuple[str, str],
+    headers: dict[str, str],
+    path: str,
+) -> None:
+    """Reads need no token, and ignore invalid ones."""
+    url = API + path.format(object_id=ids[0], access_id=ids[1])
+    response = anonymous_client.get(url, headers=headers)
+    assert response.status_code == 200, body(response)
 
 
 @pytest.mark.parametrize(

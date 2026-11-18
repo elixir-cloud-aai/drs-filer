@@ -8,8 +8,10 @@ A deployment of DRS-Filer consists of:
   [API](api.md);
 - **MongoDB** (Docker Compose and the Helm chart run 7.0, the chart with
   authentication), which stores the objects (collection
-  `objects`) and the service info (collection `service_info`) in the database
-  `drsStore`.
+  `objects`), the service info (collection `service_info`) and the policy
+  rules of access control (collection `policy_rules`, managed by FOCA: the
+  configured rules are written on startup, see [Access
+  control](access-control.md)) in the database `drsStore`.
 
 The app holds no state of its own besides the database: back up the
 database to back up a deployment, e.g., with `mongodump`.
