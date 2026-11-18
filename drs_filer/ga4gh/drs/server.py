@@ -99,18 +99,18 @@ def GetAccessURL(object_id: str, access_id: str) -> dict[str, Any]:
     # Access methods are optional (e.g., for bundles), and so are their
     # `access_url`s; access methods stored before #121 may lack `access_id`
     # (they can't be addressed, but don't break the lookup of the others)
-    access_urls = [
-        d.get("access_url")
-        for d in obj.get("access_methods", [])
-        if d.get("access_id") == access_id
+    matches = [
+        d for d in obj.get("access_methods", []) if d.get("access_id") == access_id
     ]
-    if not access_urls or access_urls == [None]:
+    if not matches:
         raise URLNotFound
-    elif len(access_urls) == 1:
-        return access_urls[0]
     # Access IDs should be unique
-    else:
+    if len(matches) > 1:
         raise InternalServerError
+    access_url = matches[0].get("access_url")
+    if access_url is None:
+        raise URLNotFound
+    return access_url
 
 
 @log_traffic
