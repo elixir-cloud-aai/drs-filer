@@ -116,9 +116,15 @@ def test_post_object_duplicate_access_id(client: FlaskClient) -> None:
 def test_post_object_access_ids_exhausted(
     client: FlaskClient, objects: Collection[dict[str, Any]]
 ) -> None:
-    """If no unique access identifier is found, the request fails (#121)."""
-    with patch.object(register_objects, "generate_id", return_value="taken"):
+    """If no unique access identifier is found, the request fails (#121).
+
+    The first access method gets "taken"; the second tries 10 times.
+    """
+    with patch.object(
+        register_objects, "generate_id", return_value="taken"
+    ) as generate_id:
         response = client.post(f"{API}/objects", json=drs_object(access_methods=2))
+    assert generate_id.call_count == 1 + 10
     assert response.status_code == 500
     assert body(response)["status"] == 500
     assert objects.count_documents({}) == 0
