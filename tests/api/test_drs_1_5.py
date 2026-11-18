@@ -168,6 +168,19 @@ def test_cors_preflight(client: FlaskClient, path: str) -> None:
     assert "OPTIONS" in response.headers["Allow"]
 
 
+@pytest.mark.parametrize("path", ["/nonexistent", f"{API}/nope"])
+def test_cors_preflight_unknown_path(client: FlaskClient, path: str) -> None:
+    """CORS preflight requests to unknown paths get `404`, like other ones."""
+    response = client.options(
+        path,
+        headers={
+            "Origin": "https://ui.example.org",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 404
+
+
 def test_register_drs_1_5_fields(client: FlaskClient) -> None:
     """The fields that DRS 1.5 adds to access methods are registered.
 

@@ -82,11 +82,12 @@ def answer_cors_preflight() -> Response | None:
     Returns:
         Flask's default response to `OPTIONS` (`200`, with `Allow`) for
         preflight requests (`OPTIONS` with `Origin` and
-        `Access-Control-Request-Method`), `None` for other requests, which
-        are routed as usual.
+        `Access-Control-Request-Method`) to known paths, `None` for other
+        requests, which are routed as usual (unknown paths get `404`).
     """
     if (
         request.method == "OPTIONS"
+        and request.url_rule is not None
         and "Origin" in request.headers
         and "Access-Control-Request-Method" in request.headers
     ):
@@ -109,10 +110,10 @@ def create_app() -> App:
     package's `config.yaml`, with the overlays of `FOCA_CONFIG_OVERLAY`
     merged into it by FOCA, if any (separated by `:`, in order; relative
     paths of overlays are relative to the working directory). FOCA resolves
-    the relative paths of the API
-    specifications against the package directory, whatever the working
-    directory (e.g., of Gunicorn in the image). Gunicorn calls this in each
-    worker, after forking (MongoDB clients must not be shared across forks).
+    the relative paths of the API specifications against the package
+    directory, whatever the working directory (e.g., of Gunicorn in the
+    image). Gunicorn calls this in each worker, after forking (MongoDB
+    clients must not be shared across forks).
 
     Returns:
         Connexion app.
