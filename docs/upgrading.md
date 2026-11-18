@@ -31,13 +31,27 @@ URL: requests for them get `404 Not Found` (was `500`).
   ' 2>/dev/null
   ```
 
-  It prints the identifier of each such object.
+  It prints the identifier of each such object. Like any start of the app,
+  it serves the service info of the config again (see
+  [Service info](#service-info)).
 - To make their access methods addressable, register them again
   (`PUT /objects/{object_id}`, with the object as `GET /objects/{object_id}`
   returns it, without `id`, `self_uri` and the `access_id` of each access
   method, which registrations don't accept): this generates new
   identifiers for all access methods of the object, so clients that stored
   the earlier ones look them up again.
+
+## Service info
+
+On each start, the app serves the service info of its config (#119), also
+if service info with another `id` was posted (`POST /service-info`) or
+stored by an earlier version: those stayed the ones served, which could make
+`GET /service-info` answer `500 Internal Server Error` with a valid config.
+The service info is now stored as a single record, and the records of
+earlier versions are removed on the first start. Posted service info is
+served until the app starts again (also when Gunicorn starts a worker); to
+keep it, put it in the config
+(`endpoints.service_info`, see [Configuration](../README.md#configuration)).
 
 ## Identifier character sets
 
@@ -123,8 +137,8 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   placeholders of the base config (`drs_filer/config.yaml`) conform now; a
   deployment still replaces them (see
   [Configuration](../README.md#configuration)).
-- Objects and service info stored before the upgrade with other values
-  fail the validation of responses, too (`500 Internal Server Error`); one
+- Objects stored before the upgrade with other values fail the validation
+  of responses, too (`500 Internal Server Error`); one
   such object also fails `GET /objects`, which lists all objects. Once the
   upgrade has rolled out (no old instance left that could still store such
   values), list the objects whose timestamps FOCA refuses, with FOCA's own
@@ -149,9 +163,9 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
 
   It prints the identifier and the invalid timestamps of each such object
   (e.g., `abc123 {'created_time': '2024-06-12'}`); register them again with
-  valid timestamps (`PUT /objects/{object_id}`). If `GET /service-info`
-  fails after the upgrade, post valid service info
-  (`POST /service-info`).
+  valid timestamps (`PUT /objects/{object_id}`). Stored service info
+  doesn't matter: the app serves that of its config after each start (see
+  [Service info](#service-info)).
 
 ### Configuration
 
