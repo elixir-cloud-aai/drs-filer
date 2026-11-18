@@ -123,6 +123,15 @@ def test_post_service_info_invalid(client: FlaskClient) -> None:
     assert response.status_code == 400
 
 
+def test_post_service_info_unknown_organization_field(client: FlaskClient) -> None:
+    """Service info with an undefined field in `organization` is rejected."""
+    organization = {**SERVICE_INFO["organization"], "email": "a@example.org"}
+    response = client.post(
+        f"{API}/service-info", json={**SERVICE_INFO, "organization": organization}
+    )
+    assert response.status_code == 400
+
+
 @pytest.mark.parametrize(
     "service_type",
     [

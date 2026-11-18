@@ -222,6 +222,46 @@ def test_register_schema_follows_spec(
             assert register_field["items"] == read_field["items"], field
 
 
+def _object_schemas(schema: Any, where: str) -> list[tuple[str, dict[str, Any]]]:
+    """Find the object schemas (with `properties`) in a schema, nested too.
+
+    Args:
+        schema: A schema or part of one.
+        where: Where `schema` is, for messages.
+
+    Returns:
+        The object schemas, with where they are.
+    """
+    found: list[tuple[str, dict[str, Any]]] = []
+    if isinstance(schema, dict):
+        if "properties" in schema:
+            found.append((where, schema))
+        for key, value in schema.items():
+            found.extend(_object_schemas(value, f"{where}.{key}"))
+    elif isinstance(schema, list):
+        for index, value in enumerate(schema):
+            found.extend(_object_schemas(value, f"{where}[{index}]"))
+    return found
+
+
+def test_register_schemas_closed(additions: dict[str, Any]) -> None:
+    """Request bodies of DRS-Filer's endpoints reject undefined fields.
+
+    Each object schema of the registration and service info schemas, nested
+    ones too (e.g., `organization`), sets `additionalProperties: false`.
+    """
+    schemas = additions["components"]["schemas"]
+    found = [
+        item
+        for name, schema in schemas.items()
+        if name.endswith("Register")
+        for item in _object_schemas(schema, name)
+    ]
+    assert any(where == "ServiceRegister.properties.organization" for where, _ in found)
+    for where, schema in found:
+        assert schema.get("additionalProperties") is False, where
+
+
 def test_service_type_register_is_drs(additions: dict[str, Any]) -> None:
     """Posted service info must be of the type of the served API.
 

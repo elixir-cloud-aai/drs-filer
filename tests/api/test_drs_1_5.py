@@ -181,6 +181,25 @@ def test_cors_preflight_unknown_path(client: FlaskClient, path: str) -> None:
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("object_id", ["register", "access"])
+def test_object_ids_of_static_paths(client: FlaskClient, object_id: str) -> None:
+    """Objects with the identifiers `register` and `access` can be managed.
+
+    `/objects/register` and `/objects/access` have only `POST`, so `GET`,
+    `PUT` and `DELETE` reach `/objects/{object_id}` (see "Deviations from
+    the specification" in `docs/api.md`).
+    """
+    response = client.put(f"{API}/objects/{object_id}", json=drs_object())
+    assert response.status_code == 200, body(response)
+    response = client.get(f"{API}/objects/{object_id}")
+    assert response.status_code == 200, body(response)
+    assert body(response)["id"] == object_id
+    response = client.delete(f"{API}/objects/{object_id}")
+    assert response.status_code == 200, body(response)
+    response = client.get(f"{API}/objects/{object_id}")
+    assert response.status_code == 404
+
+
 def test_register_drs_1_5_fields(client: FlaskClient) -> None:
     """The fields that DRS 1.5 adds to access methods are registered.
 

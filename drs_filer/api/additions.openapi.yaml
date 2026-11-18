@@ -418,6 +418,7 @@ components:
         organization:
           type: object
           description: Organization providing the service.
+          additionalProperties: false
           required:
             - name
             - url
