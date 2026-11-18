@@ -70,17 +70,12 @@ SERVICE_INFO_CONFIG: dict[str, Any] = {
     "version": "1.0.0",
 }
 
-# The app's own config: identifiers of digits, and the public URL
+# The app's own config: identifiers of digits, and the public host name
 CUSTOM_CONFIG = CustomConfig.model_validate(
     {
         "objects": {"id": {"charset": "0123456789", "length": 6}},
         "access_methods": {"id": {"charset": "0123456789", "length": 6}},
-        "service": {
-            "url_prefix": "http",
-            "external_host": "1.2.3.4",
-            "external_port": 8080,
-            "api_path": "ga4gh/drs/v1",
-        },
+        "drs": {"hostname": "drs.example.org"},
     }
 )
 
@@ -92,7 +87,7 @@ MOCK_DATA_OBJECT = {"id": "a011", "description": "mock_object", "name": "mock_ob
 def test_GetObject() -> None:
     """Test for getting DRSObject meta-data using `object_id`."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -107,14 +102,14 @@ def test_GetObject() -> None:
     del objects[0]["_id"]
     with app.app_context():
         res = GetObject.__wrapped__("a001")
-        assert res == objects[0]
+        assert res == {**objects[0], "self_uri": "drs://drs.example.org/a001"}
 
 
 def test_GetObject_Not_Found() -> None:
     """GetObject should raise ObjectNotFound for an unknown object."""
     with pytest.raises(ObjectNotFound):
         app = Flask(__name__)
-        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
         app.config.foca.db.dbs["drsStore"].collections[
             "objects"
         ].client = mongomock.MongoClient().db.collection
@@ -134,7 +129,7 @@ def test_GetObject_Not_Found() -> None:
 def test_GetAccessURL() -> None:
     """Test for getting DRSObject access url using `object_id` and `access_id`."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -160,7 +155,7 @@ def test_GetAccessURL_Not_Found() -> None:
     """GetAccessURL should raise URLNotFound for an unknown `access_id`."""
     with pytest.raises(URLNotFound):
         app = Flask(__name__)
-        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
         app.config.foca.db.dbs["drsStore"].collections[
             "objects"
         ].client = mongomock.MongoClient().db.collection
@@ -186,7 +181,7 @@ def test_GetAccessURL_Object_Not_Found() -> None:
     """GetAccessURL should raise ObjectNotFound for an unknown object."""
     with pytest.raises(ObjectNotFound):
         app = Flask(__name__)
-        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
         app.config.foca.db.dbs["drsStore"].collections[
             "objects"
         ].client = mongomock.MongoClient().db.collection
@@ -207,7 +202,7 @@ def test_GetAccessURL_No_Access_Methods() -> None:
     """GetAccessURL should raise URLNotFound when access methods are missing."""
     with pytest.raises(URLNotFound):
         app = Flask(__name__)
-        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+        app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
         app.config.foca.db.dbs["drsStore"].collections[
             "objects"
         ].client = mongomock.MongoClient().db.collection
@@ -227,7 +222,7 @@ def test_GetAccessURL_No_Access_Methods() -> None:
 def test_GetAccessURL_Duplicate_Access_Id() -> None:
     """GetAccessURL should return Internal Server Error on duplicate access keys."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection

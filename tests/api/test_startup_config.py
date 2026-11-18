@@ -13,19 +13,18 @@ from pymongo import MongoClient
 import pytest
 import yaml
 
-from drs_filer.app import create_app
+from drs_filer.app import OVERLAY_VARIABLE, create_app
 from tests.mock_data import API, body, drs_object, error_messages
 
 
 @pytest.mark.parametrize(
     ("custom", "setting"),
     [
-        ({"service": {"url_prefix": "SENTINEL"}}, "service.url_prefix"),
-        ({"service": {"external_port": "SENTINEL"}}, "service.external_port"),
-        ({"service": {"external_host": "https://SENTINEL"}}, "service.external_host"),
-        ({"service": {"external_port": 70000}}, "service.external_port"),
-        ({"service": {"api_path": "/SENTINEL"}}, "service.api_path"),
-        ({"service": {"host": "SENTINEL"}}, "service.host"),
+        ({"drs": {"hostname": "https://SENTINEL"}}, "drs.hostname"),
+        ({"drs": {"hostname": "SENTINEL:443"}}, "drs.hostname"),
+        ({"drs": {"hostname": None}}, "drs.hostname"),
+        ({"drs": {"host": "SENTINEL"}}, "drs.host"),
+        ({"service": {"external_host": "SENTINEL"}}, "custom.drs.hostname"),
         ({"objects": {"id_charset": "SENTINEL"}}, "objects.id_charset"),
         ({"objects": {"id": {"charset": "SENTINEL/"}}}, "objects.id.charset"),
         ({"service_info": {"id": "SENTINEL"}}, "service_info"),
@@ -128,39 +127,62 @@ def test_endpoints_section_fails_start(
     overlay.write_text(yaml.safe_dump({"endpoints": endpoints}))
     with pytest.raises(ValueError, match="'endpoints' was replaced") as info:
         create_app()
-    for section in ("custom.service", "custom.objects.id", "service_info.service"):
+    for section in (
+        "custom.drs.hostname",
+        "custom.objects.id",
+        "service_info.service",
+    ):
         assert section in str(info.value)
 
 
-def test_public_url_from_custom_config(
+def test_hostname_from_custom_config(
     mongo_client: MongoClient[dict[str, Any]], overlay: Path
 ) -> None:
-    """The `self_uri` of objects is built from `custom.service`.
+    """The `self_uri` of objects is the DRS URI of `custom.drs.hostname`.
+
+    Not of the host that the request was sent to, which clients set (#97);
+    objects registered before the host name changed get the new one.
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
     """
-    overlay.write_text(
-        yaml.safe_dump(
-            {
-                "custom": {
-                    "service": {
-                        "url_prefix": "http",
-                        "external_host": "drs.example.net",
-                        "external_port": 8443,
-                        "api_path": "drs/v1",
-                    }
-                }
-            }
-        )
-    )
     client = create_app().app.test_client()
     response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
-    obj = body(client.get(f"{API}/objects/{object_id}"))
-    assert obj["self_uri"] == f"http://drs.example.net:8443/drs/v1/{object_id}"
+    overlay.write_text(
+        yaml.safe_dump({"custom": {"drs": {"hostname": "drs.example.net"}}})
+    )
+    client = create_app().app.test_client()
+    for host in ("localhost", "drs.example.org", "attacker.example.com"):
+        obj = body(
+            client.get(
+                f"{API}/objects/{object_id}",
+                headers={"Host": host, "X-Forwarded-Host": host},
+            )
+        )
+        assert obj["self_uri"] == f"drs://drs.example.net/{object_id}"
+
+
+def test_no_hostname_fails_start(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without `custom.drs.hostname`, which has no default, the start fails.
+
+    Only the base config (`config.yaml`), without the test overlay.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+        monkeypatch: Fixture to set the overlays with.
+    """
+    monkeypatch.setenv(OVERLAY_VARIABLE, str(overlay))
+    with pytest.raises(ValueError, match="custom configuration") as info:
+        create_app()
+    assert "drs" in error_messages(info.value)
 
 
 def test_service_info_version_from_package(
@@ -221,7 +243,7 @@ def test_integers_from_environment(
     overlay: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The port and identifier lengths can be set from environment variables.
+    """The host name and identifier lengths can be set from the environment.
 
     FOCA interpolates `${VAR}` into strings, which the integer settings take.
 
@@ -230,12 +252,12 @@ def test_integers_from_environment(
         overlay: Config overlay of the test.
         monkeypatch: Fixture to set the variables with.
     """
-    monkeypatch.setenv("DRS_TEST_PORT", "8443")
+    monkeypatch.setenv("DRS_TEST_HOSTNAME", "drs.example.net")
     monkeypatch.setenv("DRS_TEST_ID_LENGTH", "9")
     overlay.write_text(
         "custom:\n"
-        "  service:\n"
-        "    external_port: ${DRS_TEST_PORT}\n"
+        "  drs:\n"
+        "    hostname: ${DRS_TEST_HOSTNAME}\n"
         "  objects:\n"
         "    id:\n"
         "      length: ${DRS_TEST_ID_LENGTH}\n"
@@ -246,4 +268,4 @@ def test_integers_from_environment(
     object_id = body(response)
     assert len(object_id) == 9
     obj = body(client.get(f"{API}/objects/{object_id}"))
-    assert obj["self_uri"].startswith("https://drs.example.org:8443/")
+    assert obj["self_uri"] == f"drs://drs.example.net/{object_id}"

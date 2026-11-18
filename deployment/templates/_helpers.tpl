@@ -7,10 +7,9 @@ these settings (`settings`). They follow the base config in the image
 and no access control (DRS-Filer has no authentication, so the library
 requires neither an audience nor access control: `requireAudience` and
 `requireAccessControl` are false), and its database (`db.dbs`). The
-generated config sets the public URL of the app (`custom.service`, for the
-`self_uri` of objects) from `hostName`, with HTTPS on port 443, as TLS is
-usually terminated by the ingress, the route or a proxy in front of the
-cluster. Every template includes the settings, so the app's
+generated config sets the public host name of the app (`custom.drs.hostname`,
+for the `self_uri` of objects, `drs://<hostName>/<id>`, which DRS clients
+resolve via HTTPS on port 443) from `hostName`. Every template includes the settings, so the app's
 checks (`drs-filer.validate`) run first, before those of the library and
 whichever template Helm renders first.
 */}}
@@ -23,10 +22,8 @@ mongodb:
   databases: [drsStore]
 config:
   custom:
-    service:
-      url_prefix: https
-      external_host: {{ .Values.hostName | toJson }}
-      external_port: 443
+    drs:
+      hostname: {{ .Values.hostName | toJson }}
 {{- end -}}
 
 {{/*
@@ -67,10 +64,13 @@ otherwise be ignored
 {{- fail (printf "apiServer was removed with the config Job: the chart renders the config overlay itself; remove it from the values file %s" $hint) -}}
 {{- end -}}
 {{- /*
-The app's config section of earlier versions, which fails its start
+The app's config sections of earlier versions, which fail its start
 */ -}}
 {{- if and (kindIs "map" .Values.config) (hasKey .Values.config "endpoints") -}}
-{{- fail "config.endpoints was replaced: set the public URL in config.custom.service, identifiers in config.custom.objects.id and config.custom.access_methods.id (charset and length), and the service info in config.service_info.service (see docs/upgrading.md, Typed configuration)" -}}
+{{- fail "config.endpoints was replaced: set the public host name in hostName, identifiers in config.custom.objects.id and config.custom.access_methods.id (charset and length), and the service info in config.service_info.service (see docs/upgrading.md, Typed configuration)" -}}
+{{- end -}}
+{{- if and (kindIs "map" .Values.config) (kindIs "map" .Values.config.custom) (hasKey .Values.config.custom "service") -}}
+{{- fail "config.custom.service was removed: the self_uri of objects is a DRS URI (drs://<hostName>/<id>) of hostName, which sets config.custom.drs.hostname; remove config.custom.service from the values file (see docs/upgrading.md, DRS URIs)" -}}
 {{- end -}}
 {{- $app := .Values.drsFiler -}}
 {{- if kindIs "map" $app -}}

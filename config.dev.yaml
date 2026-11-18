@@ -1,10 +1,8 @@
 # Config overlay for local development with Docker Compose; NOT for
-# deployments, which must set their own public URL and service info instead
-# (see "Configuration" in the documentation, `docs/configuration.md`)
+# deployments, which must set their own public host name and service info
+# instead (see "Configuration" in the documentation, `docs/configuration.md`)
 custom:
-  # Public URL of the app as published by `docker-compose.yaml`, for the
-  # `self_uri` and access URLs of objects
-  service:
-    url_prefix: http
-    external_host: localhost
-    external_port: 8080
+  # Host name of the app as published by `docker-compose.yaml`, for the
+  # `self_uri` (`drs://localhost/<id>`) of objects
+  drs:
+    hostname: localhost

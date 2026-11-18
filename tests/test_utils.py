@@ -52,7 +52,7 @@ def test_get_foca_config() -> None:
 def test_get_custom_config() -> None:
     """The custom config of the current app is returned."""
     app = Flask(__name__)
-    custom = CustomConfig()
+    custom = CustomConfig(drs={"hostname": "drs.example.org"})
     app.config.foca = Config.model_validate({"custom": custom})  # type: ignore[attr-defined]
     with app.app_context():
         assert get_custom_config() is custom
@@ -60,7 +60,7 @@ def test_get_custom_config() -> None:
 
 @pytest.mark.parametrize(
     "extra",
-    [{}, {"custom": {"service": {"url_prefix": "https"}}}],
+    [{}, {"custom": {"drs": {"hostname": "drs.example.org"}}}],
     ids=["missing", "untyped"],
 )
 def test_get_custom_config_missing(extra: dict[str, Any]) -> None:

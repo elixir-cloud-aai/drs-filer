@@ -51,20 +51,13 @@ def test_operations_routed_to_package() -> None:
 
 
 def test_dev_overlay() -> None:
-    """The Compose overlay builds URLs of the host it publishes the app on.
+    """The Compose overlay sets the host it publishes the app on.
 
-    It changes nothing else, so that it keeps Flask's debug mode off.
+    For the `self_uri` of objects (`drs://localhost/<id>`). It changes
+    nothing else, so that it keeps Flask's debug mode off.
     """
     overlay = yaml.safe_load(DEV_OVERLAY_PATH.read_text())
-    assert overlay == {
-        "custom": {
-            "service": {
-                "url_prefix": "http",
-                "external_host": "localhost",
-                "external_port": 8080,
-            },
-        },
-    }
+    assert overlay == {"custom": {"drs": {"hostname": "localhost"}}}
 
 
 def test_id_charsets_literal() -> None:

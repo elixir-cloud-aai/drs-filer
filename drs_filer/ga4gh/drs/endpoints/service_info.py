@@ -15,9 +15,8 @@ from typing import Any
 from foca.api.service_info import get_service_info as get_config_service_info
 from pymongo.errors import DuplicateKeyError
 
-from drs_filer.custom_config import ServiceConfig
 from drs_filer.errors.exceptions import NotFound
-from drs_filer.utils import get_collection, get_custom_config
+from drs_filer.utils import get_collection
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +58,8 @@ class RegisterServiceInfo:
         """Initialize class requirements.
 
         Attributes:
-            service: Public URL of the app (`custom.service`), for the
-                `Location` of posted service info.
             db_coll_info: Database collection storing service info objects.
         """
-        self.service: ServiceConfig = get_custom_config().service
         self.db_coll_info = get_collection("service_info")
 
     def get_service_info(self) -> dict[str, Any]:
@@ -163,14 +159,16 @@ class RegisterServiceInfo:
     def _get_headers(self) -> dict[str, Any]:
         """Build dictionary of response headers.
 
+        The `Location` of the service info is a relative reference (RFC
+        3986, section 4.2), which clients resolve against the URL that the
+        service info was posted to (`POST /service-info`, the same as that
+        of `GET /service-info`), so that it needs no public URL and holds
+        behind proxies with other hosts, ports or path prefixes.
+
         Returns:
             Response headers.
         """
-        headers: dict[str, Any] = {
+        return {
             "Content-type": "application/json",
+            "Location": "service-info",
         }
-        headers["Location"] = (
-            f"{self.service.url_prefix}://{self.service.external_host}:"
-            f"{self.service.external_port}/{self.service.api_path}/service-info"
-        )
-        return headers
