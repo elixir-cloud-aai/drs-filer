@@ -99,21 +99,39 @@ def register_object(
     return data["id"]
 
 
-def __add_access_ids(data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def __add_access_ids(
+    data: list[dict[str, Any]],
+    retries: int = 9,
+) -> list[dict[str, Any]]:
     """Add access identifiers to posted access methods metadata.
 
     Args:
         data: List of access method metadata objects.
+        retries: How many times the generation of a random identifier should
+            be retried for each access method if it duplicates the identifier
+            of an earlier access method of the same object.
 
     Returns:
         Access methods metadata complete with unique access identifiers.
+
+    Raises:
+        InternalServerError: No unique identifier was found for an access
+            method within `retries + 1` attempts.
     """
     id_charset, id_length = get_id_settings("access_methods")
-    access_ids = []
+    access_ids: set[str] = set()
     for method in data:
-        access_id = generate_id(charset=id_charset, length=id_length)
-        if access_id not in access_ids:
-            method["access_id"] = access_id
-            access_ids.append(access_id)
+        for _ in range(retries + 1):
+            access_id = generate_id(charset=id_charset, length=id_length)
+            if access_id not in access_ids:
+                break
+        else:
+            logger.error(
+                "Could not generate unique access identifier. Tried %s times.",
+                retries + 1,
+            )
+            raise InternalServerError
+        method["access_id"] = access_id
+        access_ids.add(access_id)
 
     return data
