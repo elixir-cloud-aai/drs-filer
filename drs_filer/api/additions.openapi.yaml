@@ -25,10 +25,14 @@ info:
   contact:
     name: ELIXIR On-Cloud
     email: cloud-service@elixir-europe.org
-# No authentication yet (#94): the specification allows anonymous requests,
-# basic and bearer authentication on all operations, which Connexion can't
-# check without functions to validate credentials, so it would warn of each
-# of them on startup
+# Reads are public: the specification allows anonymous requests, basic and
+# bearer authentication on all operations; this replaces that with no
+# requirements, as DRS-Filer validates no basic credentials (Connexion would
+# warn of them on startup). The write operations below (registering,
+# replacing and deleting objects and access methods, posting the service
+# info) require a bearer token (`BearerAuth`, validated by FOCA, see
+# `add_security_fields` in `config.yaml`); who may call them is decided by
+# the access control of `config.yaml` (see `docs/access-control.md`)
 security: []
 paths:
   /service-info:
@@ -51,6 +55,8 @@ paths:
         DRS-Filer computes the DRS fields (`maxBulkRequestLength`, `drs`)
         itself, so the request can't set them.
       operationId: PostServiceInfo
+      security:
+        - BearerAuth: []
       tags:
         - DRS-Filer
       requestBody:
@@ -64,6 +70,10 @@ paths:
           description: The service info was created or replaced.
         "400":
           $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
         "500":
           $ref: "#/components/responses/500InternalServerError"
   /objects:
@@ -109,6 +119,8 @@ paths:
         Register the metadata of a data object, with an identifier that
         DRS-Filer generates.
       operationId: RegisterObject
+      security:
+        - BearerAuth: []
       tags:
         - DRS-Filer
       requestBody:
@@ -126,6 +138,10 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
         "500":
           $ref: "#/components/responses/500InternalServerError"
   /objects/{object_id}:
@@ -147,6 +163,8 @@ paths:
         Register an object with the given identifier, or replace the object
         of that identifier.
       operationId: PutObject
+      security:
+        - BearerAuth: []
       tags:
         - DRS-Filer
       parameters:
@@ -166,11 +184,17 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
         "500":
           $ref: "#/components/responses/500InternalServerError"
     delete:
       summary: Delete an object
       operationId: DeleteObject
+      security:
+        - BearerAuth: []
       tags:
         - DRS-Filer
       parameters:
@@ -184,6 +208,10 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
         "404":
           $ref: "#/components/responses/404NotFoundDrsObject"
         "500":
@@ -204,6 +232,8 @@ paths:
         least one access method with another identifier (also under
         concurrent deletions).
       operationId: DeleteAccessMethod
+      security:
+        - BearerAuth: []
       tags:
         - DRS-Filer
       parameters:
@@ -218,6 +248,10 @@ paths:
                 type: string
         "400":
           $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
         "404":
           $ref: "#/components/responses/404NotFoundAccess"
         "409":

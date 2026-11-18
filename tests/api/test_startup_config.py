@@ -14,6 +14,7 @@ import pytest
 import yaml
 
 from drs_filer.app import create_app
+from tests.conftest import admin_client
 from tests.mock_data import API, body, drs_object, error_messages
 
 
@@ -155,7 +156,7 @@ def test_public_url_from_custom_config(
             }
         )
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
@@ -172,14 +173,14 @@ def test_service_info_version_from_package(
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
     """
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     info = body(client.get(f"{API}/service-info"))
     assert info["version"] == version("drs-filer")
     assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
     overlay.write_text(
         yaml.safe_dump({"service_info": {"service": {"version": "1.2.3"}}})
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     assert body(client.get(f"{API}/service-info"))["version"] == "1.2.3"
 
 
@@ -240,7 +241,7 @@ def test_integers_from_environment(
         "    id:\n"
         "      length: ${DRS_TEST_ID_LENGTH}\n"
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)

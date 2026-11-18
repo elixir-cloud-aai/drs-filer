@@ -53,10 +53,20 @@ def test_operations_routed_to_package() -> None:
 def test_dev_overlay() -> None:
     """The Compose overlay builds URLs of the host it publishes the app on.
 
-    It changes nothing else, so that it keeps Flask's debug mode off.
+    It trusts a fictitious issuer, as the app refuses to start without one,
+    accepts tokens for any audience and starts without admins; it changes
+    nothing else, so that it keeps Flask's debug mode off and authentication
+    on.
     """
     overlay = yaml.safe_load(DEV_OVERLAY_PATH.read_text())
     assert overlay == {
+        "security": {
+            "auth": {
+                "issuers": ["https://login.example.org/oidc/"],
+                "verify_audience": False,
+            },
+            "access_control": {"require_admin": False, "claim_groups": "groups"},
+        },
         "custom": {
             "service": {
                 "url_prefix": "http",
@@ -65,6 +75,32 @@ def test_dev_overlay() -> None:
             },
         },
     }
+
+
+def test_noauth_overlay() -> None:
+    """The overlay without authentication changes only `disable_auth`."""
+    overlay = yaml.safe_load((ROOT / "config.noauth.yaml").read_text())
+    assert overlay == {"api": {"specs": {"drs": {"disable_auth": True}}}}
+
+
+def test_auth_without_deployment_defaults() -> None:
+    """The shipped config trusts no issuer and maps no group to `admin`.
+
+    Each deployment sets its own (the app refuses to start without them);
+    access control is enabled and enforced, and admins are required.
+    """
+    security = yaml.safe_load(CONFIG_PATH.read_text())["security"]
+    assert security["auth"]["issuers"] == []
+    assert "audience" not in security["auth"]
+    assert security["auth"]["verify_token_type"] is True
+    access_control = security["access_control"]
+    assert access_control["enabled"] is True
+    assert access_control["enforce"] is True
+    assert access_control["require_admin"] is True
+    assert "group_mapping" not in access_control
+    assert access_control["policies"] == {}
+    spec = yaml.safe_load(CONFIG_PATH.read_text())["api"]["specs"]["drs"]
+    assert spec["disable_auth"] is False
 
 
 def test_id_charsets_literal() -> None:

@@ -1,0 +1,307 @@
+"""App tests of authentication and access control (`docs/access-control.md`).
+
+Writes (registering, replacing and deleting objects and access methods,
+posting the service info) need an access token of a trusted issuer, and,
+until objects have owners (#95), the role `admin`; reads stay public.
+"""
+
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from flask.testing import FlaskClient
+from pydantic import ValidationError
+from pymongo import MongoClient
+from pymongo.collection import Collection
+import pytest
+from werkzeug.test import TestResponse
+import yaml
+
+from drs_filer.app import create_app
+from tests.conftest import ADMIN, USER, make_headers
+from tests.mock_data import ADDITIONS_SPEC, API, SERVICE_INFO, body, drs_object
+
+ROOT = Path(__file__).resolve().parents[2]
+NOAUTH_OVERLAY = ROOT / "config.noauth.yaml"
+DEV_OVERLAY = ROOT / "config.dev.yaml"
+# Write operations of the app: (method, path template), with `{object_id}`
+# and `{access_id}` of a registered object
+WRITES = [
+    ("post", "/objects/register"),
+    ("put", "/objects/{object_id}"),
+    ("delete", "/objects/{object_id}"),
+    ("delete", "/objects/{object_id}/access/{access_id}"),
+    ("post", "/service-info"),
+]
+# Operations with a request body, and the body
+BODIES = {
+    "/objects/register": drs_object,
+    "/objects/{object_id}": drs_object,
+    "/service-info": lambda: SERVICE_INFO,
+}
+
+
+def _request(
+    client: FlaskClient,
+    method: str,
+    path: str,
+    ids: tuple[str, str],
+    json: Any = None,
+    headers: dict[str, str] | None = None,
+) -> TestResponse:
+    """Send a write request, with the body of its operation unless given.
+
+    Args:
+        client: Test client.
+        method: HTTP method.
+        path: Path template (`WRITES`).
+        ids: Identifiers of an object and of one of its access methods.
+        json: Request body; that of `BODIES` if `None`.
+        headers: Request headers.
+
+    Returns:
+        Response.
+    """
+    url = API + path.format(object_id=ids[0], access_id=ids[1])
+    factory: Callable[[], Any] | None = BODIES.get(path)
+    if json is None and factory is not None:
+        json = factory()
+    send = getattr(client, method)
+    return send(url, json=json, headers=headers or {})
+
+
+@pytest.fixture
+def ids(client: FlaskClient) -> tuple[str, str]:
+    """An object with two access methods, registered by an admin.
+
+    Args:
+        client: Test client with an admin's token.
+
+    Returns:
+        Identifiers of the object and of its first access method.
+    """
+    response = client.post(f"{API}/objects/register", json=drs_object(2))
+    assert response.status_code == 200, body(response)
+    object_id = body(response)
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    return object_id, obj["access_methods"][0]["access_id"]
+
+
+def _assert_unauthorized(response: TestResponse, invalid: bool = False) -> None:
+    """Check a `401` with a Bearer challenge, as problem details.
+
+    Args:
+        response: Response.
+        invalid: Whether the challenge names an invalid token.
+    """
+    assert response.status_code == 401, body(response)
+    assert body(response)["status"] == 401
+    challenge = response.headers["WWW-Authenticate"]
+    assert challenge.startswith("Bearer")
+    assert ('error="invalid_token"' in challenge) is invalid
+
+
+@pytest.mark.parametrize(("method", "path"), WRITES)
+def test_write_without_token(
+    anonymous_client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    ids: tuple[str, str],
+    method: str,
+    path: str,
+) -> None:
+    """Writes without a token are refused (`401`), and change nothing."""
+    before = list(objects.find({}, {"_id": False}))
+    _assert_unauthorized(_request(anonymous_client, method, path, ids))
+    assert list(objects.find({}, {"_id": False})) == before
+
+
+@pytest.mark.parametrize("path", sorted(BODIES))
+def test_write_without_token_before_validation(
+    anonymous_client: FlaskClient, ids: tuple[str, str], path: str
+) -> None:
+    """Writes without a token are refused before their body is validated."""
+    method = "post" if path != "/objects/{object_id}" else "put"
+    response = _request(anonymous_client, method, path, ids, json={"invalid": 1})
+    _assert_unauthorized(response)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        pytest.param({"key": rsa.generate_private_key(65537, 2048)}, id="key"),
+        pytest.param({"expired": True}, id="expired"),
+        pytest.param({"audience": "other-client"}, id="audience"),
+        pytest.param({"issuer": "https://other.example.org/"}, id="issuer"),
+        pytest.param({"typ": "JWT"}, id="id-token"),
+        pytest.param({"typ": None}, id="no-type"),
+    ],
+)
+@pytest.mark.parametrize(("method", "path"), WRITES)
+def test_write_with_invalid_token(
+    anonymous_client: FlaskClient,
+    ids: tuple[str, str],
+    method: str,
+    path: str,
+    token: dict[str, Any],
+) -> None:
+    """Writes with invalid tokens are refused (`401`, `invalid_token`).
+
+    Tokens of other keys, expired ones, those for other audiences or of
+    untrusted issuers, and tokens that aren't access tokens (RFC 9068).
+    """
+    headers = make_headers(ADMIN, **token)
+    response = _request(anonymous_client, method, path, ids, headers=headers)
+    _assert_unauthorized(response, invalid=True)
+
+
+def test_write_with_malformed_token(
+    anonymous_client: FlaskClient, ids: tuple[str, str]
+) -> None:
+    """Writes with a token that isn't a JWT are refused (`401`)."""
+    response = _request(
+        anonymous_client,
+        "post",
+        "/objects/register",
+        ids,
+        headers={"Authorization": "Bearer not-a-jwt"},
+    )
+    _assert_unauthorized(response, invalid=True)
+
+
+@pytest.mark.parametrize(("method", "path"), WRITES)
+def test_write_by_non_admin(
+    anonymous_client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    ids: tuple[str, str],
+    method: str,
+    path: str,
+) -> None:
+    """Writes with a valid token of a user who isn't an admin get `403`."""
+    before = list(objects.find({}, {"_id": False}))
+    response = _request(anonymous_client, method, path, ids, headers=make_headers(USER))
+    assert response.status_code == 403, body(response)
+    assert body(response)["status"] == 403
+    assert list(objects.find({}, {"_id": False})) == before
+
+
+@pytest.mark.parametrize(("method", "path"), WRITES)
+def test_write_by_admin(
+    client: FlaskClient, ids: tuple[str, str], method: str, path: str
+) -> None:
+    """Writes with a valid token of an admin succeed."""
+    response = _request(client, method, path, ids)
+    assert response.status_code in {200, 201}, body(response)
+
+
+@pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer not-a-jwt"}])
+def test_reads_public(
+    anonymous_client: FlaskClient, ids: tuple[str, str], headers: dict[str, str]
+) -> None:
+    """Reads need no token, and ignore invalid ones."""
+    object_id, access_id = ids
+    for path in [
+        "/objects",
+        f"/objects/{object_id}",
+        f"/objects/{object_id}/access/{access_id}",
+        "/service-info",
+        "/openapi.json",
+    ]:
+        response = anonymous_client.get(API + path, headers=headers)
+        assert response.status_code == 200, path
+
+
+@pytest.mark.parametrize(
+    "path", ["/objects", "/objects/abc", "/objects/abc/access/def", "/objects/access"]
+)
+def test_passport_posts_without_token(anonymous_client: FlaskClient, path: str) -> None:
+    """The passport `POST` operations answer `501` without credentials."""
+    response = anonymous_client.post(API + path, json={"passports": ["x"]})
+    assert response.status_code == 501
+
+
+def test_spec_security() -> None:
+    """Writes require the bearer scheme; the specification's default is none.
+
+    The specification allows anonymous requests and basic authentication on
+    all operations; the additions replace that with no requirements, so that
+    reads are public, and require `BearerAuth` on writes.
+    """
+    additions = yaml.safe_load(ADDITIONS_SPEC.read_text())
+    assert additions["security"] == []
+    for method, path in WRITES:
+        operation = additions["paths"][path][method]
+        assert operation["security"] == [{"BearerAuth": []}], (method, path)
+
+
+@pytest.mark.parametrize(
+    ("security", "match"),
+    [
+        ({"auth": {"issuers": []}}, "issuer"),
+        ({"auth": {"audience": None}}, "audience"),
+        ({"access_control": {"group_mapping": None}}, "admin"),
+    ],
+)
+def test_missing_deployment_settings_fail_start(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    security: dict[str, Any],
+    match: str,
+) -> None:
+    """The app refuses to start without an issuer, audience or admin group.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+        security: Settings of `security` that undo those of the test
+            overlay.
+        match: Expected part of the error.
+    """
+    overlay.write_text(yaml.safe_dump({"security": security}))
+    with pytest.raises((ValueError, ValidationError), match=match):
+        create_app()
+
+
+def test_noauth_overlay(
+    mongo_client: MongoClient[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    mock_idp: None,
+) -> None:
+    """`config.noauth.yaml` (after `config.dev.yaml`) lets anybody write.
+
+    For local development only (see "Running without authentication" in
+    `docs/development.md`).
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        monkeypatch: Fixture to set the overlays with.
+        mock_idp: Mock of the identity provider.
+    """
+    monkeypatch.setenv("FOCA_CONFIG_OVERLAY", f"{DEV_OVERLAY}:{NOAUTH_OVERLAY}")
+    client = create_app().app.test_client()
+    response = client.post(f"{API}/objects/register", json=drs_object())
+    assert response.status_code == 200, body(response)
+    object_id = body(response)
+    response = client.delete(f"{API}/objects/{object_id}")
+    assert response.status_code == 200, body(response)
+
+
+def test_dev_overlay_refuses_anonymous_writes(
+    mongo_client: MongoClient[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    mock_idp: None,
+) -> None:
+    """The Compose overlay starts without an identity provider of its own.
+
+    Writes then need a token of its fictitious issuer.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        monkeypatch: Fixture to set the overlays with.
+        mock_idp: Mock of the identity provider.
+    """
+    monkeypatch.setenv("FOCA_CONFIG_OVERLAY", str(DEV_OVERLAY))
+    client = create_app().app.test_client()
+    response = client.post(f"{API}/objects/register", json=drs_object())
+    _assert_unauthorized(response)
+    assert client.get(f"{API}/objects").status_code == 200
