@@ -3,6 +3,44 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Access tokens for writes
+
+!!! warning "Breaking changes"
+    Writes need an access token of an admin, and the app refuses to start
+    without an identity provider and an admin group.
+
+Registering, replacing and deleting objects and access methods, and
+posting the service info (`POST /objects/register`, `PUT` and `DELETE
+/objects/{object_id}`, `DELETE /objects/{object_id}/access/{access_id}`,
+`POST /service-info`), need an access token (#94; see [Access
+control](access-control.md)). Without a valid one, they get `401
+Unauthorized`; with the token of a user who isn't an admin, `403
+Forbidden`. Reads stay public. Before upgrading:
+
+1. Choose the identity provider, register a client for the apps or
+   scripts that write (e.g., a portal or a client for scripts), and create
+   an admin group (or entitlement) for the users who may write.
+2. Set them in your overlay or the Helm chart's `config` value (see
+   [Deployment configuration](configuration.md#deployment-configuration)):
+   `security.auth.issuers`, `security.auth.audience`,
+   `security.access_control.claim_groups` and
+   `security.access_control.group_mapping` (or `require_admin: false`, so
+   that nobody can write). Without them, the app refuses to start, and the
+   chart refuses to render.
+3. Send the token with every write, e.g.:
+
+    ```bash
+    curl -X POST "https://drs.example.org/ga4gh/drs/v1/objects/register" \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" -d @object.json
+    ```
+
+FOCA stores the policy rules of access control in the collection
+`policy_rules` of the database `drsStore`, which it creates on startup;
+the stored objects need no migration. Docker Compose trusts a fictitious
+identity provider: to write without one locally, see [Running without
+authentication](development.md#running-without-authentication).
+
 ## DRS 1.5.0
 
 !!! warning "Breaking changes"

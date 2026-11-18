@@ -19,7 +19,7 @@ from werkzeug.test import TestResponse
 import yaml
 
 from drs_filer.app import create_app
-from tests.conftest import ADMIN, USER, make_headers
+from tests.conftest import ADMIN, EDITOR, USER, make_headers
 from tests.mock_data import ADDITIONS_SPEC, API, SERVICE_INFO, body, drs_object
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -218,6 +218,56 @@ def test_passport_posts_without_token(anonymous_client: FlaskClient, path: str) 
     """The passport `POST` operations answer `501` without credentials."""
     response = anonymous_client.post(API + path, json={"passports": ["x"]})
     assert response.status_code == 501
+
+
+def _docs_example(title: str) -> dict[str, Any]:
+    """Get a YAML example of `docs/access-control.md` by its title.
+
+    Args:
+        title: Title of the code block (`title="..."`).
+
+    Returns:
+        The example.
+    """
+    text = (ROOT / "docs" / "access-control.md").read_text()
+    block = text.split(f'```yaml title="{title}"\n', 1)[1].split("```", 1)[0]
+    example: dict[str, Any] = yaml.safe_load(block)
+    return example
+
+
+def test_editors_example(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    objects: Collection[dict[str, Any]],
+) -> None:
+    """The editors of the example in the docs can write, but other users not.
+
+    Editors can't post the service info, as no rule of the example allows it.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+        objects: Collection of the objects.
+    """
+    overlay.write_text(yaml.safe_dump(_docs_example("editors.yaml")))
+    client = create_app().app.test_client()
+    editor = make_headers(EDITOR)
+    response = client.post(
+        f"{API}/objects/register", json=drs_object(2), headers=editor
+    )
+    assert response.status_code == 200, body(response)
+    object_id = body(response)
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    access_id = obj["access_methods"][0]["access_id"]
+    url = f"{API}/objects/{object_id}"
+    response = client.delete(f"{url}/access/{access_id}", headers=editor)
+    assert response.status_code == 200, body(response)
+    assert client.put(url, json=drs_object(2), headers=editor).status_code == 200
+    assert client.delete(url, headers=make_headers(USER)).status_code == 403
+    response = client.post(f"{API}/service-info", json=SERVICE_INFO, headers=editor)
+    assert response.status_code == 403
+    assert client.delete(url, headers=editor).status_code == 200
+    assert objects.count_documents({}) == 0
 
 
 def test_spec_security() -> None:

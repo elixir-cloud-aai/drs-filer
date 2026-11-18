@@ -59,8 +59,11 @@ ADMIN_GROUP = "drs-admins"
 ADMIN = "admin@example.org"
 # A user who isn't an admin
 USER = "alice@example.org"
+# A user of the group that the example of `docs/access-control.md` maps to
+# the role `editor`
+EDITOR = "editor@example.org"
 # Group memberships of the users, as released in their tokens
-GROUPS = {ADMIN: [ADMIN_GROUP], USER: ["drs-users"]}
+GROUPS = {ADMIN: [ADMIN_GROUP], USER: ["drs-users"], EDITOR: ["drs-editors"]}
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 # FOCA's environment variables for the MongoDB connection
 MONGO_VARIABLES = (

@@ -808,7 +808,6 @@ def test_readme_references() -> None:
             assert matches, f"{path.name}: {prefix}{part[:40]}"
             sections.extend(matches)
     assert {
-        "Access",
         "Configuration",
         "From earlier charts",
         "Several replicas",

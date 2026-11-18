@@ -29,9 +29,12 @@ define are rejected; those of the [passport `POST`
 endpoints](#passport-post-endpoints) follow the DRS schemas, which allow
 other fields.
 
-!!! warning "No authentication yet"
-    All endpoints, including those that change objects, are open to anyone
-    who can reach the app; see [Access control](access-control.md).
+Reads (the `GET` endpoints), the service info, the API specification and
+the Swagger UI are public. The endpoints of DRS-Filer that change objects
+and the service info (`POST /objects/register`, `PUT` and `DELETE` of
+objects, `DELETE` of access methods, `POST /service-info`) need an access
+token of an admin, sent as a bearer token (`Authorization: Bearer
+<token>`); see [Access control](access-control.md).
 
 ## Endpoints
 
@@ -66,10 +69,12 @@ methods (`AccessMethodRegister`) need a `type`, and can have an
 specification requires at least one access method (`access_methods`) for
 single blobs (objects without `contents`); register blobs with one, as
 DRS-Filer doesn't check this yet and can't serve access URLs of objects
-without access methods. Both return the identifier of the object, e.g.:
+without access methods. Both need an admin's access token, and return the
+identifier of the object, e.g.:
 
 ```bash
 curl -X POST "http://localhost:8080/ga4gh/drs/v1/objects/register" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "sample.bam",
@@ -180,10 +185,10 @@ DRS-Filer serves the specification unchanged, but for these deviations
   schema of DRS (`msg`, `status_code`); the error responses of the served
   specification refer to `Problem`, as `application/problem+json` (which
   DRS-Filer sends) and `application/json` (which the specification declares).
-- **Authentication:** none yet
-  ([#94](https://github.com/elixir-cloud-aai/drs-filer/issues/94)); the
-  served specification declares no security requirements instead of
-  optional basic and bearer authentication.
+- **Authentication:** reads take no credentials: the served specification
+  declares no security requirements for them, instead of optional basic and
+  bearer authentication. DRS-Filer's write endpoints require bearer
+  authentication (`BearerAuth`, see [Access control](access-control.md)).
 - **Bundles** are served as registered: `expand` of `GET
   /objects/{object_id}` is accepted, but ignored.
 - **`self_uri`** is the URL of the object, not a `drs://` URI yet
