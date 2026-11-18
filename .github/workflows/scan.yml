@@ -51,7 +51,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # `latest` is published by `release.yml` for stable releases only;
+      # until the first one (tag `vX.Y.Z`), `latest` is a legacy image of
+      # the code base before it (2021), which isn't scanned
+      - name: Check for a stable release
+        id: release
+        run: |
+          if git ls-remote --tags origin 'v*' | cut -f2 \
+              | grep -Eq '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No stable release yet: 'latest' is not a release image, skipping the scan"
+          fi
       - name: Scan image
+        if: steps.release.outputs.found == 'true'
         uses: elixir-cloud-aai/.github/actions/scan-image@31f22fccc1f3c597ed7c1d1f75b2f85522155348 # v1.1.0
         with:
           image: ${{ env.IMAGE_NAME }}:latest
