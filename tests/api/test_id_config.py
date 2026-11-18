@@ -41,7 +41,9 @@ def test_literal_charsets(
     _write_ids(
         overlay,
         objects={"id_charset": "ab", "id_length": 12},
-        access={"id_charset": "xyz", "id_length": 8},
+        # Long enough that the two access identifiers practically never
+        # collide (a duplicate one is left unset)
+        access={"id_charset": "xyz", "id_length": 40},
     )
     client = create_app().app.test_client()
     response = client.post(f"{API}/objects", json=drs_object(2))
@@ -51,7 +53,7 @@ def test_literal_charsets(
     assert set(object_id) <= set("ab")
     obj = body(client.get(f"{API}/objects/{object_id}"))
     for method in obj["access_methods"]:
-        assert len(method["access_id"]) == 8
+        assert len(method["access_id"]) == 40
         assert set(method["access_id"]) <= set("xyz")
 
 

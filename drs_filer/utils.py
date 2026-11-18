@@ -54,7 +54,9 @@ def get_id_settings(section: str) -> tuple[str, int]:
     is never evaluated: expressions, which earlier versions evaluated
     (e.g., `string.ascii_letters + string.digits`), are refused, as they
     contain other characters (spaces, quotes, `+`, ...). The checks of
-    FOCA's `generate_id()` apply, too (e.g., a positive integer length).
+    FOCA's `generate_id()` apply, too (e.g., a positive integer length):
+    the settings are checked by generating an identifier, which is
+    discarded.
 
     Args:
         section: Section of `endpoints` (`objects` or `access_methods`), with

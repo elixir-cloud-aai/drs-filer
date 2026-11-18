@@ -30,9 +30,10 @@ cryptographically secure source.
 
   This is the default of the base config now, with the same characters as
   before: overlays that don't set `id_charset` need no change.
-- Character sets that list the characters (e.g., `"abc123"`) work as
-  before for object identifiers; for access identifiers, they now work too
-  (they failed requests with `500 Internal Server Error`).
+- Character sets of unreserved characters (e.g., `"abc123"`) keep working
+  for object identifiers. They now work for access identifiers, too, and
+  so do those that happened to be valid Python (e.g., digits only); both
+  failed requests with `500 Internal Server Error`.
 - An empty or non-string `id_charset` (e.g., a YAML list, which worked for
   object identifiers), or an `id_length` that isn't a positive integer, also
   fails the start (before, `0` and negative lengths gave empty identifiers,
