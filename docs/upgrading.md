@@ -3,6 +3,40 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Access methods without identifiers
+
+Before #121, an access identifier that duplicated one of an earlier access
+method of the same object left the method without `access_id`. Every
+access method gets a unique identifier now; methods stored without one stay
+as they are. They can't be addressed by
+`GET /objects/{object_id}/access/{access_id}`, but no longer break it for
+the other access methods of the object (#123), which failed with
+`500 Internal Server Error`.
+
+- List the affected objects in the app's container, e.g., in the Compose
+  stack (with the Helm chart: `kubectl exec deploy/drs-filer -- python -c
+  ...`):
+
+  ```bash
+  docker compose exec drs-filer python -c '
+  from drs_filer.app import create_app
+  from drs_filer.utils import get_collection
+
+  with create_app().app.app_context():
+      query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
+      for obj in get_collection("objects").find(query, {"_id": 0, "id": 1}):
+          print(obj["id"])
+  ' 2>/dev/null
+  ```
+
+  It prints the identifier of each such object.
+- To make their access methods addressable, register them again
+  (`PUT /objects/{object_id}`, with the object as `GET /objects/{object_id}`
+  returns it, without `id`, `self_uri` and the `access_id` of each access
+  method, which registrations don't accept): this generates new
+  identifiers for all access methods of the object, so clients that stored
+  the earlier ones look them up again.
+
 ## Identifier character sets
 
 The character sets of generated identifiers (`endpoints.objects.id_charset`

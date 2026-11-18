@@ -98,11 +98,13 @@ def GetAccessURL(object_id: str, access_id: str) -> dict[str, Any]:
     obj = _get_object(object_id)
     try:
         access_methods = obj["access_methods"]
+        # Access methods stored before #121 may lack `access_id`; they can't
+        # be addressed, but don't break the lookup of the others
         access_urls = [
-            d["access_url"] for d in access_methods if d["access_id"] == access_id
+            d["access_url"] for d in access_methods if d.get("access_id") == access_id
         ]
-    # An access methods dictionary is required for every object and it needs
-    # to contain a list of dictionaries wth keys `access_url` and `access_id`
+    # Every object needs access methods, and an addressed one needs an
+    # `access_url`
     except KeyError as err:
         raise InternalServerError from err
     if not access_urls:
