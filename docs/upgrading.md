@@ -13,7 +13,10 @@ as they are. They can't be addressed by
 the other access methods of the object (#123), which failed with
 `500 Internal Server Error`. Objects without access methods (e.g.,
 bundles) and access methods registered without `access_url` have no access
-URL: requests for them get `404 Not Found` (was `500`).
+URL: requests for them get `404 Not Found` (was `500`). Likewise, objects
+without access methods have none to delete:
+`DELETE /objects/{object_id}/access/{access_id}` gets `404 Not Found` for
+them (was `500`, #127).
 
 - List the affected objects in the app's container, e.g., in the Compose
   stack (with the Helm chart: `kubectl exec deploy/drs-filer -- python -c
