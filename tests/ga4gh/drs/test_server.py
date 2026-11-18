@@ -17,6 +17,7 @@ from drs_filer.errors.exceptions import (
     ObjectNotFound,
     URLNotFound,
 )
+from drs_filer.ga4gh.drs.endpoints.service_info import CURRENT_ID
 from drs_filer.ga4gh.drs.server import (
     DeleteAccessMethod,
     DeleteObject,
@@ -498,7 +499,7 @@ def test_getServiceInfo() -> None:
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    mock_resp = {**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID}
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"
     ].client = mongomock.MongoClient().db.collection
