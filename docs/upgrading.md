@@ -8,9 +8,12 @@ repository's default branch, newest first.
 The settings of DRS-Filer itself moved from the untyped section `endpoints`
 to the section `custom`, which the app validates on startup (#93,
 `drs_filer/custom_config.py`), and the service info to FOCA's section
-`service_info`, which FOCA validates. Invalid values and unknown keys (e.g.,
-misspelled ones) fail the start, with an error that names the setting, but
-not the value; before, they failed requests, or were ignored. A config with
+`service_info`, which FOCA validates against the service info
+specification. Invalid values and unknown keys of `custom` (e.g., misspelled
+ones) fail the start, with an error that names the setting, but not the
+value; before, they failed requests, or were ignored. Invalid service info
+fails the start too, with the value in the error; other fields are served as
+extra fields (check the spelling of yours). A config with
 the section `endpoints` fails the start, too, and so does a Helm value
 `config.endpoints` (rendering fails), naming the new keys. Move the
 settings of your overlays (and of the Helm value `config`):
@@ -43,8 +46,13 @@ service_info:
 - The default public host is `localhost` (was the IP address
   `193.166.24.114`), as in the Compose overlay; deployments set their own,
   as before (the Helm chart sets it from `hostName`).
-- `url_prefix` must be `http` or `https`, `external_port` an integer from 1
-  to 65535, and `api_path` has no leading or trailing `/`.
+- `url_prefix` must be `http` or `https`, `external_host` a host name or IP
+  address (IPv6 addresses in brackets) without scheme, port or path (e.g.,
+  not `https://drs.example.org`, which gave broken `self_uri`s),
+  `external_port` an integer from 1 to 65535, and `api_path` segments of
+  letters, digits and `-._~` separated by `/`, without leading or trailing
+  `/`. Lengths and ports are integers, also in strings (e.g., from
+  `${VAR}`), but not booleans.
 - The service info reports the version of the installed app (of the image)
   as `version`, unless `service_info.service.version` is set (the base
   config had the placeholder `0.0.0`). The base config no longer sets

@@ -55,7 +55,7 @@ def test_default_charset() -> None:
         {"length": 0},
         {"length": -1},
         {"length": 2.5},
-        {"length": "6"},
+        {"length": "six"},
         {"length": True},
         {"size": 6},
     ],
@@ -84,7 +84,16 @@ def test_id_config_expression_message() -> None:
         {"external_host": ""},
         {"external_port": 0},
         {"external_port": 65536},
-        {"external_port": "443"},
+        {"external_port": "https"},
+        {"external_port": True},
+        {"external_host": "https://drs.example.org"},
+        {"external_host": "drs.example.org:443"},
+        {"external_host": "drs.example.org/x"},
+        {"external_host": "a b"},
+        {"external_host": "::1"},
+        {"api_path": "a b"},
+        {"api_path": "x?y"},
+        {"api_path": "a//b"},
         {"api_path": ""},
         {"api_path": "/ga4gh/drs/v1"},
         {"api_path": "ga4gh/drs/v1/"},
@@ -135,3 +144,34 @@ def test_custom_config_partial() -> None:
     assert config.access_methods.id.length == 12
     assert config.access_methods.id.charset == DEFAULT_ID_CHARSET
     assert config.objects.id == IdConfig()
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"external_host": "drs.example.org"},
+        {"external_host": "192.0.2.1"},
+        {"external_host": "[2001:db8::1]"},
+        {"external_host": "drs_filer"},
+        {"api_path": "drs"},
+        {"api_path": "ga4gh/drs/v1.1"},
+    ],
+)
+def test_service_config_valid(settings: dict[str, Any]) -> None:
+    """Host names, IP addresses and paths of unreserved characters are valid.
+
+    Args:
+        settings: Valid settings of the public URL.
+    """
+    config = ServiceConfig.model_validate(settings)
+    for key, value in settings.items():
+        assert getattr(config, key) == value
+
+
+def test_integers_in_strings() -> None:
+    """Integers in strings are taken, as from environment variables (`${VAR}`).
+
+    FOCA interpolates variables into strings.
+    """
+    assert ServiceConfig.model_validate({"external_port": "8443"}).external_port == 8443
+    assert IdConfig.model_validate({"length": "12"}).length == 12

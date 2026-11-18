@@ -44,7 +44,10 @@ for `custom`, FOCA for the other sections): invalid values and unknown keys
 of `custom` (e.g., misspelled ones) fail the start, with an error that names
 the setting and the reason, but not the value. So does the section
 `endpoints` of earlier versions (see
-[Upgrading](upgrading.md#typed-configuration)).
+[Upgrading](upgrading.md#typed-configuration)). The service info is
+checked against the service info specification instead, which allows other
+fields (a misspelled field is served as an extra field), and its errors
+show the invalid value.
 
 ## Public URL
 
@@ -62,8 +65,12 @@ custom:
     external_port: 443
 ```
 
-`url_prefix` is `http` or `https`, `external_port` an integer from 1 to
-65535, and `api_path` has no leading or trailing `/`.
+`url_prefix` is `http` or `https`; `external_host` a host name or IP
+address (IPv6 addresses in brackets), without scheme, port or path;
+`external_port` an integer from 1 to 65535; and `api_path` segments of
+letters, digits and `-._~`, separated by `/`, without leading or trailing
+`/`. Integer settings (the port, the lengths of identifiers) can be set from
+environment variables (e.g., `external_port: ${PUBLIC_PORT}`).
 
 ## Service info
 

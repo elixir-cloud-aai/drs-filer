@@ -77,7 +77,7 @@ def test_literal_charsets(
         ("charset", ""),
         ("charset", 123),
         ("length", 0),
-        ("length", "6"),
+        ("length", "six"),
         ("length", True),
     ],
 )

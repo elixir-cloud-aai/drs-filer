@@ -22,6 +22,7 @@ from tests.mock_data import API, body, drs_object, error_messages
     [
         ({"service": {"url_prefix": "SENTINEL"}}, "service.url_prefix"),
         ({"service": {"external_port": "SENTINEL"}}, "service.external_port"),
+        ({"service": {"external_host": "https://SENTINEL"}}, "service.external_host"),
         ({"service": {"external_port": 70000}}, "service.external_port"),
         ({"service": {"api_path": "/SENTINEL"}}, "service.api_path"),
         ({"service": {"host": "SENTINEL"}}, "service.host"),
@@ -182,3 +183,36 @@ def test_invalid_service_info_fails_start(
     overlay.write_text(yaml.safe_dump({"service_info": {"service": service}}))
     with pytest.raises(ValidationError, match=rf"service_info\.service\b.*{field}"):
         create_app()
+
+
+def test_integers_from_environment(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The port and identifier lengths can be set from environment variables.
+
+    FOCA interpolates `${VAR}` into strings, which the integer settings take.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+        monkeypatch: Fixture to set the variables with.
+    """
+    monkeypatch.setenv("DRS_TEST_PORT", "8443")
+    monkeypatch.setenv("DRS_TEST_ID_LENGTH", "9")
+    overlay.write_text(
+        "custom:\n"
+        "  service:\n"
+        "    external_port: ${DRS_TEST_PORT}\n"
+        "  objects:\n"
+        "    id:\n"
+        "      length: ${DRS_TEST_ID_LENGTH}\n"
+    )
+    client = create_app().app.test_client()
+    response = client.post(f"{API}/objects", json=drs_object(1))
+    assert response.status_code == 200, body(response)
+    object_id = body(response)
+    assert len(object_id) == 9
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    assert obj["self_uri"].startswith("https://drs.example.org:8443/")

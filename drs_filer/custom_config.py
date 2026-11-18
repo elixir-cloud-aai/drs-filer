@@ -6,12 +6,13 @@ instead of requests. The service info is configured in FOCA's section
 `service_info`, not here.
 """
 
+import re
 import string
 from typing import Annotated, Literal
 
 from foca.models.config import FOCABaseConfig
 from foca.models.config import IdConfig as FocaIdConfig
-from pydantic import Field, field_validator
+from pydantic import BeforeValidator, Field, field_validator
 
 # Characters allowed in generated identifiers: the unreserved characters of
 # URLs (RFC 3986, section 2.3), which need no encoding in paths
@@ -20,6 +21,37 @@ UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
 # URLs, as the expression of earlier versions
 # (`string.ascii_letters + string.digits + ".-_~"`)
 DEFAULT_ID_CHARSET = string.ascii_letters + string.digits + ".-_~"
+# Public hosts: host names and IPv4 addresses (letters, digits, `.`, `-` and
+# `_`), or IPv6 addresses in brackets
+HOST_PATTERN = re.compile(r"[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\]")
+# API paths: segments of unreserved characters of URLs, separated by `/`
+API_PATH_PATTERN = re.compile(r"[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*")
+
+
+def _not_bool(value: object) -> object:
+    """Refuse booleans for integer settings, which pydantic takes as 0 and 1.
+
+    Integers in strings are taken, as config values that reference
+    environment variables (`${VAR}`) are strings.
+
+    Args:
+        value: Value of the setting.
+
+    Returns:
+        The value.
+
+    Raises:
+        ValueError: The value is a boolean.
+    """
+    if isinstance(value, bool):
+        raise ValueError("Must be an integer, not a boolean")
+    return value
+
+
+# Positive integer, also in a string (e.g., from `${VAR}`), not a boolean
+PositiveInteger = Annotated[int, BeforeValidator(_not_bool), Field(gt=0)]
+# Port number, also in a string (e.g., from `${VAR}`), not a boolean
+Port = Annotated[int, BeforeValidator(_not_bool), Field(ge=1, le=65535)]
 
 
 class ServiceConfig(FOCABaseConfig):
@@ -31,20 +63,24 @@ class ServiceConfig(FOCABaseConfig):
 
     Args:
         url_prefix: URL scheme: `http` or `https`.
-        external_host: Public host name (or IP address) of the app.
+        external_host: Public host name or IP address of the app (IPv6
+            addresses in brackets), without scheme, port or path.
         external_port: Public port of the app.
-        api_path: Path of the API, without leading or trailing `/`.
+        api_path: Path of the API: segments of unreserved characters of URLs
+            (letters, digits and `-._~`), separated by `/`, without leading
+            or trailing `/`.
 
     Attributes:
         url_prefix: URL scheme.
-        external_host: Public host name (or IP address) of the app.
+        external_host: Public host name or IP address of the app.
         external_port: Public port of the app.
         api_path: Path of the API.
 
     Raises:
         pydantic.ValidationError: The scheme is neither `http` nor `https`,
-            the host is empty, the port is not an integer from 1 to 65535,
-            or the API path is empty or starts or ends with `/`.
+            the host is not a host name or IP address, the port is not an
+            integer from 1 to 65535, or the API path is not a path of
+            unreserved characters of URLs.
 
     Example:
         >>> ServiceConfig(url_prefix="https", external_host="drs.example.org").api_path
@@ -52,14 +88,36 @@ class ServiceConfig(FOCABaseConfig):
     """
 
     url_prefix: Literal["http", "https"] = "http"
-    external_host: str = Field(default="localhost", min_length=1)
-    external_port: Annotated[int, Field(strict=True, ge=1, le=65535)] = 8080
-    api_path: str = Field(default="ga4gh/drs/v1", min_length=1)
+    external_host: str = "localhost"
+    external_port: Port = 8080
+    api_path: str = "ga4gh/drs/v1"
+
+    @field_validator("external_host")
+    @classmethod
+    def check_external_host(cls, value: str) -> str:
+        """Check that the host is a host name or IP address.
+
+        Args:
+            value: Host.
+
+        Returns:
+            The host.
+
+        Raises:
+            ValueError: The host is empty, or has a scheme, port, path or
+                other characters (e.g., an IPv6 address without brackets).
+        """
+        if not HOST_PATTERN.fullmatch(value):
+            raise ValueError(
+                "The host must be a host name or IP address (IPv6 addresses in "
+                "brackets), without scheme, port or path"
+            )
+        return value
 
     @field_validator("api_path")
     @classmethod
     def check_api_path(cls, value: str) -> str:
-        """Check that the API path has no leading or trailing `/`.
+        """Check that the API path has unreserved characters of URLs only.
 
         The URL inserts a `/` before and after it.
 
@@ -70,10 +128,14 @@ class ServiceConfig(FOCABaseConfig):
             The API path.
 
         Raises:
-            ValueError: The API path starts or ends with `/`.
+            ValueError: The API path is empty, starts or ends with `/`, has
+                empty segments or other characters.
         """
-        if value.startswith("/") or value.endswith("/"):
-            raise ValueError("The API path must not start or end with '/'")
+        if not API_PATH_PATTERN.fullmatch(value):
+            raise ValueError(
+                "The API path must consist of letters, digits and '-._~', in "
+                "segments separated by '/', without leading or trailing '/'"
+            )
         return value
 
 
@@ -85,8 +147,9 @@ class IdConfig(FocaIdConfig):
     (not empty, no `/`, not dots only, no expression it recognizes), and
     only the unreserved characters of URLs are allowed, which are also the
     default, as identifiers are part of URLs (e.g., `self_uri`); this also
-    refuses expressions that FOCA doesn't recognize. The length is strict
-    (no strings or booleans).
+    refuses expressions that FOCA doesn't recognize. The length is an
+    integer, also in a string (e.g., from an environment variable), but not
+    a boolean.
 
     Args:
         charset: The allowed characters (duplicates are ignored); not an
@@ -109,7 +172,7 @@ class IdConfig(FocaIdConfig):
     """
 
     charset: str = DEFAULT_ID_CHARSET
-    length: Annotated[int, Field(strict=True, gt=0)] = 6
+    length: PositiveInteger = 6
 
     @field_validator("charset")
     @classmethod
