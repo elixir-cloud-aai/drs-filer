@@ -170,7 +170,8 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         drs_filer.errors.exceptions.ObjectNotFound: If the object doesn't
             exist.
         drs_filer.errors.exceptions.AccessMethodNotFound: If the object has
-            no access method with the given identifier.
+            no access method with the given identifier (also if it has no
+            access methods, e.g., a bundle).
         drs_filer.errors.exceptions.AccessMethodNotDeleted: If attempting to
             delete the last remaining access method, i.e., if the object has
             no access method with another identifier.
