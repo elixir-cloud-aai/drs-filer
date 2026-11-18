@@ -232,3 +232,6 @@ config.local.yaml
 # pre-commit environments and tool caches, if kept in the working copy
 .pre-commit-cache/
 .cache/
+
+# Dependencies of the Helm chart (`helm dependency build deployment`)
+deployment/charts/

@@ -1,0 +1,1 @@
+{{- include "foca-common.networkPolicy" (dict "root" . "settings" (include "drs-filer.settings" . | fromYaml)) }}

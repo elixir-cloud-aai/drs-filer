@@ -14,6 +14,8 @@ JOBS = {
     "lint": "Lint",
     "docs": "Docs",
     "test": "Test (${{ matrix.database }})",
+    "chart": "Chart",
+    "chart-install": "Chart install",
     "smoke": "Smoke test",
     "push": "Push image",
     "passed": "CI passed",
@@ -97,7 +99,7 @@ def test_publish_condition() -> None:
 def test_push_after_checks() -> None:
     """The image is pushed only after all checks passed, from `dev-images`."""
     push = _ci()["jobs"]["push"]
-    assert set(push["needs"]) == {"lint", "test", "smoke"}
+    assert set(push["needs"]) == {"lint", "test", "chart", "chart-install", "smoke"}
     assert push["environment"] == "dev-images"
     assert push["permissions"] == {"contents": "read"}
 

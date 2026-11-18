@@ -1,6 +1,21 @@
 apiVersion: v2
 name: drs-filer
-description: A Helm chart for deploying a DRS (Data Repository Service) filer on Kubernetes, facilitating efficient data storage and retrieval.
+description: >-
+  DRS-Filer, an implementation of the GA4GH Data Repository Service (DRS) API
+  by ELIXIR On-Cloud, with a MongoDB database
+icon: https://avatars.githubusercontent.com/u/60704687?s=48&v=4
 type: application
-version: 3.0.0
-appVersion: 2.0.1
+# Placeholders: releases will set `version` and `appVersion` from the tag
+# (`vX.Y.Z`; the release workflow is yet to come). Replaces the version
+# 3.0.0 of the chart before foca-common, which was never released
+version: 0.0.0
+# `appVersion` is the default image tag, so the chart in the repository
+# deploys the `dev` image unless `drsFiler.tag` is set
+appVersion: "dev"
+dependencies:
+  # The library chart of FOCA apps, with the templates of all resources (see
+  # "Helm library chart" in FOCA's docs); `helm dependency build` downloads
+  # the version locked in `Chart.lock` into `charts/`
+  - name: foca-common
+    version: 0.5.0
+    repository: oci://ghcr.io/elixir-cloud-aai/charts
