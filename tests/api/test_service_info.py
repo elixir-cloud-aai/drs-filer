@@ -38,6 +38,18 @@ def test_post_service_info_invalid(client: FlaskClient) -> None:
     assert response.status_code == 400
 
 
+def test_post_service_info_invalid_format(client: FlaskClient) -> None:
+    """Service info with an invalid URL or timestamp is rejected.
+
+    The formats (`uri`, `date-time`) of the specification are validated; the
+    service info of the config must conform to them, too, as responses are
+    validated (`test_get_service_info_from_config`).
+    """
+    for key, value in (("documentationUrl", "docs/abc"), ("createdAt", "2020-01-01")):
+        response = client.post(f"{API}/service-info", json={**SERVICE_INFO, key: value})
+        assert response.status_code == 400, key
+
+
 def test_get_service_info_not_found(
     client: FlaskClient, service_info: Collection[dict[str, Any]]
 ) -> None:

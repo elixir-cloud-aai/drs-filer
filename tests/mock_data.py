@@ -1,10 +1,20 @@
 """Request bodies and expected values for the app tests."""
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft4Validator
 from werkzeug.test import TestResponse
+import yaml
 
+# The DRS specification, with the definition of error responses (`Error`)
+DRS_SPEC = (
+    Path(__file__).parents[1]
+    / "drs_filer"
+    / "api"
+    / "20200622.383121d.data_repository_service.swagger.yaml"
+)
 # Base URL of the API in the test client
 API = "/ga4gh/drs/v1"
 # Base of the `self_uri` of objects, from the test overlay
@@ -75,3 +85,24 @@ def body(response: TestResponse) -> Any:
     data = response.get_json()
     assert data is not None, response.data
     return data
+
+
+def validate_error(problem: Any) -> None:
+    """Check that an error response body conforms to the specification.
+
+    FOCA doesn't validate error responses against the specification, so the
+    tests do: against its `Error` definition (problem details, RFC 9457),
+    with the JSON Schema draft of Swagger 2.0 (draft 4).
+
+    Args:
+        problem: Decoded body of an error response.
+
+    Raises:
+        AssertionError: The body doesn't conform to `Error`.
+    """
+    definitions = yaml.safe_load(DRS_SPEC.read_text())["definitions"]
+    validator = Draft4Validator(
+        {"$ref": "#/definitions/Error", "definitions": definitions}
+    )
+    errors = [error.message for error in validator.iter_errors(problem)]
+    assert not errors, errors

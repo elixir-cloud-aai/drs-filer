@@ -21,10 +21,10 @@ from drs_filer.ga4gh.drs.endpoints.register_objects import (
 )
 
 data_objects_path = "tests/data_objects.json"
-INDEX_CONFIG = {"keys": [("id", 1)]}
-COLLECTION_CONFIG = {"indexes": [INDEX_CONFIG]}
-DB_CONFIG = {"collections": {"objects": COLLECTION_CONFIG}}
-MONGO_CONFIG = {
+INDEX_CONFIG: dict[str, Any] = {"keys": [("id", 1)]}
+COLLECTION_CONFIG: dict[str, Any] = {"indexes": [INDEX_CONFIG]}
+DB_CONFIG: dict[str, Any] = {"collections": {"objects": COLLECTION_CONFIG}}
+MONGO_CONFIG: dict[str, Any] = {
     "host": "mongodb",
     "port": 27017,
     "dbs": {

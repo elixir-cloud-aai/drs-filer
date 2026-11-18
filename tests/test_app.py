@@ -34,6 +34,7 @@ def test_create_app() -> None:
     with (
         patch.object(app_module, "Foca") as foca,
         patch.object(app_module, "RegisterServiceInfo") as service_info,
+        # ast-grep-ignore: pydantic-v1-dict
         patch.dict(os.environ),
     ):
         os.environ.pop(app_module.OVERLAY_VARIABLE, None)
@@ -68,7 +69,11 @@ def test_create_app_any_working_directory(
     monkeypatch.chdir(tmp_path)
     app = app_module.create_app()
     with app.app.app_context():
-        paths = [path for spec in get_config().api.specs for path in spec.path]
+        paths = [
+            path
+            for spec in get_config().api.specs
+            for path in (spec.path if isinstance(spec.path, list) else [spec.path])
+        ]
     assert paths
     for path in paths:
         assert Path(path).is_file()

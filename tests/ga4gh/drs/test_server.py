@@ -30,20 +30,20 @@ from drs_filer.ga4gh.drs.server import (
 
 MOCK_ID_NA = "unavailable"
 
-INDEX_CONFIG = {"keys": [("last_name", -1)]}
+INDEX_CONFIG: dict[str, Any] = {"keys": [("last_name", -1)]}
 
-COLLECTION_CONFIG = {
+COLLECTION_CONFIG: dict[str, Any] = {
     "indexes": [INDEX_CONFIG],
 }
 
-DB_CONFIG = {
+DB_CONFIG: dict[str, Any] = {
     "collections": {
         "objects": COLLECTION_CONFIG,
         "service_info": COLLECTION_CONFIG,
     },
 }
 
-MONGO_CONFIG = {
+MONGO_CONFIG: dict[str, Any] = {
     "host": "mongodb",
     "port": 27017,
     "dbs": {
@@ -51,7 +51,7 @@ MONGO_CONFIG = {
     },
 }
 
-SERVICE_INFO_CONFIG = {
+SERVICE_INFO_CONFIG: dict[str, Any] = {
     "contactUrl": "mailto:support@example.com",
     "createdAt": "2019-06-04T12:58:19Z",
     "description": "This service provides...",
@@ -65,7 +65,7 @@ SERVICE_INFO_CONFIG = {
     "version": "1.0.0",
 }
 
-ENDPOINT_CONFIG = {
+ENDPOINT_CONFIG: dict[str, Any] = {
     "objects": {"id_charset": "string.digits", "id_length": 6},
     "access_methods": {"id_charset": "string.digits", "id_length": 6},
     "service_info": deepcopy(SERVICE_INFO_CONFIG),

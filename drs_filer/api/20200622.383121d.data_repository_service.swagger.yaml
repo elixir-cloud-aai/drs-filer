@@ -354,17 +354,79 @@ definitions:
           Name of the region in the cloud service provider that the object belongs to.
         example:
           us-east-1
+  # DRS-Filer: FOCA's problem details (`Problem` and `FieldError` of
+  # `foca/api/problem-details.yaml`, in Swagger 2.0, without `oneOf`) instead
+  # of the `msg` and `status_code` of DRS 1.1.0; keep them the same (tested
+  # by `tests/test_specs.py`). Sent as `application/problem+json`
   Error:
-    description:
-      An object that can optionally include information about the error.
+    description: >-
+      Problem details (RFC 9457), sent as `application/problem+json`.
+      Responses to invalid requests list the invalid fields in `errors`.
     type: object
+    required:
+      - title
+      - status
     properties:
-      msg:
+      type:
         type: string
-        description: A detailed error message.
-      status_code:
+        description: >-
+          URI identifying the problem type, e.g.,
+          `https://foca.readthedocs.io/en/latest/problems/invalid-request/`
+          for invalid requests.
+      title:
+        type: string
+        description: Short summary of the problem type.
+      status:
         type: integer
-        description: The integer representing the HTTP status code (e.g. 200, 404).
+        format: int32
+        description: HTTP status code.
+      detail:
+        type: string
+        description: Explanation of this occurrence of the problem.
+      instance:
+        type: string
+        description: URI identifying this occurrence of the problem.
+      code:
+        type: string
+        description: >-
+          Stable, kebab-case code of the problem type, e.g.,
+          `invalid-request`.
+      errors:
+        type: array
+        description: Invalid fields of the request, one entry per field.
+        items:
+          $ref: '#/definitions/FieldError'
+  FieldError:
+    description: >-
+      Invalid field of a request, in the form of the example of RFC 9457,
+      section 3, with either `pointer` or `parameter`.
+    type: object
+    required:
+      - detail
+      - code
+    properties:
+      detail:
+        type: string
+        description: >-
+          Readable message; never quotes the rejected value (locations
+          may have keys and parameter names of the request).
+      pointer:
+        type: string
+        description: >-
+          JSON Pointer (RFC 6901) to the field in the request body, as a
+          URI fragment, e.g., `#/organization/url`.
+        pattern: '^#(/([A-Za-z0-9_.!$&''()*+,;=:@-]|%[0-9A-Fa-f]{2}|~[01])*)*$'
+      parameter:
+        type: string
+        description: >-
+          Name of the invalid query, path, header, cookie or form data
+          parameter.
+      code:
+        type: string
+        pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+        description: >-
+          Stable, kebab-case code, e.g., `required` or `too-long`; FOCA's
+          generic codes and those of the app.
   ContentsObject:
     type: object
     properties:

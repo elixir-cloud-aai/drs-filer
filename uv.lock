@@ -6,9 +6,6 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 
-[manifest]
-overrides = [{ name = "typing", marker = "python_full_version < '3.5'" }]
-
 [[package]]
 name = "addict"
 version = "2.4.0"
@@ -900,7 +897,6 @@ dependencies = [
     { name = "foca" },
     { name = "gunicorn" },
     { name = "pyyaml" },
-    { name = "setuptools" },
 ]
 
 [package.optional-dependencies]
@@ -913,6 +909,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "setuptools-scm" },
+    { name = "types-jsonschema" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "uv" },
@@ -944,8 +941,8 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.6" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
-    { name = "setuptools", specifier = ">=78.1.1,<82" },
     { name = "setuptools-scm", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "types-jsonschema", marker = "extra == 'dev'", specifier = ">=4.17" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.31" },
     { name = "uv", marker = "extra == 'dev'", specifier = ">=0.12" },
@@ -2559,6 +2556,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/01/e6/d8ae21087a42627c2a04a738c947825b78c26b18595704b94bd3227197a2/swagger_ui_bundle-1.1.0.tar.gz", hash = "sha256:20673c3431c8733d5d1615ecf79d9acf30cff75202acaf21a7d9c7f489714529", size = 2599741, upload-time = "2023-11-01T19:58:17.397Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/66/8fb11445940bde7ca328d6aa23dd36b6056197d862f4bd6bb51c820c50e5/swagger_ui_bundle-1.1.0-py3-none-any.whl", hash = "sha256:f7526f7bb99923e10594c54247265839bec97e96b0438561ac86faf40d40dd57", size = 2626591, upload-time = "2023-11-01T19:58:15.366Z" },
+]
+
+[[package]]
+name = "types-jsonschema"
+version = "4.26.0.20261006"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "referencing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/d2/1f742605f5a6d39f993134885b8de41c98af606871d3ebddaf3e776bd1eb/types_jsonschema-4.26.0.20261006.tar.gz", hash = "sha256:3eb7db61b6819d40addfdaac7173e749071a7d4a9a4394f0c844598ec84b2500", size = 16843, upload-time = "2026-10-06T08:16:07.318Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/a0/4f2e3c0dc3d5cad958006f2e0307065cc8fe4fbf0393ff0b69d55ee9bbe5/types_jsonschema-4.26.0.20261006-py3-none-any.whl", hash = "sha256:29301f4e65e3928540cdf5e23ad716e38bb0c0b416a48dada213edd3d70206ec", size = 16113, upload-time = "2026-10-06T08:16:06.355Z" },
 ]
 
 [[package]]

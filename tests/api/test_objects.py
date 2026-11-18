@@ -7,7 +7,7 @@ from flask.testing import FlaskClient
 from pymongo.collection import Collection
 
 from drs_filer.ga4gh.drs.endpoints import register_objects
-from tests.mock_data import API, SELF_URI_BASE, body, drs_object
+from tests.mock_data import API, SELF_URI_BASE, body, drs_object, validate_error
 
 
 def _register(client: FlaskClient, access_methods: int = 1) -> str:
@@ -63,7 +63,25 @@ def test_post_object_invalid(client: FlaskClient) -> None:
     del request_body["checksums"]
     response = client.post(f"{API}/objects", json=request_body)
     assert response.status_code == 400
-    assert body(response)["status"] == 400
+    problem = body(response)
+    assert problem["status"] == 400
+    # With the invalid fields (`errors`)
+    assert problem["errors"]
+    validate_error(problem)
+
+
+def test_post_object_invalid_timestamp(client: FlaskClient) -> None:
+    """An object with a timestamp that isn't RFC 3339 is rejected.
+
+    The formats of the specification (`date-time`) are validated.
+    """
+    response = client.post(
+        f"{API}/objects", json={**drs_object(), "created_time": "2024-06-12"}
+    )
+    assert response.status_code == 400
+    problem = body(response)
+    assert [error["pointer"] for error in problem["errors"]] == ["#/created_time"]
+    validate_error(problem)
 
 
 def test_post_object_ids_exhausted(client: FlaskClient) -> None:
@@ -104,14 +122,33 @@ def test_put_object_invalid(client: FlaskClient) -> None:
     assert response.status_code == 400
 
 
+def test_get_object_stored_invalid_timestamp(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """A stored object with a timestamp that isn't RFC 3339 is a server error.
+
+    Responses are validated, including formats (`docs/upgrading.md`), e.g.,
+    for objects registered before the formats were checked.
+    """
+    object_id = _register(client)
+    objects.update_one({"id": object_id}, {"$set": {"created_time": "2024-06-12"}})
+    response = client.get(f"{API}/objects/{object_id}")
+    assert response.status_code == 500
+    validate_error(body(response))
+
+
 def test_get_object_not_found(client: FlaskClient) -> None:
-    """An unknown object is not found."""
+    """An unknown object is not found, with problem details (RFC 9457)."""
     response = client.get(f"{API}/objects/unknown")
     assert response.status_code == 404
-    assert body(response) == {
-        "msg": "The requested `DrsObject` wasn't found.",
-        "status_code": 404,
+    assert response.headers["Content-Type"] == "application/problem+json"
+    problem = body(response)
+    assert problem == {
+        "title": "Not found",
+        "detail": "The requested `DrsObject` wasn't found.",
+        "status": 404,
     }
+    validate_error(problem)
 
 
 def test_get_object_invalid_parameter(client: FlaskClient) -> None:

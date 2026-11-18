@@ -73,22 +73,26 @@ endpoints:
     access_methods:
         id_charset: 'string.ascii_letters + string.digits + ".-_~"'
         id_length: 6
+    # Placeholders, to be replaced by each deployment (`README.md`); served
+    # as they are, so they must conform to the service info specification,
+    # including the formats of URLs (`uri`) and timestamps (`date-time`),
+    # which responses are validated against
     service_info:
-        id: "TEMPID1"
-        name: "TEMP_STUB"
+        id: "org.example.drs-filer"
+        name: "DRS-Filer"
         type:
-            group: "TEMP_GROUP"
-            artifact: "TEMP_ARTIFACT"
-            version: "v1"
-        description: "Description of service."
+            group: "org.ga4gh"
+            artifact: "drs"
+            version: "1.1.0"
+        description: "GA4GH Data Repository Service (DRS) implementation."
         organization:
-            name: "Parent organization"
-            url: "parent/abc"
-        contactUrl: "contact/abc"
-        documentationUrl: "docs/abc"
-        createdAt: "2020-01-01"
-        updatedAt: "2020-01-01"
-        environment: "ENV"
+            name: "Example Organization"
+            url: "https://example.org"
+        contactUrl: "mailto:drs@example.org"
+        documentationUrl: "https://github.com/elixir-cloud-aai/drs-filer"
+        createdAt: "2020-01-01T00:00:00Z"
+        updatedAt: "2020-01-01T00:00:00Z"
+        environment: "dev"
         version: "0.0.0"
     url_prefix: http
     external_host: 193.166.24.114
