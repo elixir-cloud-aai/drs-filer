@@ -3,19 +3,21 @@
 from copy import deepcopy
 import string  # noqa: F401
 from typing import Any
-from unittest.mock import MagicMock
 
 from flask import Flask
 from foca.models.config import Config, MongoConfig
 import mongomock
-from pymongo.errors import DuplicateKeyError
+from pymongo.collection import Collection
 import pytest
 
 from drs_filer.errors.exceptions import (
     NotFound,
     ValidationError,
 )
-from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
+from drs_filer.ga4gh.drs.endpoints.service_info import (
+    CURRENT_ID,
+    RegisterServiceInfo,
+)
 
 INDEX_CONFIG: dict[str, Any] = {"keys": [("id", 1)]}
 COLLECTION_CONFIG: dict[str, Any] = {
@@ -79,7 +81,7 @@ def test_get_service_info() -> None:
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    mock_resp = {**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID}
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"
     ].client = mongomock.MongoClient().db.collection
@@ -148,7 +150,7 @@ def test_set_service_info_from_config_skip() -> None:
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    mock_resp = {**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID}
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"
     ].client = mongomock.MongoClient().db.collection
@@ -162,31 +164,28 @@ def test_set_service_info_from_config_skip() -> None:
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test_get_service_info_duplicatekey() -> None:
-    """Test for duplicated service info config."""
+def test_get_service_info_other_records() -> None:
+    """Records other than the current one are neither served nor kept.
+
+    Earlier versions stored one record per service info `id` and served the
+    newest; the current record is served, also if older, and setting service
+    info removes the others.
+    """
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
+    collection: Collection[dict[str, Any]] = mongomock.MongoClient().db.collection
+    app.config.foca.db.dbs["drsStore"].collections["service_info"].client = collection
+    collection.insert_one({**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID})
+    collection.insert_one({**deepcopy(SERVICE_INFO_CONFIG), "id": "org.example.other"})
 
-    app.config.foca.db.dbs["drsStore"].collections[
-        "service_info"
-    ].client = mongomock.MongoClient().db.collection
-    mock = MagicMock(side_effect=[DuplicateKeyError(""), None])
-    app.config.foca.db.dbs["drsStore"].collections[
-        "service_info"
-    ].client.insert_one = mock
-    mock_db_call = MagicMock(name="Find_Obj")
-    mock_db_call.return_value.sort.return_value.limit.return_value.next.return_value = (
-        deepcopy(SERVICE_INFO_CONFIG)
-    )
-    app.config.foca.db.dbs["drsStore"].collections[
-        "service_info"
-    ].client.find = mock_db_call
     with app.app_context():
-        get_service_info = RegisterServiceInfo().get_service_info()
-        assert get_service_info == SERVICE_INFO_CONFIG
+        service_info = RegisterServiceInfo()
+        assert service_info.get_service_info() == SERVICE_INFO_CONFIG
+        service_info._upsert_service_info(data=deepcopy(SERVICE_INFO_CONFIG))
+        assert [record["_id"] for record in collection.find()] == [CURRENT_ID]
 
 
 def test_set_service_info_from_app_context() -> None:
@@ -235,7 +234,7 @@ def test__upsert_service_info_update() -> None:
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
-    mock_resp = deepcopy(SERVICE_INFO_CONFIG)
+    mock_resp = {**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID}
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"
     ].client = mongomock.MongoClient().db.collection

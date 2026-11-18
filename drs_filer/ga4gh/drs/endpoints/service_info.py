@@ -1,4 +1,11 @@
-"""Controller for service info endpoint."""
+"""Controller for service info endpoint.
+
+The service info is stored as a single record, with `_id` `CURRENT_ID`,
+which `GET /service-info` serves. On startup, the service info of the config
+replaces it, if it differs; `POST /service-info` replaces it until the next
+startup. Both remove the records that earlier versions stored (one per
+service info `id`).
+"""
 
 import logging
 from typing import Any
@@ -11,11 +18,14 @@ from drs_filer.utils import get_collection, get_endpoints_config
 
 logger = logging.getLogger(__name__)
 
+# `_id` of the record of the service info that is served
+CURRENT_ID = "current"
+
 
 class RegisterServiceInfo:
     """Tool class for registering service info.
 
-    Creates service info upon first request, if it does not exist.
+    Sets the service info from the config on startup, and from requests.
     """
 
     def __init__(self) -> None:
@@ -42,20 +52,20 @@ class RegisterServiceInfo:
         self.db_coll_info = get_collection("service_info")
 
     def get_service_info(self) -> dict[str, Any]:
-        """Get latest service info from database.
+        """Get the current service info from the database.
 
         Returns:
-            Latest service info details.
+            Current service info details.
+
+        Raises:
+            drs_filer.errors.exceptions.NotFound: No service info is set.
         """
-        try:
-            return (
-                self.db_coll_info.find({}, {"_id": False})
-                .sort([("_id", -1)])
-                .limit(1)
-                .next()
-            )
-        except StopIteration as err:
-            raise NotFound from err
+        record: dict[str, Any] | None = self.db_coll_info.find_one(
+            {"_id": CURRENT_ID}, {"_id": False}
+        )
+        if record is None:
+            raise NotFound
+        return record
 
     def set_service_info_from_config(
         self,
@@ -63,7 +73,8 @@ class RegisterServiceInfo:
         """Create or update service info from service configuration.
 
         Will create service info if it does not exist or current
-        configuration differs from available one.
+        configuration differs from available one, replacing service info
+        set by a request (`POST /service-info`).
 
         Raises:
             drs_filer.errors.exceptions.ValidationError: Service info
@@ -73,16 +84,14 @@ class RegisterServiceInfo:
             db_info = self.get_service_info()
         except NotFound:
             db_info = {}
-        add = db_info != self.conf_info
-        if add:
-            try:
-                self._upsert_service_info(data=self.conf_info)
-            except KeyError as err:
-                logger.exception(
+        if db_info != self.conf_info:
+            if "id" not in self.conf_info:
+                logger.error(
                     "The service info configuration does not conform to the "
                     "API specification."
                 )
-                raise ValidationError from err
+                raise ValidationError
+            self._upsert_service_info(data=self.conf_info)
             logger.info("Service info registered.")
         else:
             logger.info("Using available service info.")
@@ -91,9 +100,17 @@ class RegisterServiceInfo:
         self,
         data: dict[str, Any],
     ) -> None:
-        """Insert or updated service info document."""
+        """Insert or replace the current service info document.
+
+        Removes the records stored by earlier versions first, as the unique
+        index on `id` refuses a second record with the same `id`.
+
+        Arguments:
+            data: Service info according to API specification.
+        """
+        self.db_coll_info.delete_many({"_id": {"$ne": CURRENT_ID}})
         self.db_coll_info.replace_one(
-            filter={"id": data["id"]},
+            filter={"_id": CURRENT_ID},
             replacement=data,
             upsert=True,
         )

@@ -152,6 +152,12 @@ endpoints:
     version: 0.1.0
 ```
 
+The config takes precedence: on each start, the app serves the service info
+of its config, and replaces any service info stored in the database with it.
+Service info posted with `POST /service-info` is served until the app
+starts again (e.g., when a pod or container restarts); to change the service
+info for good, change the config.
+
 Objects registered without an identifier (`POST /objects`) and their access
 methods get random identifiers of `id_length` characters (default 6), drawn
 from `id_charset` (default: letters, digits and `.-_~`), in
