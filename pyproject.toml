@@ -163,6 +163,7 @@ content-type = "text/markdown"
 
 [project.urls]
 homepage = "https://github.com/elixir-cloud-aai/drs-filer"
+Documentation = "https://drs-filer.readthedocs.io/en/latest/"
 Issues = "https://github.com/elixir-cloud-aai/drs-filer/issues"
 
 [tool.setuptools_scm]

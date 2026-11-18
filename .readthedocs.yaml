@@ -1,0 +1,30 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    # Python version of the base image in the `Dockerfile` and of CI
+    # (`ci.yml`; `tests/test_readthedocs.py` checks it)
+    python: "3.12"
+  # The docs dependencies are installed with uv from the lock (`uv.lock`):
+  # the same versions that CI's docs job builds with
+  jobs:
+    # The version of uv locked in `uv.lock` (a dev dependency, as for CI);
+    # asdf, which provides Python here, needs a reshim to find the `uv`
+    # executable that pip installs (the virtual environment has no uv);
+    # `tests/test_readthedocs.py` fails when a lock update moves it
+    pre_create_environment:
+      - python -m pip install "uv==0.13.8"
+      - asdf reshim python
+    create_environment:
+      - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
+    install:
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --extra docs
+
+mkdocs:
+  configuration: mkdocs.yml
+  # Fail on all warnings to avoid broken links and references
+  fail_on_warning: true
