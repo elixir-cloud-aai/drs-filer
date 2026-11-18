@@ -1,11 +1,13 @@
 # Only send the files needed to build the image to the build context
 *
-# The package: code, config and API specifications only, so that other local
-# files in it (e.g., config copies, logs) don't reach the image; the wheel
-# takes only the package data listed in `pyproject.toml` of these
+# The package: code, config, API specifications and the access control
+# model only, so that other local files in it (e.g., config copies, logs)
+# don't reach the image; the wheel takes only the package data listed in
+# `pyproject.toml` of these
 !drs_filer/**/*.py
 !drs_filer/config.yaml
 !drs_filer/api/*.yaml
+!drs_filer/access_control/*.conf
 !LICENSE
 !pyproject.toml
 # The lock, from which the image build installs the dependencies

@@ -33,10 +33,23 @@ def test_compose_overlay_mounted() -> None:
     assert f"./config.dev.yaml:{path}:ro" in service["volumes"]
 
 
+def test_compose_noauth_overlay_mounted() -> None:
+    """`config.noauth.yaml` is mounted next to `config.dev.yaml`.
+
+    So that `DRS_FILER_CONFIG_OVERLAY` can add it (see "Running without
+    authentication" in `docs/development.md`).
+    """
+    volumes = _compose()["services"]["drs-filer"]["volumes"]
+    assert "./config.noauth.yaml:/etc/drs-filer/config.noauth.yaml:ro" in volumes
+    assert (ROOT / "config.noauth.yaml").is_file()
+
+
 def test_compose_published_on_loopback_only() -> None:
     """Only the app is published, on the host's loopback interface.
 
-    DRS-Filer has no authentication, and MongoDB none in Compose.
+    The development settings accept tokens for any audience, the overlay
+    `config.noauth.yaml` disables authentication, and MongoDB has none in
+    Compose.
     """
     services = _compose()["services"]
     assert services["drs-filer"]["ports"] == ["127.0.0.1:8080:8080"]

@@ -8,9 +8,9 @@ documentation](https://github.com/elixir-cloud-aai/foca/blob/chart-v0.5.0/docs/h
 The chart in the repository downloads the library chart with `helm
 dependency build` (see [Installation](#installation)).
 
-> **Warning:** DRS-Filer has no authentication: everyone who can reach the
-> app can register, change and delete objects. Restrict who can reach it
-> (see [Access](#access)).
+Reads are public; writes need an access token of an admin of the identity
+provider that `config` sets (see [Configuration](#configuration) and
+[Access control](https://drs-filer.readthedocs.io/en/latest/access-control/)).
 
 ## Configuration
 
@@ -33,6 +33,17 @@ config on startup (via `FOCA_CONFIG_OVERLAY`):
   [Configuration](https://drs-filer.readthedocs.io/en/latest/configuration/)).
   `server.host` and `server.port` have no effect, as they apply to the
   development server only (see [Server](#server)).
+- The identity provider is **required** in `config`: the trusted token
+  issuers (`security.auth.issuers`), the client IDs of their tokens
+  (`security.auth.audience`, unless each issuer has an `audience` of its
+  own, or `security.auth.verify_audience` is false), the claim with the
+  groups of users (`security.access_control.claim_groups`) and the group
+  mapped to the role `admin` (`security.access_control.group_mapping`,
+  unless `security.access_control.require_admin` is false); rendering fails
+  without them, as the app would refuse to start (see [Deployment
+  configuration](https://drs-filer.readthedocs.io/en/latest/configuration/#deployment-configuration)).
+  The policy rules are stored in the app's database (`drsStore`, collection
+  `policy_rules`).
 
 Keep the values of each deployment in its own values file outside this
 repository (e.g., `values-prod.yaml` in the deployment's infrastructure
@@ -46,6 +57,14 @@ mongodb:
   auth:
     existingSecret: drs-filer-mongodb-credentials
 config:
+  security:
+    auth:
+      issuers: ["https://login.example.org/oidc/"]
+      audience: ["drs-portal"]
+    access_control:
+      claim_groups: groups
+      group_mapping:
+        drs-admins: admin
   service_info:
     service:
       id: org.example.drs
@@ -250,51 +269,21 @@ exits on startup).
 
 ## Access
 
-DRS-Filer has no authentication and no access control: everyone who can
-reach the API can read, register, change and delete objects, and change the
-service info (`POST /service-info`; see [Access
+Reads are public; writes (registering, replacing and deleting objects and
+access methods, posting the service info) need an access token of an admin
+of the identity provider in `config` (see
+[Configuration](#configuration) and [Access
 control](https://drs-filer.readthedocs.io/en/latest/access-control/)). Helm's
-notes after installing warn of it. Until the app has access control,
-restrict access in front of it:
+notes after installing say so, and warn if authentication is disabled
+(`config.api.specs.drs.disable_auth`, for local tests only).
 
-- expose the app on an internal network only, or not at all (disable the
-  Ingress and, on OpenShift, the Route: `drsFiler.ingress.enabled: false`,
-  `drsFiler.route.enabled: false`), and let only trusted clients in the
-  cluster reach it, with the app's NetworkPolicy (see [Network
-  policies](#network-policies));
-- or allow the methods that change data (`POST`, `PUT`, `DELETE`) only from
-  trusted clients, with the means of your ingress controller, Gateway or
-  proxy. For example (an example only, adapt it to your setup), with
-  ingress-nginx, which allows them only from the network `192.0.2.0/24`:
-
-    ```yaml
-    drsFiler:
-      ingress:
-        className: nginx
-        annotations:
-          nginx.ingress.kubernetes.io/configuration-snippet: |
-            limit_except GET HEAD OPTIONS {
-              allow 192.0.2.0/24;
-              deny all;
-            }
-    ```
-
-`allow` checks the source address that the controller sees, which is the
-client's only if it gets through: behind a load balancer, e.g., with
-`externalTrafficPolicy: Local` or the PROXY protocol. If the controller
-trusts forwarded headers (`use-forwarded-headers`), limit them to your
-proxies (`proxy-real-ip-cidr`), or anyone can claim an allowed address in
-`X-Forwarded-For`. Recent versions of ingress-nginx disable snippet
-annotations by default (the controller must allow them,
-`allow-snippet-annotations`, and annotations of their risk level,
-`annotations-risk-level: Critical`); a controller that doesn't allow them
-ignores the annotation (or rejects the Ingress), leaving writes
-unrestricted. ingress-nginx is also retired (no releases or security fixes
-after March 2026). The OpenShift router can't restrict methods, only
-clients, for all methods (e.g.,
-`haproxy.router.openshift.io/ip_allowlist: 192.0.2.0/24` in
-`drsFiler.route.annotations`). In every setup, check with a `POST` from an
-untrusted address that writes are refused.
+Authentication applies to every request that reaches the app, also from
+inside the cluster. FOCA's permissions API (`/admin/access-control/`, for
+admins only) is served like the DRS API; to keep it off the internet, route
+only `/ga4gh/drs/v1/` through the ingress controller, the Gateway, the
+router or a proxy in front of them. To also keep other workloads from
+setting the forwarded headers that the app trusts, enable the app's
+NetworkPolicy (see [Network policies](#network-policies)).
 
 ## Security context
 
@@ -367,8 +356,8 @@ of them allows (e.g., a namespace-wide "allow" policy).
 
     The policy also keeps other workloads from setting the forwarded
     headers that the app trusts (see [Forwarded
-    headers](#forwarded-headers)) and, as the app has no authentication,
-    from writing to it directly (see [Access](#access)).
+    headers](#forwarded-headers)), and from reaching FOCA's permissions API
+    directly (see [Access](#access)).
 
 `kubectl exec` and `kubectl port-forward` don't go through the pod network
 and are not affected. The policies don't block the probes: connections from

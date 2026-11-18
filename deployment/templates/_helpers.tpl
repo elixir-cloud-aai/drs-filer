@@ -3,10 +3,12 @@ Settings of the app for the templates of the library chart foca-common (see
 `foca-common.checkSettings` and "Helm library chart" in FOCA's docs), as
 YAML; the templates are called with a dict of the root context (`root`) and
 these settings (`settings`). They follow the base config in the image
-(`drs_filer/config.yaml`): no size limit of request bodies, no token issuers
-and no access control (DRS-Filer has no authentication, so the library
-requires neither an audience nor access control: `requireAudience` and
-`requireAccessControl` are false), and its database (`db.dbs`). The
+(`drs_filer/config.yaml`): no size limit of request bodies, its token issuers
+(so the library requires an audience, global or of each issuer:
+`requireAudience`), its access control, enabled and enforced with admins
+required (so the library refuses to render what the app would refuse on
+startup: `requireAccessControl`), its database (`db.dbs`) and that of access
+control (`security.access_control.db_name`). The
 generated config sets the public URL of the app (`custom.service`, for the
 `self_uri` of objects) from `hostName`, with HTTPS on port 443, as TLS is
 usually terminated by the ingress, the route or a proxy in front of the
@@ -17,10 +19,11 @@ whichever template Helm renders first.
 {{- define "drs-filer.settings" -}}
 {{- include "drs-filer.validate" . -}}
 valuesKey: drsFiler
-requireAudience: false
-requireAccessControl: false
+requireAudience: true
+requireAccessControl: true
 mongodb:
   databases: [drsStore]
+  accessControlDatabase: drsStore
 config:
   custom:
     service:

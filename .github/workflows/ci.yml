@@ -279,7 +279,8 @@ jobs:
           helm dependency build deployment
           (cd deployment && sha256sum -c charts.sha256)
       # With the values that users must pass (the Secret of MongoDB's
-      # credentials, so that the templates render as installed), and without
+      # credentials and an identity provider with an admin group, so that the
+      # templates render as installed), and with MongoDB without
       # authentication
       - name: Lint chart
         run: |
@@ -293,14 +294,16 @@ jobs:
           pytest -W ignore::DeprecationWarning tests/test_chart.py
 
   # The chart as deployed in a cluster: installs it on kind (the defaults,
-  # with the values of `deployment/ci/test-values.yaml`: a host name and the
-  # Secret of MongoDB's credentials, created here with random passwords),
-  # with the image built from the commit, loaded into the cluster's node
-  # (pushed nowhere, so the job needs no secrets and runs for pull requests
-  # from forks), waits until the app is ready, and checks the API through a
-  # port forward (the Ingress has no controller on kind): an object's
-  # `self_uri`, with the host name that the chart renders into the app's
-  # config overlay, and the smoke test (`tests/smoke/`)
+  # with the values of `deployment/ci/test-values.yaml`: a host name, a
+  # fictitious identity provider with an admin group, and the Secret of
+  # MongoDB's credentials, created here with random passwords), with the
+  # image built from the commit, loaded into the cluster's node (pushed
+  # nowhere, so the job needs no secrets and runs for pull requests from
+  # forks), waits until the app is ready, and checks the API through a port
+  # forward (the Ingress has no controller on kind): that writes need a
+  # token, then, without authentication, an object's `self_uri`, with the
+  # host name that the chart renders into the app's config overlay, and the
+  # smoke test (`tests/smoke/`)
   chart-install:
     name: Chart install
     runs-on: ubuntu-latest
@@ -361,9 +364,12 @@ jobs:
             --wait --timeout 600s
       # A port forward to the app's Service, kept running for the next steps
       # (and restarted until the app answers, as it ends on a refused
-      # connection)
+      # connection); written to a script, which `Disable authentication`
+      # runs again after the app restarted
       - name: Forward app port
         run: |
+          forward="${RUNNER_TEMP}/forward.sh"
+          cat > "${forward}" <<'EOF'
           log="${RUNNER_TEMP}/port-forward.log"
           kubectl rollout status deployment/drs-filer -n "${NAMESPACE}" \
             --timeout=300s
@@ -383,6 +389,39 @@ jobs:
           done
           cat "${log}"
           exit 1
+          EOF
+          bash "${forward}"
+      # The app started with the settings of the test values (token issuer,
+      # audience, admin group); reads are public, writes without a token get
+      # `401`
+      - name: Check authentication
+        run: |
+          curl --fail --silent --show-error --max-time 30 --output /dev/null \
+            "${API}/objects"
+          status="$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' --max-time 30 -X POST \
+            --header 'Content-Type: application/json' --data '{}' \
+            "${API}/objects/register")"
+          if [[ "${status}" != "401" ]]; then
+            echo "::error::POST /objects/register: status ${status}, expected 401"
+            exit 1
+          fi
+      # Writes without authentication (`config` value of the chart; for this
+      # test only, see "Running without authentication" in
+      # `docs/development.md`), to check the public URL that the chart sets
+      # and for the smoke test; the changed value restarts the app (checksum
+      # of its overlay), so the port forward is started again once the old
+      # pods are gone
+      - name: Disable authentication
+        run: |
+          old="$(kubectl get pods -n "${NAMESPACE}" -l "${APP_PODS}" -o name)"
+          helm upgrade drs-filer deployment -n "${NAMESPACE}" --reuse-values \
+            --set config.api.specs.drs.disable_auth=true \
+            --wait --timeout 600s
+          # shellcheck disable=SC2086 # one argument per pod
+          kubectl wait --for=delete -n "${NAMESPACE}" ${old} --timeout=300s
+          pkill -f "kubectl port-forward -n ${NAMESPACE}" || true
+          bash "${RUNNER_TEMP}/forward.sh"
       # The `self_uri` of a registered object has the public URL that the
       # chart sets from `hostName` (of `deployment/ci/test-values.yaml`)
       - name: Check public URL
@@ -437,8 +476,10 @@ jobs:
         if: always()
         run: kind delete cluster --name "${CLUSTER}"
 
-  # The app as Docker Compose runs it (image build, MongoDB, health checks),
-  # with the smoke test (`tests/smoke/`) against its API
+  # The app as Docker Compose runs it (image build, MongoDB, health checks):
+  # writes need a token of the (fictitious) identity provider of
+  # `config.dev.yaml`; then, without authentication (`config.noauth.yaml`),
+  # the smoke test (`tests/smoke/`) against its API
   smoke:
     name: Smoke test
     runs-on: ubuntu-latest
@@ -453,6 +494,35 @@ jobs:
       - name: Start app
         # Waits until the containers are healthy (see their health checks)
         run: docker compose up --detach --build --wait --wait-timeout 300
+      # Reads are public; writes without a token get `401` (before their
+      # body is validated, so any body does)
+      - name: Check authentication
+        run: |
+          check() {
+            local method="$1" path="$2" status="$3" actual
+            actual="$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 30 -X "${method}" \
+              --header 'Content-Type: application/json' --data '{}' \
+              "${DRS_FILER_URL}${path}")"
+            if [[ "${actual}" != "${status}" ]]; then
+              echo "::error::${method} ${path}: status ${actual}, expected ${status}"
+              return 1
+            fi
+          }
+          curl --fail --silent --show-error --max-time 30 --output /dev/null \
+            "${DRS_FILER_URL}/objects"
+          check POST /objects/register 401
+          check PUT /objects/smoke 401
+          check DELETE /objects/smoke 401
+          check DELETE /objects/smoke/access/smoke 401
+          check POST /service-info 401
+      # Writes without authentication (`config.noauth.yaml`, for local
+      # development; see "Running without authentication" in
+      # `docs/development.md`), for the smoke test: restarts the app with it
+      - name: Disable authentication
+        env:
+          DRS_FILER_CONFIG_OVERLAY: /etc/drs-filer/config.dev.yaml:/etc/drs-filer/config.noauth.yaml
+        run: docker compose up --detach --wait --wait-timeout 300
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
