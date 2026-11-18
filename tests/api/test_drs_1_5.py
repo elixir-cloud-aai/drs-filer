@@ -147,6 +147,27 @@ def test_options_not_implemented(client: FlaskClient, path: str) -> None:
     assert "authorization" in problem["detail"]
 
 
+@pytest.mark.parametrize("path", ["/objects/{id}", "/objects"])
+def test_cors_preflight(client: FlaskClient, path: str) -> None:
+    """CORS preflight requests get Flask's answer, not the `501` of `OPTIONS`.
+
+    Browsers refuse requests whose preflight isn't answered with `2xx`; the
+    preflight of `OPTIONS /objects` has no body, which `OptionsBulkObject`
+    requires.
+    """
+    obj = _register(client, drs_object())
+    response = client.options(
+        f"{API}{_fill(path, {'id': obj['id']})}",
+        headers={
+            "Origin": "https://ui.example.org",
+            "Access-Control-Request-Method": "PUT",
+        },
+    )
+    assert response.status_code == 200
+    assert "Access-Control-Allow-Origin" in response.headers
+    assert "OPTIONS" in response.headers["Allow"]
+
+
 def test_register_drs_1_5_fields(client: FlaskClient) -> None:
     """The fields that DRS 1.5 adds to access methods are registered.
 

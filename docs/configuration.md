@@ -112,7 +112,7 @@ service_info:
 The base config sets `type` (`org.ga4gh`, `drs`, `1.5.0`: the version of
 the DRS specification that the app serves), which mappings in overlays are
 merged with; don't set `type` in overlays, and keep `type.artifact` `drs`,
-which the DRS specification requires (otherwise `GET /service-info` fails).
+which the DRS specification requires (other types fail the start).
 The app adds the fields that DRS 1.5 requires (`maxBulkRequestLength`,
 `drs`), which it computes (see [Service info](api.md#service-info) in the
 API docs); don't set them in the config.

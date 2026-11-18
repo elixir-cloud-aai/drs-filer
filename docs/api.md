@@ -185,6 +185,13 @@ DRS-Filer serves the specification unchanged, but for these deviations
   ([#97](https://github.com/elixir-cloud-aai/drs-filer/issues/97)).
 - **Service info:** `GET /service-info` can answer `404` before service info
   is set.
+- **CORS preflight requests** (`OPTIONS` with `Origin` and
+  `Access-Control-Request-Method`) get `200` with the CORS headers, not the
+  `501` of the `OPTIONS` operations, so that browsers can call the API.
+- **Object identifiers `register` and `access`** can be used with `GET`,
+  `PUT` and `DELETE`, but `POST /objects/register` and `POST /objects/access`
+  are the registration and the bulk read of access URLs, not the passport
+  reads of these objects.
 
 ## Errors
 
