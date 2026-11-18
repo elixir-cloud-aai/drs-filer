@@ -6,6 +6,7 @@ instead of requests. The service info is configured in FOCA's section
 `service_info`, not here.
 """
 
+import ipaddress
 import re
 import string
 from typing import Annotated, Literal
@@ -21,37 +22,47 @@ UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
 # URLs, as the expression of earlier versions
 # (`string.ascii_letters + string.digits + ".-_~"`)
 DEFAULT_ID_CHARSET = string.ascii_letters + string.digits + ".-_~"
-# Public hosts: host names and IPv4 addresses (letters, digits, `.`, `-` and
-# `_`), or IPv6 addresses in brackets
-HOST_PATTERN = re.compile(r"[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\]")
-# API paths: segments of unreserved characters of URLs, separated by `/`
-API_PATH_PATTERN = re.compile(r"[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*")
+# Public host names and IPv4 addresses: labels of letters, digits, `-` and
+# `_` (not at either end), separated by `.`; IPv6 addresses are in brackets
+HOST_NAME_PATTERN = re.compile(
+    r"[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?(\.[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*"
+)
+# API paths: segments of unreserved characters of URLs, separated by `/`, but
+# not the dot segments `.` and `..`, which clients resolve
+API_PATH_PATTERN = re.compile(
+    r"(?!\.\.?(/|$))[A-Za-z0-9._~-]+(/(?!\.\.?(/|$))[A-Za-z0-9._~-]+)*"
+)
+# Integers in strings: digits only
+INTEGER_PATTERN = re.compile(r"[0-9]+")
 
 
-def _not_bool(value: object) -> object:
-    """Refuse booleans for integer settings, which pydantic takes as 0 and 1.
+def _integer(value: object) -> object:
+    """Take integers, and strings of digits, for integer settings.
 
-    Integers in strings are taken, as config values that reference
-    environment variables (`${VAR}`) are strings.
+    Strings are taken, as config values that reference environment
+    variables (`${VAR}`) are strings. Other values that pydantic would take
+    as integers are refused (e.g., booleans, floats, `"1_000"`).
 
     Args:
         value: Value of the setting.
 
     Returns:
-        The value.
+        The value, as an integer.
 
     Raises:
-        ValueError: The value is a boolean.
+        ValueError: The value is neither an integer nor a string of digits.
     """
-    if isinstance(value, bool):
-        raise ValueError("Must be an integer, not a boolean")
-    return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str) and INTEGER_PATTERN.fullmatch(value):
+        return int(value)
+    raise ValueError("Must be an integer (or a string of digits)")
 
 
-# Positive integer, also in a string (e.g., from `${VAR}`), not a boolean
-PositiveInteger = Annotated[int, BeforeValidator(_not_bool), Field(gt=0)]
-# Port number, also in a string (e.g., from `${VAR}`), not a boolean
-Port = Annotated[int, BeforeValidator(_not_bool), Field(ge=1, le=65535)]
+# Positive integer, also as a string of digits (e.g., from `${VAR}`)
+PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
+# Port number, also as a string of digits (e.g., from `${VAR}`)
+Port = Annotated[int, BeforeValidator(_integer), Field(ge=1, le=65535)]
 
 
 class ServiceConfig(FOCABaseConfig):
@@ -107,12 +118,19 @@ class ServiceConfig(FOCABaseConfig):
             ValueError: The host is empty, or has a scheme, port, path or
                 other characters (e.g., an IPv6 address without brackets).
         """
-        if not HOST_PATTERN.fullmatch(value):
-            raise ValueError(
-                "The host must be a host name or IP address (IPv6 addresses in "
-                "brackets), without scheme, port or path"
-            )
-        return value
+        if value.startswith("[") and value.endswith("]"):
+            try:
+                ipaddress.IPv6Address(value[1:-1])
+            except ValueError:
+                pass
+            else:
+                return value
+        elif HOST_NAME_PATTERN.fullmatch(value):
+            return value
+        raise ValueError(
+            "The host must be a host name or IP address (IPv6 addresses in "
+            "brackets), without scheme, port or path"
+        )
 
     @field_validator("api_path")
     @classmethod
@@ -129,12 +147,13 @@ class ServiceConfig(FOCABaseConfig):
 
         Raises:
             ValueError: The API path is empty, starts or ends with `/`, has
-                empty segments or other characters.
+                empty or dot segments (`.`, `..`), or other characters.
         """
         if not API_PATH_PATTERN.fullmatch(value):
             raise ValueError(
                 "The API path must consist of letters, digits and '-._~', in "
-                "segments separated by '/', without leading or trailing '/'"
+                "segments separated by '/' (not '.' or '..'), without leading or "
+                "trailing '/'"
             )
         return value
 

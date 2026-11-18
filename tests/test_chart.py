@@ -531,6 +531,20 @@ def test_host_name_required() -> None:
 
 
 @pytest.mark.parametrize(
+    "host", ["https://drs.example.org", "drs.example.org:443", "drs.example.org/x"]
+)
+def test_host_name_invalid(host: str) -> None:
+    """Rendering fails for a `hostName` that isn't a host name.
+
+    The app would refuse it as its public host on startup.
+
+    Args:
+        host: Invalid host name.
+    """
+    assert "hostName" in render_error("--set", f"hostName={host}")
+
+
+@pytest.mark.parametrize(
     ("args", "message"),
     [
         (("--set", "host_name=drs.example.org"), "host_name was renamed to hostName"),

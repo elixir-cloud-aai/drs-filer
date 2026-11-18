@@ -68,8 +68,9 @@ custom:
 `url_prefix` is `http` or `https`; `external_host` a host name or IP
 address (IPv6 addresses in brackets), without scheme, port or path;
 `external_port` an integer from 1 to 65535; and `api_path` segments of
-letters, digits and `-._~`, separated by `/`, without leading or trailing
-`/`. Integer settings (the port, the lengths of identifiers) can be set from
+letters, digits and `-._~`, separated by `/` (not `.` or `..`), without
+leading or trailing `/`. Integer settings (the port, the lengths of
+identifiers) take integers or strings of digits, so they can be set from
 environment variables (e.g., `external_port: ${PUBLIC_PORT}`).
 
 ## Service info

@@ -13,7 +13,8 @@
     },
     "hostName": {
       "type": "string",
-      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route); also sets its public URL (custom.service of the app config); required"
+      "pattern": "^$|^[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?(\\.[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*$",
+      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route), without scheme, port or path; also sets its public URL (custom.service of the app config), which the app checks the same way on startup; required"
     },
     "config": {
       "type": [

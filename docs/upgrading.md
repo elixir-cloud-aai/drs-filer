@@ -50,9 +50,11 @@ service_info:
   address (IPv6 addresses in brackets) without scheme, port or path (e.g.,
   not `https://drs.example.org`, which gave broken `self_uri`s),
   `external_port` an integer from 1 to 65535, and `api_path` segments of
-  letters, digits and `-._~` separated by `/`, without leading or trailing
-  `/`. Lengths and ports are integers, also in strings (e.g., from
-  `${VAR}`), but not booleans.
+  letters, digits and `-._~` separated by `/` (not `.` or `..`), without
+  leading or trailing `/`. Lengths and ports are integers or strings of
+  digits (e.g., from `${VAR}`), not booleans or floats. The Helm chart
+  refuses a `hostName` that isn't a host name (e.g., with a scheme or
+  port).
 - The service info reports the version of the installed app (of the image)
   as `version`, unless `service_info.service.version` is set (the base
   config had the placeholder `0.0.0`). The base config no longer sets
