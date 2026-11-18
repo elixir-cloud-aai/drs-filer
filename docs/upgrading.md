@@ -12,7 +12,10 @@ the charts of the other FOCA apps: camelCase values (`hostName`,
 named by `mongodb.auth.existingSecret`), a claim kept on uninstall, an
 Ingress, Gateway API HTTPRoute or OpenShift Route, and NetworkPolicies. The
 library chart is downloaded with `helm dependency build deployment` before
-installing from the repository.
+installing from the repository. From the first release on, the chart's
+version is the release version (see [Versioning and
+releases](development.md#versioning-and-releases)), which may be lower than
+the version of the earlier charts (up to 3.0.0).
 
 - Rendering fails for the values of the earlier charts (`host_name`,
   `drs_filer.*`, `apiServer`, `clusterType`, `mongodb.volumeSize`), with the
