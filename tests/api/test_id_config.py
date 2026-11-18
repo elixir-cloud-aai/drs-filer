@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 from drs_filer.app import create_app
-from tests.mock_data import API, body, drs_object
+from tests.mock_data import API, body, drs_object, error_messages
 
 
 def _write_ids(overlay: Path, objects: dict[str, Any], access: dict[str, Any]) -> None:
@@ -105,7 +105,7 @@ def test_invalid_settings_fail_start(
     _write_ids(overlay, settings["objects"], settings["access_methods"])
     with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
-    assert f"{section}.id.{setting}" in str(info.value.__cause__)
+    assert f"{section}.id.{setting}" in error_messages(info.value)
 
 
 @pytest.mark.parametrize("section", ["objects", "access_methods"])
@@ -133,5 +133,5 @@ def test_expression_not_evaluated(
     _write_ids(overlay, settings["objects"], settings["access_methods"])
     with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
-    assert f"{section}.id.charset" in str(info.value.__cause__)
+    assert f"{section}.id.charset" in error_messages(info.value)
     assert not marker.exists()

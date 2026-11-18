@@ -51,7 +51,8 @@ the setting and the reason, but not the value. So does the section
 A deployment's overlay sets at least its public URL, from which the app
 builds the `self_uri` of objects
 (`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`), and its
-service info, as the base config has placeholders for both:
+service info, as the base config has defaults for local development
+(`http://localhost:8080`) and placeholders for the service info:
 
 ```yaml
 custom:

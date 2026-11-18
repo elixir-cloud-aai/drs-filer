@@ -70,11 +70,13 @@ def create_app() -> App:
         Connexion app.
 
     Raises:
-        ValueError: The custom config is invalid (FOCA raises it from a
-            `ValueError` that names the invalid setting and the reason), or
-            the config has a section of an earlier version.
-        pydantic.ValidationError: FOCA's config is invalid, e.g., the
+        ValueError: The section `custom` is invalid (the error's cause names
+            the invalid setting and the reason, not the value), or the
+            config has a section of an earlier version.
+        pydantic.ValidationError: A section of FOCA is invalid, e.g., the
             service info.
+        RuntimeError: No service info is configured (e.g., an overlay sets
+            `service_info: null`).
     """
     app = Foca(
         config_file=CONFIG_FILE, custom_config_model=CUSTOM_CONFIG_MODEL

@@ -81,9 +81,12 @@ class IdConfig(FocaIdConfig):
     """Model for generating identifiers of objects or access methods.
 
     FOCA's model (`foca.models.config.IdConfig`), for FOCA's
-    `generate_id()`, with the unreserved characters of URLs as the default
-    and the only characters allowed, as identifiers are part of URLs (e.g.,
-    `self_uri`), and a strict length (no strings or booleans).
+    `generate_id()`, narrowed: FOCA's checks of the character set apply
+    (not empty, no `/`, not dots only, no expression it recognizes), and
+    only the unreserved characters of URLs are allowed, which are also the
+    default, as identifiers are part of URLs (e.g., `self_uri`); this also
+    refuses expressions that FOCA doesn't recognize. The length is strict
+    (no strings or booleans).
 
     Args:
         charset: The allowed characters (duplicates are ignored); not an
@@ -97,9 +100,8 @@ class IdConfig(FocaIdConfig):
 
     Raises:
         pydantic.ValidationError: The character set is empty, consists of
-            dots only, or has characters other than unreserved characters
-            of URLs (as expressions do), or the length is not a positive
-            integer.
+            dots only, or has characters other than letters, digits and
+            `-._~`, or the length is not a positive integer.
 
     Example:
         >>> IdConfig(charset="abc123", length=8)
@@ -124,8 +126,7 @@ class IdConfig(FocaIdConfig):
             ValueError: The character set has other characters, e.g., as an
                 expression.
         """
-        invalid = sorted(set(value) - UNRESERVED)
-        if invalid:
+        if not set(value) <= UNRESERVED:
             raise ValueError(
                 "The character set has characters that are not unreserved "
                 "characters of URLs (letters, digits and '-._~'): list the "

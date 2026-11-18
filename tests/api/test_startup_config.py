@@ -14,19 +14,20 @@ import pytest
 import yaml
 
 from drs_filer.app import create_app
-from tests.mock_data import API, body, drs_object
+from tests.mock_data import API, body, drs_object, error_messages
 
 
 @pytest.mark.parametrize(
     ("custom", "setting"),
     [
-        ({"service": {"url_prefix": "htps"}}, "service.url_prefix"),
-        ({"service": {"external_port": "443"}}, "service.external_port"),
+        ({"service": {"url_prefix": "SENTINEL"}}, "service.url_prefix"),
+        ({"service": {"external_port": "SENTINEL"}}, "service.external_port"),
         ({"service": {"external_port": 70000}}, "service.external_port"),
-        ({"service": {"api_path": "/ga4gh/drs/v1"}}, "service.api_path"),
-        ({"service": {"host": "drs.example.org"}}, "service.host"),
-        ({"objects": {"id_charset": "abc"}}, "objects.id_charset"),
-        ({"service_info": {"id": "org.example.drs"}}, "service_info"),
+        ({"service": {"api_path": "/SENTINEL"}}, "service.api_path"),
+        ({"service": {"host": "SENTINEL"}}, "service.host"),
+        ({"objects": {"id_charset": "SENTINEL"}}, "objects.id_charset"),
+        ({"objects": {"id": {"charset": "SENTINEL/"}}}, "objects.id.charset"),
+        ({"service_info": {"id": "SENTINEL"}}, "service_info"),
     ],
 )
 def test_invalid_custom_config_fails_start(
@@ -37,18 +38,35 @@ def test_invalid_custom_config_fails_start(
 ) -> None:
     """Invalid and unknown settings of `custom` fail the start of the app.
 
-    The error names the setting.
+    The error names the setting, but not the value (which may be a secret
+    from the environment).
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
-        custom: Invalid custom config.
+        custom: Invalid custom config, with the value `SENTINEL`, if any.
         setting: Name of the invalid setting.
     """
     overlay.write_text(yaml.safe_dump({"custom": custom}))
     with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
-    assert setting in str(info.value.__cause__)
+    messages = error_messages(info.value)
+    assert setting in messages
+    assert "SENTINEL" not in messages
+
+
+def test_no_service_info_fails_start(
+    mongo_client: MongoClient[dict[str, Any]], overlay: Path
+) -> None:
+    """Without service info (`service_info: null`), the app doesn't start.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+    """
+    overlay.write_text(yaml.safe_dump({"service_info": None}))
+    with pytest.raises(RuntimeError, match="service_info"):
+        create_app()
 
 
 @pytest.mark.parametrize(
@@ -134,12 +152,12 @@ def test_service_info_version_from_package(
 
 
 @pytest.mark.parametrize(
-    "service",
+    ("service", "field"),
     [
-        {"documentationUrl": "docs/abc"},
-        {"createdAt": "2020-01-01"},
-        {"id": None},
-        {"organization": {"url": "example.org"}},
+        ({"documentationUrl": "docs/abc"}, "documentationUrl"),
+        ({"createdAt": "2020-01-01"}, "createdAt"),
+        ({"id": None}, "id"),
+        ({"organization": {"url": "example.org"}}, "organization"),
     ],
     ids=["url", "date-time", "no-id", "organization-url"],
 )
@@ -147,16 +165,20 @@ def test_invalid_service_info_fails_start(
     mongo_client: MongoClient[dict[str, Any]],
     overlay: Path,
     service: dict[str, Any],
+    field: str,
 ) -> None:
     """Service info that doesn't conform to the specification fails the start.
 
-    Earlier versions only failed the responses of `GET /service-info`.
+    Only the invalid field of the base config's service info is changed, and
+    the error names it. Earlier versions only failed the responses of
+    `GET /service-info`.
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
         service: Invalid fields of the service info.
+        field: Name of the invalid field.
     """
     overlay.write_text(yaml.safe_dump({"service_info": {"service": service}}))
-    with pytest.raises(ValidationError, match="service_info"):
+    with pytest.raises(ValidationError, match=rf"service_info\.service\b.*{field}"):
         create_app()

@@ -8,9 +8,9 @@ and no access control (DRS-Filer has no authentication, so the library
 requires neither an audience nor access control: `requireAudience` and
 `requireAccessControl` are false), and its database (`db.dbs`). The
 generated config sets the public URL of the app (`custom.service`, for the
-`self_uri` of objects) from `hostName`, with HTTPS on port
-443, as TLS is usually terminated by the ingress, the route or a proxy in
-front of the cluster. Every template includes the settings, so the app's
+`self_uri` of objects) from `hostName`, with HTTPS on port 443, as TLS is
+usually terminated by the ingress, the route or a proxy in front of the
+cluster. Every template includes the settings, so the app's
 checks (`drs-filer.validate`) run first, before those of the library and
 whichever template Helm renders first.
 */}}

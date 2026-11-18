@@ -21,9 +21,9 @@ The chart renders a config overlay into the `<app>-config` ConfigMap (see
 config on startup (via `FOCA_CONFIG_OVERLAY`):
 
 - `custom.service` (`url_prefix`, `external_host` and `external_port`) is
-  set to the public URL of the app, `https://<hostName>` on port 443, which the app
-  puts into the `self_uri` of objects; `hostName` is **required** (rendering
-  fails without it). Serve the app over HTTPS for it (see [Exposing the
+  set to the public URL of the app, `https://<hostName>` on port 443,
+  which the app puts into the `self_uri` of objects; `hostName` is
+  **required** (rendering fails without it). Serve the app over HTTPS for it (see [Exposing the
   app](#exposing-the-app)).
 - `db.host` is set to the release's MongoDB Service (`<app>-mongodb`),
   unless MongoDB is external (see [External MongoDB](#external-mongodb)).

@@ -170,8 +170,9 @@ cryptographically secure source.
   for object identifiers. They now work for access identifiers, too, and
   so do those that happened to be valid Python (e.g., digits only); both
   failed requests with `500 Internal Server Error`.
-- An empty or non-string `id_charset` (e.g., a YAML list, which worked for
-  object identifiers), or an `id_length` that isn't a positive integer, also
+- An empty or non-string character set (`id_charset`, now `charset`; e.g.,
+  a YAML list, which worked for object identifiers), or a length
+  (`id_length`, now `length`) that isn't a positive integer, also
   fails the start (before, `0` and negative lengths gave empty identifiers,
   and `true` identifiers of one character).
 - Identifiers registered before the upgrade stay as they are.
