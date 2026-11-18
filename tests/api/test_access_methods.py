@@ -101,7 +101,7 @@ def test_reregister_access_method_without_id(
     its access methods addressable.
     """
     query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
-    object_id, _ = _register(client, access_methods=2)
+    object_id, access_ids = _register(client, access_methods=2)
     _register(client, access_methods=1)
     objects.update_one(
         {"id": object_id}, {"$unset": {"access_methods.0.access_id": ""}}
@@ -115,9 +115,14 @@ def test_reregister_access_method_without_id(
     assert response.status_code == 200
     assert list(objects.find(query)) == []
     obj = body(client.get(f"{API}/objects/{object_id}"))
+    new_ids = [method["access_id"] for method in obj["access_methods"]]
+    # Generated anew: the kept identifier is replaced, too (a random repeat
+    # of the 6 characters is negligibly unlikely)
+    assert new_ids[1] != access_ids[1]
     for method in obj["access_methods"]:
         response = client.get(f"{API}/objects/{object_id}/access/{method['access_id']}")
         assert response.status_code == 200
+        assert body(response) == method["access_url"]
 
 
 def test_get_access_url_no_access_methods(

@@ -39,7 +39,10 @@ URL: requests for them get `404 Not Found` (was `500`).
   returns it, without `id`, `self_uri` and the `access_id` of each access
   method, which registrations don't accept): this generates new
   identifiers for all access methods of the object, so clients that stored
-  the earlier ones look them up again.
+  the earlier ones look them up again. `PUT` replaces the whole object:
+  changes to it between the `GET` and the `PUT` are lost, so don't change
+  the affected objects in the meantime (e.g., pause the clients that
+  register objects).
 
 ## Service info
 
