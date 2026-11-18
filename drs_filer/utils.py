@@ -31,7 +31,10 @@ def get_endpoints_config() -> dict[str, Any]:
     Raises:
         KeyError: The configuration has no `endpoints` section.
     """
-    endpoints: dict[str, Any] = (get_foca_config().model_extra or {})["endpoints"]
+    extra = get_foca_config().model_extra or {}
+    if "endpoints" not in extra:
+        raise KeyError("The configuration has no 'endpoints' section")
+    endpoints: dict[str, Any] = extra["endpoints"]
     return endpoints
 
 

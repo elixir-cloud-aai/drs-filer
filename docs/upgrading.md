@@ -21,14 +21,17 @@ Errors are problem details (RFC 9457), sent as `application/problem+json`
 
 They replace `msg` and `status_code` (`{"msg": "...", "status_code": 404}`):
 clients that read `msg` read `detail` instead, and `status` instead of
-`status_code`. Rejected requests (`400 Bad Request`) also have `type`
+`status_code`. Requests that fail the validation of their body or parameters
+against the API specification (`400 Bad Request`) also have `type`
 (FOCA's problem type, a URL ending in `/problems/invalid-request/`), `code`
 (`invalid-request`) and `errors`, which lists the invalid fields, each with
 `detail`, `code` and `pointer` (a JSON Pointer into the request body, e.g.,
 `#/created_time`) or `parameter` (the name of an invalid parameter). The
 `Error` definition of the API specification
 (`drs_filer/api/20200622.383121d.data_repository_service.swagger.yaml`)
-describes them, with `FieldError` for the entries of `errors`.
+describes them, with `FieldError` for the entries of `errors`; only `title`
+and `status` are always set (e.g., a body that isn't JSON gets neither
+`code` nor `errors`).
 
 ### Formats of URLs and timestamps
 
@@ -64,6 +67,10 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   ```
 
   and register them again with valid timestamps (`PUT /objects/{object_id}`).
+  The query checks the shape of the timestamps only; FOCA also refuses
+  dates and times that don't exist (e.g., `2024-02-30T00:00:00Z` or
+  `2024-01-01T25:00:00Z`). One such object also fails `GET /objects`, which
+  lists all objects.
 
 ### Configuration
 
@@ -88,10 +95,14 @@ Also changed:
   `api.specs` with their own specifications must name the controllers in
   each operation, too.
 - Config overlays (`FOCA_CONFIG_OVERLAY`) are merged by FOCA, with the same
-  rules as before (mappings merged recursively; lists and `null` replace
-  values; relative paths of overlays relative to the working directory). The
-  app no longer writes the merged config to a temporary file, so `TMPDIR`
-  needn't be writable for it.
+  merge rules as before (mappings merged recursively; lists and `null`
+  replace values; relative paths of overlays relative to the working
+  directory). The app no longer writes the merged config to a temporary
+  file, so `TMPDIR` needn't be writable for it.
+- FOCA replaces references to environment variables in the config and the
+  overlays: `${VAR}`, `${VAR:-default}` and `${VAR:?message}`; the app
+  refuses to start if a referenced variable without default isn't set.
+  Write a literal `$` before `{` or `$` as `$$` (e.g., `$${VAR}`, `$$5`).
 
 ### Image
 

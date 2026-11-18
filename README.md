@@ -80,9 +80,10 @@ with its data in the volume `mongodb-data`). Both have health checks.
 
 The image builds the app's wheel and installs it, with the dependencies
 locked in [`uv.lock`][uv-lock] (hash-checked), on the image of FOCA 0.22
-(`elixircloud/foca:0.22.0-py3.12`, Python 3.12), pinned by digest. It contains only the files listed in
-[`.dockerignore`][dockerignore] (an allowlist); local secret files, such as
-`.env` files, are never copied into it. The image has no compilers and no
+(`elixircloud/foca:0.22.0-py3.12`, Python 3.12), pinned by digest. It
+contains only the files listed in [`.dockerignore`][dockerignore] (an
+allowlist); local secret files, such as `.env` files, are never copied into
+it. The image has no compilers and no
 pip; the app's files are owned by root and can't be changed by the app's
 user. Its version is set at build time (the build gets no Git metadata),
 e.g., `SETUPTOOLS_SCM_PRETEND_VERSION=1.2.3 docker compose build`; it is
@@ -109,7 +110,9 @@ overlays into the config on startup, in order. Mappings are merged
 recursively; all other values, including lists and `null`, replace those of
 the base config. Relative paths of API specifications are relative to the
 package. A missing overlay fails the start, and so do keys that FOCA removed
-(see [Upgrading][upgrading]).
+(see [Upgrading][upgrading]). Config files can reference environment
+variables (`${VAR}`, `${VAR:-default}`, `${VAR:?message}`); write a literal
+`$` before `{` or `$` as `$$`.
 
 Errors are answered with problem details (RFC 9457), as
 `application/problem+json`: `title`, `status` and `detail`, and, for
