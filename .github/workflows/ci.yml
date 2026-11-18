@@ -1,7 +1,7 @@
 # Everything that must pass on pull requests and pushes to `dev`: the pull
-# request title, lint, test (against mongomock, with coverage, and against
-# MongoDB), the smoke test of the Docker Compose stack, and, on pushes, the
-# `dev` image, once all other jobs passed. Forks, which have none of the
+# request title, lint, the docs build, test (against mongomock, with
+# coverage, and against MongoDB), the smoke test of the Docker Compose stack,
+# and, on pushes, the `dev` image, once all other jobs passed. Forks, which have none of the
 # secrets, run the same checks without publishing, unless they set the
 # repository variable `DOCKERHUB_ORG` to publish to their own organization.
 # `github.repository_owner == 'elixir-cloud-aai'` marks runs of the upstream
@@ -10,11 +10,11 @@
 # instead (and allow the skip in the gate). Runs also when a pull request is
 # edited, so that the title check follows the title; all jobs run then, as a
 # run that skipped the tests would report "CI passed" for the commit. As in
-# trs-filer (`ci.yml`), without its chart, docs, release readiness, image
-# scan and signing jobs: the image is pushed by tag, not by digest, and isn't
+# trs-filer (`ci.yml`), without its chart, release readiness, image scan
+# and signing jobs: the image is pushed by tag, not by digest, and isn't
 # scanned or signed; it carries only BuildKit's unsigned SBOM and provenance
-# attestations, no signed GitHub attestations (drs-filer has no docs build
-# and no release workflow yet)
+# attestations, no signed GitHub attestations (drs-filer has no release
+# workflow yet)
 
 name: CI
 on:
@@ -126,6 +126,36 @@ jobs:
       # release (not bumped by Dependabot; update manually)
       - name: Validate citation metadata
         run: pipx run --spec cffconvert==2.0.0 cffconvert --validate -i CITATION.cff
+
+  # The docs (`mkdocs.yml`, `docs/`), as Read the Docs builds them
+  # (`.readthedocs.yaml`), with the versions of `uv.lock`
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Python version of Read the Docs (`.readthedocs.yaml`)
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # As in `lint`
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The versions of `uv.lock`, as in `lint`
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra docs --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      # Fails on warnings, e.g., of broken links, anchors and references
+      - name: Build documentation
+        run: mkdocs build --strict
 
   # The tests against mongomock (with coverage) and against MongoDB, the
   # database of deployments (`MONGODB_TEST_URI`, see `tests/conftest.py`), in
@@ -356,7 +386,7 @@ jobs:
     name: CI passed
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [title, lint, test, smoke, push]
+    needs: [title, lint, docs, test, smoke, push]
     if: always()
     permissions: {}
     steps:

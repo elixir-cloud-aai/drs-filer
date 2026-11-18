@@ -77,10 +77,10 @@ endpoints:
     access_methods:
         id_charset: *id_charset
         id_length: 6
-    # Placeholders, to be replaced by each deployment (`README.md`); served
-    # as they are, so they must conform to the service info specification,
-    # including the formats of URLs (`uri`) and timestamps (`date-time`),
-    # which responses are validated against
+    # Placeholders, to be replaced by each deployment's overlay (see
+    # `docs/configuration.md`); served as they are, so they must conform to
+    # the service info specification, including the formats of URLs (`uri`)
+    # and timestamps (`date-time`), which responses are validated against
     service_info:
         id: "org.example.drs-filer"
         name: "DRS-Filer"

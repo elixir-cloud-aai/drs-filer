@@ -12,6 +12,7 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 JOBS = {
     "title": "PR title",
     "lint": "Lint",
+    "docs": "Docs",
     "test": "Test (${{ matrix.database }})",
     "smoke": "Smoke test",
     "push": "Push image",
