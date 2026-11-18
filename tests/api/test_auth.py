@@ -107,18 +107,37 @@ def _assert_unauthorized(response: TestResponse, invalid: bool = False) -> None:
     assert ('error="invalid_token"' in challenge) is invalid
 
 
+def _snapshot(
+    objects: Collection[dict[str, Any]], service_info: Collection[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Get the stored objects and service info, to check that nothing changed.
+
+    Args:
+        objects: Collection of the objects.
+        service_info: Collection of the service info.
+
+    Returns:
+        The objects and the service info records.
+    """
+    return (
+        list(objects.find({}, {"_id": False})),
+        list(service_info.find({}, {"_id": False})),
+    )
+
+
 @pytest.mark.parametrize(("method", "path"), WRITES)
 def test_write_without_token(
     anonymous_client: FlaskClient,
     objects: Collection[dict[str, Any]],
+    service_info: Collection[dict[str, Any]],
     ids: tuple[str, str],
     method: str,
     path: str,
 ) -> None:
     """Writes without a token are refused (`401`), and change nothing."""
-    before = list(objects.find({}, {"_id": False}))
+    before = _snapshot(objects, service_info)
     _assert_unauthorized(_request(anonymous_client, method, path, ids))
-    assert list(objects.find({}, {"_id": False})) == before
+    assert _snapshot(objects, service_info) == before
 
 
 @pytest.mark.parametrize(("method", "path"), WRITES_WITH_BODY)
@@ -177,16 +196,17 @@ def test_write_with_malformed_token(
 def test_write_by_non_admin(
     anonymous_client: FlaskClient,
     objects: Collection[dict[str, Any]],
+    service_info: Collection[dict[str, Any]],
     ids: tuple[str, str],
     method: str,
     path: str,
 ) -> None:
     """Writes with a valid token of a user who isn't an admin get `403`."""
-    before = list(objects.find({}, {"_id": False}))
+    before = _snapshot(objects, service_info)
     response = _request(anonymous_client, method, path, ids, headers=make_headers(USER))
     assert response.status_code == 403, body(response)
     assert body(response)["status"] == 403
-    assert list(objects.find({}, {"_id": False})) == before
+    assert _snapshot(objects, service_info) == before
 
 
 def _object(
@@ -289,6 +309,7 @@ def test_editors_example(
     mongo_client: MongoClient[dict[str, Any]],
     overlay: Path,
     objects: Collection[dict[str, Any]],
+    service_info: Collection[dict[str, Any]],
 ) -> None:
     """The editors of the example in the docs can write, but other users not.
 
@@ -298,6 +319,7 @@ def test_editors_example(
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
         objects: Collection of the objects.
+        service_info: Collection of the service info.
     """
     overlay.write_text(yaml.safe_dump(_docs_example("editors.yaml")))
     client = create_app().app.test_client()
@@ -314,8 +336,10 @@ def test_editors_example(
     assert response.status_code == 200, body(response)
     assert client.put(url, json=drs_object(2), headers=editor).status_code == 200
     assert client.delete(url, headers=make_headers(USER)).status_code == 403
+    before = list(service_info.find({}, {"_id": False}))
     response = client.post(f"{API}/service-info", json=SERVICE_INFO, headers=editor)
     assert response.status_code == 403
+    assert list(service_info.find({}, {"_id": False})) == before
     assert client.delete(url, headers=editor).status_code == 200
     assert objects.count_documents({}) == 0
 

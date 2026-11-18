@@ -37,6 +37,20 @@ Forbidden`. Reads stay public. Before upgrading:
       -H "Content-Type: application/json" -d @object.json
     ```
 
+During a rolling update (`helm upgrade`, or replacing containers one by
+one), pods of the earlier version keep serving until they are replaced,
+and still accept writes without a token, against the same database. To
+close that window (at the cost of a short downtime), stop all apps of the
+earlier version before the new ones start, e.g., scale the app's
+Deployment (`<release>-drs-filer`) to `0` before `helm upgrade`:
+
+```bash
+kubectl scale deployment <release>-drs-filer -n <namespace> --replicas=0
+```
+
+Or keep writes away from the app (e.g., at the ingress controller) until
+the upgrade is done.
+
 FOCA stores the policy rules of access control in the collection
 `policy_rules` of the database `drsStore`, which it creates on startup;
 the stored objects need no migration. Docker Compose trusts a fictitious
