@@ -3,6 +3,58 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## DRS URIs
+
+!!! warning "Breaking changes"
+    The `self_uri` of objects is a DRS URI, and the public URL
+    (`custom.service`) is replaced by the host name
+    (`custom.drs.hostname`), which is required.
+
+The `self_uri` of objects is the hostname-based DRS URI
+`drs://<hostname>/<id>` (#97), as DRS requires, instead of an HTTP URL
+(`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`). The app
+computes it when serving an object, from the configured host name, and no
+longer stores it: objects registered by earlier versions are served with
+the new `self_uri` (the stored value is ignored), and a changed host name
+applies to all objects. See [Host name](configuration.md#host-name).
+
+| Removed | Replacement |
+| --- | --- |
+| `custom.service.external_host` | `custom.drs.hostname` (required, no default) |
+| `custom.service.url_prefix`, `custom.service.external_port`, `custom.service.api_path` | none: DRS clients resolve `drs://<hostname>/<id>` to `https://<hostname>/ga4gh/drs/v1/objects/<id>`, always on port 443 |
+
+Before upgrading:
+
+1. Replace `custom.service` in your overlay with the host name, e.g.:
+
+    ```yaml
+    custom:
+      drs:
+        hostname: drs.example.org
+    ```
+
+    The app refuses to start with `custom.service`, or without
+    `custom.drs.hostname`. The host name has no scheme, port or path. With
+    the Helm chart, `hostName` sets it; remove `config.custom.service` from
+    your values file, if set (the chart refuses to render with it).
+2. Serve the app via HTTPS on port 443 of that host (e.g., behind an
+   ingress that terminates TLS), where DRS clients resolve the URIs to.
+3. Update clients that took `self_uri` for a URL to fetch: they resolve
+   the DRS URI as above, or build the URL from the identifier.
+
+The `Location` of posted service info (`POST /service-info`) is the
+relative reference `service-info`, which resolves to the URL it was posted
+to, instead of a URL of the public URL of the config.
+
+During a rolling update, pods of the earlier version keep serving until
+they are replaced, against the same database, and fail on objects that the
+new version registered (without stored `self_uri`, which they require in
+responses). To avoid that, stop all apps of the earlier version before the
+new ones start (e.g., scale the app's Deployment to `0` before `helm
+upgrade`, as described in [Access tokens for
+writes](#access-tokens-for-writes)), or don't register objects until the
+upgrade is done.
+
 ## Access tokens for writes
 
 !!! warning "Breaking changes"
@@ -459,8 +511,9 @@ deployments.
      --archive < drs.archive`, and only then
      `docker compose up --build --detach --wait`.
 
-  Restored objects keep the `self_uri` and access URLs they were registered
-  with (e.g., of an earlier public URL); `drs://` self URIs come with #97.
+  Restored objects keep the access URLs they were registered with; their
+  `self_uri` is the DRS URI of the configured host since #97 (see [DRS
+  URIs](#drs-uris)).
 - **Helm chart (3.0.0):** the Job that wrote the config into the ConfigMap
   (with a service account bound to the `admin` cluster role) is replaced by
   a ConfigMap with the chart's overlay; the value `apiServer` is gone, and

@@ -32,8 +32,7 @@ The settings that deployments usually change:
 | --- | --- | --- |
 | `security.auth.issuers`, `security.auth.audience` | none (required) | Trusted token issuers and the client IDs of their tokens, see [Deployment configuration](#deployment-configuration) |
 | `security.access_control.claim_groups`, `security.access_control.group_mapping` | none (required) | Claim with the groups of users, and the groups whose members are admins, see [Deployment configuration](#deployment-configuration) |
-| `custom.service.url_prefix`, `custom.service.external_host`, `custom.service.external_port` | `http`, `localhost`, `8080` | Public URL of the app, see [Public URL](#public-url) |
-| `custom.service.api_path` | `ga4gh/drs/v1` | Path of the API in the public URL |
+| `custom.drs.hostname` | none (required) | Public host name of the app, for the `self_uri` (DRS URI) of objects, see [Host name](#host-name) |
 | `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
 | `custom.objects.id`, `custom.access_methods.id` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
 | `db.host`, `db.port` | `mongodb`, `27017` | MongoDB |
@@ -123,29 +122,35 @@ entries](https://foca.readthedocs.io/en/latest/configuration/#named-entries)).
 Settings for specific identity providers belong to the documentation of the
 deployment, not here.
 
-## Public URL
+## Host name
 
-A deployment's overlay sets at least its public URL, from which the app
-builds the `self_uri` of objects
-(`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`), and its
-service info, as the base config has defaults for local development
-(`http://localhost:8080`) and placeholders for the service info:
+A deployment's overlay sets at least its public host name, which has no
+default (the app refuses to start without it), and its service info, as
+the base config has placeholders for it:
 
 ```yaml
 custom:
-  service:
-    url_prefix: https
-    external_host: drs.example.org
-    external_port: 443
+  drs:
+    hostname: drs.example.org
 ```
 
-`url_prefix` is `http` or `https`; `external_host` a host name or IP
-address (IPv6 addresses in brackets), without scheme, port or path;
-`external_port` an integer from 1 to 65535; and `api_path` segments of
-letters, digits and `-._~`, separated by `/` (not `.` or `..`), without
-leading or trailing `/`. Integer settings (the port, the lengths of
+The `self_uri` of each object is its hostname-based [DRS
+URI](https://ga4gh.github.io/data-repository-service-schemas/preview/release/drs-1.5.0/docs/#section/DRS-URIs),
+`drs://<hostname>/<id>` (e.g., `drs://drs.example.org/a1B2c3`), with the
+identifier percent-encoded (e.g., `x:y` as `x%3Ay`). DRS clients resolve it
+to `https://<hostname>/ga4gh/drs/v1/objects/<id>`, i.e., always via HTTPS
+on port 443, so serve the app there (e.g., behind an ingress that
+terminates TLS). The app computes `self_uri` when it serves an object, from
+the configured host name, not from the `Host` of the request (which clients
+set), and doesn't store it: a new host name applies to all objects, also
+those registered before.
+
+`hostname` is a host name (labels of letters, digits and `-`, separated by
+`.`; IPv4 addresses work too), without scheme, port or path; DRS URIs can't
+have ports or IPv6 addresses. It can be set from an environment variable
+(e.g., `hostname: ${PUBLIC_HOST}`). Integer settings (the lengths of
 identifiers) take integers or strings of digits, so they can be set from
-environment variables (e.g., `external_port: ${PUBLIC_PORT}`).
+environment variables too.
 
 ## Service info
 
@@ -215,7 +220,8 @@ custom:
 
 Docker Compose uses the overlay
 [`config.dev.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/config.dev.yaml)
-(public URL `http://localhost:8080`; a fictitious token issuer, tokens for
+(host name `localhost`, i.e., `self_uri`s `drs://localhost/<id>`; a
+fictitious token issuer, tokens for
 any audience, and no admins required, so that the app starts, but nobody
 can write until you set your identity provider and admin group, or disable
 authentication, see [Running without
@@ -240,8 +246,8 @@ services:
 
 ## Helm chart
 
-The Helm chart writes its overlay to a ConfigMap: the public URL
-(`custom.service`, from the value `hostName`) and the MongoDB host, merged
+The Helm chart writes its overlay to a ConfigMap: the host name
+(`custom.drs.hostname`, from the value `hostName`) and the MongoDB host, merged
 with the value `config`, which takes the settings of this page (e.g., the
 service info, `service_info.service`; see
 [Configuration](deployment.md#configuration) in the deployment guide).
