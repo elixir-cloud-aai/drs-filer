@@ -422,8 +422,8 @@ def test_init_script() -> None:
     resources = render()
     config_map = find(resources, "ConfigMap", f"{MONGODB}-init-script")
     script = config_map["data"]["create-app-user.js"]
-    assert "getSiblingDB('drsStore')" in script
-    assert "drs-filer-db" not in script
+    assert "getSiblingDB('drsStore').createUser(" in script
+    assert "roles: [{ role: 'readWrite', db: 'drsStore' }]" in script
 
 
 def test_mongodb_auth_needs_secret() -> None:

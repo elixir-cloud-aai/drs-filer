@@ -635,9 +635,10 @@ labelled the app's pods `app: drs-filer`, whatever `drs_filer.appName` was
     ```
 
 5. Restore the dump, replacing the collections that the app has created,
-   and start the app (with the number of `drsFiler.replicas`) only if the
-   restore succeeded (`Restore OK`); otherwise, the app stays stopped, and
-   the restore can be repeated (`--drop`):
+   and start the app only if the restore succeeded (`Restore OK`);
+   otherwise, the app stays stopped, and the restore can be repeated
+   (`--drop`). The command starts one pod: with more `drsFiler.replicas`,
+   set that number in `--replicas`:
 
     ```bash
     kubectl exec -i deploy/drs-filer-mongodb -n <namespace> -- sh -c \
