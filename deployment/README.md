@@ -577,7 +577,7 @@ would ignore:
 | `host_name` | `hostName` |
 | `drs_filer.ingress` (`true` or `false`) | `drsFiler.ingress.enabled` (with `false`, an OpenShift Route, see [Exposing the app](#exposing-the-app)) |
 | `drs_filer.image` (with the tag, e.g., `elixircloud/drs-filer:dev`) | `drsFiler.image` and `drsFiler.tag` (or the image with the tag and an empty `drsFiler.tag`, see [Image](#image)) |
-| `drs_filer.appName` (default `drs-filer`) | `fullnameOverride` (see [Names and labels](#names-and-labels)) |
+| `drs_filer.appName` (default `drs-filer`, the name of the ConfigMap) | `fullnameOverride`, the names of all resources (see [Names and labels](#names-and-labels)) |
 | `drs_filer.resources` | `drsFiler.resources` |
 | `apiServer` (charts with the config Job) | none: the chart renders the config overlay itself |
 | `clusterType` | none: a Route is created on OpenShift without an Ingress or HTTPRoute (see [Exposing the app](#exposing-the-app)) |
@@ -590,12 +590,13 @@ version (see [Version](#version)) instead of `mongo:noble`.
 `mongodb`, and with it the data** (unless its PersistentVolume has the
 reclaim policy `Retain`): dump the database first. The database keeps its
 name, `drsStore`. The app is down from the first to the last step. The
-commands are for the release `drs-filer` and the earlier charts' default
-names (`drs-filer`, from `drs_filer.appName`, and `mongodb`); replace them
-if yours differ:
+earlier charts always named the Deployments `drs-filer` and `mongodb` and
+labelled the app's pods `app: drs-filer`, whatever `drs_filer.appName` was
+(it named the ConfigMap only); the commands are for the release
+`drs-filer`:
 
 1. Stop the app and wait until its pods are gone, so that the data doesn't
-   change during the dump (the earlier charts label them `app: <appName>`):
+   change during the dump:
 
     ```bash
     kubectl scale deploy/drs-filer -n <namespace> --replicas=0

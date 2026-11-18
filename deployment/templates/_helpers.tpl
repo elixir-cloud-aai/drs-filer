@@ -65,6 +65,18 @@ otherwise be ignored
 {{- if hasKey .Values "apiServer" -}}
 {{- fail (printf "apiServer was removed with the config Job: the chart renders the config overlay itself; remove it from the values file %s" $hint) -}}
 {{- end -}}
+{{- $app := .Values.drsFiler -}}
+{{- if kindIs "map" $app -}}
+{{- $removed := dict
+  "appName" "resource names are derived from the release name; set fullnameOverride to choose them at installation"
+  "config" "the config overlay is the top-level value config"
+-}}
+{{- range $key := keys $removed | sortAlpha -}}
+{{- if hasKey $app $key -}}
+{{- fail (printf "drsFiler.%s was removed with the chart on foca-common: %s %s" $key (get $removed $key) $hint) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

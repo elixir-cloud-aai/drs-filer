@@ -11,6 +11,7 @@ copyright: Copyright &copy; ELIXIR On-Cloud
 # Files included in pages (see `pymdownx.snippets`)
 watch:
   - README.md
+  - deployment/README.md
 
 theme:
   name: material

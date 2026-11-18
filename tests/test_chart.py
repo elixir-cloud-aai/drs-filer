@@ -533,6 +533,8 @@ def test_host_name_required() -> None:
         (("--set", "drs_filer.ingress=true"), "drs_filer was renamed to drsFiler"),
         (("--set", "apiServer=kubernetes.default.svc:443"), "apiServer was removed"),
         (("--set", "clusterType=openshift"), "clusterType was removed"),
+        (("--set", "drsFiler.appName=drs"), "drsFiler.appName was removed"),
+        (("--set", "drsFiler.config.x=1"), "drsFiler.config was removed"),
     ],
 )
 def test_legacy_values(args: tuple[str, ...], message: str) -> None:

@@ -6,7 +6,8 @@ A deployment of DRS-Filer consists of:
 
 - **the app**, served by Gunicorn (see [Server](#server)), which serves the
   [API](api.md);
-- **MongoDB** (Docker Compose runs 7.0), which stores the objects (collection
+- **MongoDB** (Docker Compose and the Helm chart run 7.0, the chart with
+  authentication), which stores the objects (collection
   `objects`) and the service info (collection `service_info`) in the database
   `drsStore`.
 

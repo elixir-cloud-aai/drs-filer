@@ -26,4 +26,5 @@ The API specifications of DRS-Filer declare no security schemes (`security`
 and `securityDefinitions` are commented out in the DRS specification), so
 FOCA checks no tokens. Until access control is in place, restrict access in
 front of the app, e.g., with network policies, or with a reverse proxy that
-authenticates clients, and allow only trusted clients to write.
+authenticates clients, and allow only trusted clients to write (see
+[Access](deployment.md#access) for the Helm chart).

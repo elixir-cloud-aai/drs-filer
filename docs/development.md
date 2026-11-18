@@ -99,6 +99,18 @@ same targets for Codecov in `codecov.yml`):
     DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke
     ```
 
+The chart tests (`tests/test_chart.py`) render the Helm chart with `helm
+template`; they are skipped without [Helm](https://helm.sh/) (but fail in
+CI), and need the library chart, downloaded once (and after changes of
+`deployment/Chart.lock`) with:
+
+```bash
+helm dependency build deployment
+```
+
+To install the chart on a local [kind](https://kind.sigs.k8s.io/) cluster
+as the job `chart-install` does, see its steps in `ci.yml`.
+
 Tests can't open connections (TCP, or connected UDP), except to the test
 database (and the smoke test to the app). Shared fixtures are in
 `tests/conftest.py`, request bodies in `tests/mock_data.py`.
@@ -166,6 +178,8 @@ condition and action pins. Its jobs, and how to run them locally:
 | `lint` | Lint | `uv lock --check`, `uv run pre-commit run --all-files`, `pipx run --spec cffconvert==2.0.0 cffconvert --validate -i CITATION.cff` |
 | `docs` | Docs | `uv run --extra docs mkdocs build --strict` (see [Documentation](#documentation)) |
 | `test` | Test (mongomock), Test (MongoDB 7.0) | `uv run coverage run -m pytest && uv run coverage report`, and against MongoDB as in [Tests](#tests) |
+| `chart` | Chart | `helm dependency build deployment`, `helm lint deployment --strict -f deployment/ci/test-values.yaml`, `uv run pytest tests/test_chart.py` |
+| `chart-install` | Chart install | Installs the chart on kind with the image of the commit and runs the smoke test through a port forward (see [Tests](#tests)) |
 | `smoke` | Smoke test | `docker compose up --build --detach --wait`, then the smoke test as in [Tests](#tests) |
 | `push` | Push image | Pushes to `dev` in this repository only |
 | `passed` | CI passed | Passes if all other jobs passed or were skipped as intended |
