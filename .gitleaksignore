@@ -1,0 +1,6 @@
+# Findings of gitleaks that aren't secrets (fingerprints `<file>:<rule>:<line>`)
+# The example passports (unsigned dummy JWTs with an empty `ga4gh_passport_v1`)
+# of the vendored DRS 1.5.0 specification, kept as published
+drs_filer/api/20250324.fe25c39.openapi.yaml:jwt:1821
+drs_filer/api/20250324.fe25c39.openapi.yaml:jwt:2108
+drs_filer/api/20250324.fe25c39.openapi.yaml:jwt:2125

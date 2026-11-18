@@ -71,6 +71,37 @@ def test_no_service_info_fails_start(
 
 
 @pytest.mark.parametrize(
+    "service_type",
+    [
+        {"group": "org.ga4gh", "artifact": "trs", "version": "2.0.2"},
+        {"group": "org.ga4gh", "artifact": "drs", "version": "1.2.0"},
+        {"group": "org.example", "artifact": "drs", "version": "1.5.0"},
+    ],
+)
+def test_service_info_not_drs_fails_start(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    service_type: dict[str, str],
+) -> None:
+    """Service info of another type than DRS 1.5.0 fails the start.
+
+    `GET /service-info` serves `DrsService`, of type `drs`, so that another
+    artifact would fail every response instead, and another group or
+    version would describe another API.
+
+    Args:
+        mongo_client: MongoDB client of the app.
+        overlay: Config overlay of the test.
+        service_type: Service type of the config.
+    """
+    overlay.write_text(
+        yaml.safe_dump({"service_info": {"service": {"type": service_type}}})
+    )
+    with pytest.raises(ValueError, match=r"service\.type"):
+        create_app()
+
+
+@pytest.mark.parametrize(
     "endpoints",
     [
         {"external_host": "drs.example.org"},
@@ -125,7 +156,7 @@ def test_public_url_from_custom_config(
         )
     )
     client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(1))
+    response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     obj = body(client.get(f"{API}/objects/{object_id}"))
@@ -144,7 +175,7 @@ def test_service_info_version_from_package(
     client = create_app().app.test_client()
     info = body(client.get(f"{API}/service-info"))
     assert info["version"] == version("drs-filer")
-    assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.1.0"}
+    assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
     overlay.write_text(
         yaml.safe_dump({"service_info": {"service": {"version": "1.2.3"}}})
     )
@@ -210,7 +241,7 @@ def test_integers_from_environment(
         "      length: ${DRS_TEST_ID_LENGTH}\n"
     )
     client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(1))
+    response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     assert len(object_id) == 9

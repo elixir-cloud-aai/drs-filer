@@ -1,0 +1,670 @@
+# Merged into the vendored GA4GH DRS 1.5.0 specification
+# (`api.specs.drs.path` in `config.yaml`), which stays unchanged: the app's
+# info, its local deviations from the specification, the endpoints that
+# DRS-Filer adds to register and manage objects and the service info, and
+# their schemas. FOCA merges mappings recursively; lists and other values
+# replace those of the specification, and keys can't be removed. Each
+# deviation is documented in `docs/api.md` ("Deviations from the
+# specification") and tested in `tests/test_specs.py`.
+#
+# The registration schemas (`*Register`) mirror the read schemas of DRS 1.5.0
+# without the fields that DRS-Filer sets itself (`id`, `self_uri`,
+# `access_id`, `authorizations`); `tests/test_specs.py` compares them, so
+# that they follow the specification. `info.version` isn't set here: it is
+# that of the vendored specification (the DRS version, not the app's), which
+# `tests/test_specs.py` compares with `service_info.service.type.version` in
+# `config.yaml`
+info:
+  title: DRS-Filer
+  description: |
+    Registry of data objects, implementing the GA4GH Data Repository Service
+    (DRS) API 1.5.0, with endpoints to register, replace and delete objects
+    and their access methods; brought to you by ELIXIR On-Cloud. More
+    information in the [documentation](https://drs-filer.readthedocs.io/)
+    and on [GitHub](https://github.com/elixir-cloud-aai/drs-filer).
+  contact:
+    name: ELIXIR On-Cloud
+    email: cloud-service@elixir-europe.org
+# No authentication yet (#94): the specification allows anonymous requests,
+# basic and bearer authentication on all operations, which Connexion can't
+# check without functions to validate credentials, so it would warn of each
+# of them on startup
+security: []
+paths:
+  /service-info:
+    # `GetServiceInfo` of the specification serves the stored service info
+    # (`drs_filer.ga4gh.drs.endpoints.service_info`), which `POST
+    # /service-info` can replace; `404` until service info is set
+    get:
+      responses:
+        "404":
+          description: No service info is set.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      summary: Replace the service info
+      description: >-
+        Create or replace the service info. Each start of the app (also of a
+        Gunicorn worker) replaces it with the service info of its config.
+        DRS-Filer computes the DRS fields (`maxBulkRequestLength`, `drs`)
+        itself, so the request can't set them.
+      operationId: PostServiceInfo
+      tags:
+        - DRS-Filer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceRegister"
+      responses:
+        "201":
+          description: The service info was created or replaced.
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+  /objects:
+    get:
+      summary: List all objects
+      description: >-
+        Get all `DrsObject`s, without pagination.
+      operationId: ListDrsObjects
+      tags:
+        - DRS-Filer
+      responses:
+        "200":
+          description: All objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DrsObject"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+    # Bulk reads with passports in the body (`GetBulkObjects`): not
+    # implemented, see "Passport POST endpoints" in `docs/api.md`. They
+    # need no credentials, so that every client gets `501`
+    post:
+      security: []
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+    # Authorization info of objects (`OptionsBulkObject`): not implemented
+    # yet (#98)
+    options:
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+  # Registration, at the path of the proposed DRS write extension
+  # (ga4gh/data-repository-service-schemas#418), with DRS-Filer's request
+  # body until the extension is adopted (#99)
+  /objects/register:
+    post:
+      summary: Register an object
+      description: >-
+        Register the metadata of a data object, with an identifier that
+        DRS-Filer generates.
+      operationId: RegisterObject
+      tags:
+        - DRS-Filer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DrsObjectRegister"
+      responses:
+        "200":
+          description: The object was registered; its identifier.
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+  /objects/{object_id}:
+    # The passport variant of `GetObject` (`PostObject`): not implemented,
+    # see `post` of `/objects`
+    post:
+      security: []
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+    # `OptionsObject`: not implemented yet (#98)
+    options:
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+    put:
+      summary: Register or replace an object
+      description: >-
+        Register an object with the given identifier, or replace the object
+        of that identifier.
+      operationId: PutObject
+      tags:
+        - DRS-Filer
+      parameters:
+        - $ref: "#/components/parameters/ObjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DrsObjectRegister"
+      responses:
+        "200":
+          description: The object was registered or replaced; its identifier.
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+    delete:
+      summary: Delete an object
+      operationId: DeleteObject
+      tags:
+        - DRS-Filer
+      parameters:
+        - $ref: "#/components/parameters/ObjectId"
+      responses:
+        "200":
+          description: The object was deleted; its identifier.
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "404":
+          $ref: "#/components/responses/404NotFoundDrsObject"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+  /objects/{object_id}/access/{access_id}:
+    # The passport variant of `GetAccessURL` (`PostAccessURL`): not
+    # implemented, see `post` of `/objects`
+    post:
+      security: []
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+    delete:
+      summary: Delete an access method of an object
+      description: >-
+        Delete an `AccessMethod` of a `DrsObject`. All access methods with
+        the given identifier are deleted, but only if the object keeps at
+        least one access method with another identifier (also under
+        concurrent deletions).
+      operationId: DeleteAccessMethod
+      tags:
+        - DRS-Filer
+      parameters:
+        - $ref: "#/components/parameters/ObjectId"
+        - $ref: "#/components/parameters/AccessId"
+      responses:
+        "200":
+          description: The access method was deleted; its identifier.
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "404":
+          $ref: "#/components/responses/404NotFoundAccess"
+        "409":
+          description: >-
+            Refusing to delete the last remaining access method, i.e., the
+            object has no access method with another identifier.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+  # Bulk reads of access URLs with passports in the body
+  # (`GetBulkAccessURL`): not implemented, see `post` of `/objects`
+  /objects/access:
+    post:
+      security: []
+      responses:
+        "501":
+          $ref: "#/components/responses/501NotImplemented"
+components:
+  # Errors are FOCA's problem details (RFC 9457, sent as
+  # `application/problem+json`) instead of the `Error` schema of the
+  # specification (`msg`, `status_code`); the specification's
+  # `application/json` can't be removed (merged), so both are `Problem`
+  responses:
+    400BadRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    401Unauthorized:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    403Forbidden:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    404NotFoundDrsObject:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    404NotFoundAccess:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    413RequestTooLarge:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    500InternalServerError:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    501NotImplemented:
+      description: >-
+        DRS-Filer doesn't implement the operation; `detail` says why and
+        links to the documentation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    # FOCA's problem details (`Problem` and `FieldError` of
+    # `foca/api/problem-details.yaml`); keep them the same (tested by
+    # `tests/test_specs.py`)
+    Problem:
+      description: >-
+        Problem details (RFC 9457), sent as `application/problem+json`.
+        Responses to invalid requests list the invalid fields in `errors`.
+      type: object
+      required:
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          description: >-
+            URI identifying the problem type, e.g.,
+            `https://foca.readthedocs.io/en/latest/problems/invalid-request/`
+            for invalid requests.
+        title:
+          type: string
+          description: Short summary of the problem type.
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Explanation of this occurrence of the problem.
+        instance:
+          type: string
+          description: URI identifying this occurrence of the problem.
+        code:
+          type: string
+          description: >-
+            Stable, kebab-case code of the problem type, e.g.,
+            `invalid-request`.
+        errors:
+          type: array
+          description: Invalid fields of the request, one entry per field.
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      description: >-
+        Invalid field of a request, in the form of the example of RFC 9457,
+        section 3, with either `pointer` or `parameter`.
+      type: object
+      required:
+        - detail
+        - code
+      properties:
+        detail:
+          type: string
+          description: >-
+            Readable message; never quotes the rejected value (locations
+            may have keys and parameter names of the request).
+        pointer:
+          type: string
+          description: >-
+            JSON Pointer (RFC 6901) to the field in the request body, as a
+            URI fragment, e.g., `#/organization/url`.
+          pattern: '^#(/([A-Za-z0-9_.!$&''()*+,;=:@-]|%[0-9A-Fa-f]{2}|~[01])*)*$'
+        parameter:
+          type: string
+          description: >-
+            Name of the invalid query, path, header, cookie or form data
+            parameter.
+        code:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          description: >-
+            Stable, kebab-case code, e.g., `required` or `too-long`; FOCA's
+            generic codes and those of the app.
+      oneOf:
+        - required:
+            - pointer
+        - required:
+            - parameter
+    # `Service` and `ServiceType` (service info 1.0.0), for `POST
+    # /service-info`; `type.artifact` must be `drs`, as for `GET
+    # /service-info` (`DrsService`)
+    ServiceRegister:
+      description: GA4GH service info of DRS-Filer.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - type
+        - organization
+        - version
+      properties:
+        id:
+          type: string
+          description: >-
+            Unique ID of this service. Reverse domain name notation is
+            recommended, though not required.
+          example: org.example.drs
+        name:
+          type: string
+          description: Name of this service. Should be human readable.
+          example: DRS-Filer
+        type:
+          $ref: "#/components/schemas/ServiceTypeRegister"
+        description:
+          type: string
+          description: Description of the service. Should be human readable.
+        organization:
+          type: object
+          description: Organization providing the service.
+          additionalProperties: false
+          required:
+            - name
+            - url
+          properties:
+            name:
+              type: string
+              description: >-
+                Name of the organization responsible for the service.
+            url:
+              type: string
+              format: uri
+              description: >-
+                URL of the website of the organization (RFC 3986 format).
+        contactUrl:
+          type: string
+          format: uri
+          description: >-
+            URL of the contact for the provider of this service, e.g., a link
+            to a contact form (RFC 3986 format), or an email (RFC 2368
+            format).
+        documentationUrl:
+          type: string
+          format: uri
+          description: >-
+            URL of the documentation of this service (RFC 3986 format).
+        createdAt:
+          type: string
+          format: date-time
+          description: >-
+            Timestamp describing when the service was first deployed and
+            available (RFC 3339 format).
+        updatedAt:
+          type: string
+          format: date-time
+          description: >-
+            Timestamp describing when the service was last updated (RFC 3339
+            format).
+        environment:
+          type: string
+          description: >-
+            Environment the service is running in, e.g., `prod`, `test`,
+            `dev` or `staging`.
+        version:
+          type: string
+          description: Version of the service being described.
+    ServiceTypeRegister:
+      description: Type of a GA4GH service.
+      type: object
+      additionalProperties: false
+      required:
+        - group
+        - artifact
+        - version
+      properties:
+        group:
+          type: string
+          enum:
+            - org.ga4gh
+          description: Namespace in reverse domain name format.
+        artifact:
+          type: string
+          enum:
+            - drs
+          description: Name of the API or GA4GH specification implemented.
+        version:
+          type: string
+          enum:
+            - "1.5.0"
+          description: Version of the API or specification.
+    DrsObjectRegister:
+      description: >-
+        Metadata of a data object to register (`DrsObject` without the
+        fields that DRS-Filer sets: `id` and `self_uri`, and `access_id` and
+        `authorizations` of access methods). The DRS
+        specification requires at least one access method for single blobs
+        (objects without `contents`).
+      type: object
+      additionalProperties: false
+      required:
+        - size
+        - created_time
+        - checksums
+      properties:
+        name:
+          type: string
+          description: A string that can be used to name a `DrsObject`.
+        size:
+          type: integer
+          format: int64
+          description: >-
+            For blobs, the blob size in bytes. For bundles, the cumulative
+            size, in bytes, of items in the `contents` field.
+        created_time:
+          type: string
+          format: date-time
+          description: Timestamp of content creation in RFC 3339.
+        updated_time:
+          type: string
+          format: date-time
+          description: Timestamp of content update in RFC 3339.
+        version:
+          type: string
+          description: A string representing a version.
+        mime_type:
+          type: string
+          description: A string providing the mime-type of the `DrsObject`.
+          example: application/json
+        checksums:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ChecksumRegister"
+          description: >-
+            The checksums of the `DrsObject`. At least one checksum must be
+            provided.
+        access_methods:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AccessMethodRegister"
+          description: >-
+            The list of access methods that can be used to fetch the
+            `DrsObject`. Required for single blobs; optional for bundles.
+        contents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentsObjectRegister"
+          description: >-
+            If not set, this `DrsObject` is a single blob. If set, this
+            `DrsObject` is a bundle containing the listed `ContentsObject`s
+            (some of which may be further nested).
+        description:
+          type: string
+          description: A human readable description of the `DrsObject`.
+        aliases:
+          type: array
+          items:
+            type: string
+          description: >-
+            A list of strings that can be used to find other metadata about
+            this `DrsObject` from external metadata sources.
+    AccessMethodRegister:
+      description: >-
+        Method through which object bytes can be fetched (`AccessMethod`
+        without the fields that DRS-Filer sets: `access_id` and
+        `authorizations`).
+      type: object
+      additionalProperties: false
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - s3
+            - gs
+            - ftp
+            - gsiftp
+            - globus
+            - htsget
+            - https
+            - file
+          description: Type of the access method.
+        access_url:
+          $ref: "#/components/schemas/AccessURLRegister"
+        cloud:
+          type: string
+          description: >-
+            Name of the cloud service provider that the object belongs to,
+            e.g., `aws`, `gcp` or `azure`.
+          example: aws
+        region:
+          type: string
+          description: >-
+            Name of the region in the cloud service provider that the object
+            belongs to.
+          example: us-east-1
+        available:
+          type: boolean
+          description: >-
+            Whether the object is immediately accessible via DRS (`false` if
+            it is in offline or archival storage).
+          example: true
+    AccessURLRegister:
+      description: URL to fetch the object bytes (`AccessURL`).
+      type: object
+      additionalProperties: false
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: >-
+            A fully resolvable URL that can be used to fetch the actual
+            object bytes.
+        headers:
+          type: array
+          items:
+            type: string
+          description: >-
+            An optional list of headers to include in the HTTP request to
+            `url`.
+    ChecksumRegister:
+      description: Checksum of the object bytes (`Checksum`).
+      type: object
+      additionalProperties: false
+      required:
+        - checksum
+        - type
+      properties:
+        checksum:
+          type: string
+          description: The hex-string encoded checksum for the data.
+        type:
+          type: string
+          description: >-
+            The digest method used to create the checksum, e.g., `sha-256`.
+          example: sha-256
+    ContentsObjectRegister:
+      description: Object contained in a bundle (`ContentsObject`).
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: >-
+            A name declared by the bundle author that must be used when
+            materialising this object.
+        id:
+          type: string
+          description: >-
+            A DRS identifier of a `DrsObject` (either a single blob or a
+            nested bundle).
+        drs_uri:
+          type: array
+          items:
+            type: string
+          description: >-
+            A list of full DRS identifier URI paths that may be used to
+            obtain the object.
+          example:
+            - drs://drs.example.org/314159
+        contents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentsObjectRegister"
+          description: The objects of a nested bundle.

@@ -28,8 +28,8 @@
 DRS-Filer is a [Flask](https://flask.palletsprojects.com/) app built with
 [FOCA](https://github.com/elixir-cloud-aai/foca), configured declaratively in
 YAML. It serves the [GA4GH DRS
-API](https://github.com/ga4gh/data-repository-service-schemas) 1.1.0 and the
-[GA4GH service info
+API](https://github.com/ga4gh/data-repository-service-schemas) 1.5.0, with
+the [GA4GH service info
 API](https://github.com/ga4gh-discovery/ga4gh-service-info) 1.0.0, and adds
 endpoints to register and manage objects (see [API](api.md)). It stores the
 metadata of objects and the service info in a
@@ -40,9 +40,8 @@ on Kubernetes and for development, respectively.
 
 !!! note "Work in progress"
     DRS-Filer is being aligned with the other services of ELIXIR On-Cloud:
-    DRS 1.5
-    ([#88](https://github.com/elixir-cloud-aai/drs-filer/issues/88),
-    [#89](https://github.com/elixir-cloud-aai/drs-filer/issues/89))
+    the rest of DRS 1.5
+    ([#88](https://github.com/elixir-cloud-aai/drs-filer/issues/88))
     and access tokens for writes and optionally reads
     ([#94](https://github.com/elixir-cloud-aai/drs-filer/issues/94),
     [#96](https://github.com/elixir-cloud-aai/drs-filer/issues/96)).

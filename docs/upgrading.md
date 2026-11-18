@@ -3,6 +3,64 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## DRS 1.5.0
+
+!!! warning "Breaking changes"
+    Registration moved to another path, and the API is OpenAPI 3 at
+    another URL.
+
+DRS-Filer serves the GA4GH DRS specification 1.5.0 (OpenAPI 3) instead of
+1.1.0 (Swagger 2.0) (#89; see [API](api.md)):
+
+- **Registration moved** from `POST /objects` to `POST /objects/register`,
+  with the same request body and response. `POST /objects` is now the bulk
+  read of DRS (`GetBulkObjects`), which DRS-Filer doesn't implement: it
+  answers `501 Not Implemented`, and doesn't register anything. Update
+  clients and scripts that register objects, e.g.:
+
+    ```bash
+    curl -X POST "https://drs.example.org/ga4gh/drs/v1/objects/register" \
+      -H "Content-Type: application/json" -d @object.json
+    ```
+
+    `PUT /objects/{object_id}`, `DELETE /objects/{object_id}`, `DELETE
+    /objects/{object_id}/access/{access_id}`, `GET /objects` and `POST
+    /service-info` are unchanged.
+- **Specification URL:** the specification is served at
+  `/ga4gh/drs/v1/openapi.json` (was `/ga4gh/drs/v1/swagger.json`, now
+  `404`), as OpenAPI 3. The Swagger UI stays at `/ga4gh/drs/v1/ui/`.
+- **New endpoints of DRS** answer `501`: the passport `POST` variants of the
+  reads (`POST /objects/{object_id}`, `POST
+  /objects/{object_id}/access/{access_id}`, `POST /objects`, `POST
+  /objects/access`), which DRS-Filer won't implement (see [Passport POST
+  endpoints](api.md#passport-post-endpoints)), and `OPTIONS
+  /objects/{object_id}` and `OPTIONS /objects`, for now. Before, they
+  answered `405`.
+- **Service info:** the base config reports `type.version` `1.5.0` (was
+  `1.1.0`); remove `service_info.service.type` from your overlays, if set:
+  a type other than `org.ga4gh`, `drs`, `1.5.0` now fails the start. `GET
+  /service-info` also serves the fields that DRS 1.5 requires
+  (`maxBulkRequestLength` and `drs`, see [Service
+  info](api.md#service-info)). `POST /service-info` refuses these fields and
+  other types (`400`).
+- **Access methods** can be registered with the DRS 1.5 fields `cloud` and
+  `available`; `authorizations` is refused (`400`), as DRS-Filer sets it.
+- **Errors** are problem details, as before; the served specification now
+  describes them as `Problem` (was `Error`).
+
+Stored objects and service info need no migration.
+
+While the upgrade rolls out, apps of both versions share the database and
+answer requests: registrations at the old path get `501` from new apps,
+those at the new path `404` from old apps, and an old app that starts (or
+starts a Gunicorn worker) or takes `POST /service-info` writes service info
+of type `1.1.0`, which new apps then serve until they start again. So
+don't register objects or post service info until all apps run the new
+version, and then restart the apps once, so that they write the service
+info of their config again. To avoid the overlap altogether (at the cost
+of a short downtime), stop all apps of the old version before the new ones
+start, e.g., scale the app's Deployment to `0` before `helm upgrade`.
+
 ## Typed configuration
 
 The settings of DRS-Filer itself moved from the untyped section `endpoints`

@@ -109,14 +109,19 @@ service_info:
     environment: prod
 ```
 
-The base config sets `type` (`org.ga4gh`, `drs`, `1.1.0`), which mappings
-in overlays are merged with.
+The base config sets `type` (`org.ga4gh`, `drs`, `1.5.0`: the version of
+the DRS specification that the app serves), which mappings in overlays are
+merged with; don't set `type` in overlays: it must be the type of the API
+that the app serves, and other types fail the start.
+The app adds the fields that DRS 1.5 requires (`maxBulkRequestLength`,
+`drs`), which it computes (see [Service info](api.md#service-info) in the
+API docs); don't set them in the config.
 
 ## Identifiers
 
-Objects registered without an identifier (`POST /objects`) and their access
-methods get random identifiers of `length` characters (default 6), drawn
-from `charset` (default: letters, digits and `.-_~`), in
+Objects registered without an identifier (`POST /objects/register`) and
+their access methods get random identifiers of `length` characters (default
+6), drawn from `charset` (default: letters, digits and `.-_~`), in
 `custom.objects.id` and `custom.access_methods.id`. `charset` lists the
 characters themselves, which must be unreserved characters of URLs (letters,
 digits and `.-_~`); other characters and expressions such as

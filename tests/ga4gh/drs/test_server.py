@@ -18,16 +18,19 @@ from drs_filer.errors.exceptions import (
     ObjectNotFound,
     URLNotFound,
 )
-from drs_filer.ga4gh.drs.endpoints.service_info import CURRENT_ID
+from drs_filer.ga4gh.drs.endpoints.service_info import (
+    CURRENT_ID,
+    drs_service_fields,
+)
 from drs_filer.ga4gh.drs.server import (
     DeleteAccessMethod,
     DeleteObject,
     GetAccessURL,
     GetObject,
-    PostObject,
+    GetServiceInfo,
+    PostServiceInfo,
     PutObject,
-    getServiceInfo,
-    postServiceInfo,
+    RegisterObject,
 )
 
 MOCK_ID_NA = "unavailable"
@@ -454,7 +457,7 @@ def test_DeleteAccessMethod_InternalServerError(
         DeleteAccessMethod.__wrapped__("a011", "2")
 
 
-def test_PostObject() -> None:
+def test_RegisterObject() -> None:
     """Test for creating a new object with an auto-generated identifier."""
     app = Flask(__name__)
     app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
@@ -463,7 +466,7 @@ def test_PostObject() -> None:
     ].client = mongomock.MongoClient().db.collection
 
     with app.test_request_context(json={"name": "drsObject"}):
-        res = PostObject.__wrapped__()
+        res = RegisterObject.__wrapped__()
         assert isinstance(res, str)
 
 
@@ -497,8 +500,8 @@ def test_PutObject_update() -> None:
 
 
 # GET /service-info
-def test_getServiceInfo() -> None:
-    """Test for getting service info."""
+def test_GetServiceInfo() -> None:
+    """Test for getting service info, with the computed DRS fields."""
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
@@ -513,12 +516,12 @@ def test_getServiceInfo() -> None:
     )
 
     with app.app_context():
-        res = getServiceInfo.__wrapped__()
-        assert res == SERVICE_INFO_CONFIG
+        res = GetServiceInfo.__wrapped__()
+        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields()}
 
 
 # POST /service-info
-def test_postServiceInfo() -> None:
+def test_PostServiceInfo() -> None:
     """Test for creating service info."""
     app = Flask(__name__)
     app.config.foca = Config(
@@ -530,9 +533,9 @@ def test_postServiceInfo() -> None:
     ].client = mongomock.MongoClient().db.collection
 
     with app.test_request_context(json=deepcopy(SERVICE_INFO_CONFIG)):
-        body, status, _ = postServiceInfo.__wrapped__()
-        res = getServiceInfo.__wrapped__()
-        assert res == SERVICE_INFO_CONFIG
+        body, status, _ = PostServiceInfo.__wrapped__()
+        res = GetServiceInfo.__wrapped__()
+        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields()}
     assert body is None
     # An integer, not the string "201", so that Flask sets the status code
     assert status == 201

@@ -9,17 +9,19 @@ from flask.testing import FlaskClient
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import PyMongoError
+import pytest
 import yaml
 
 from drs_filer.app import CONFIG_FILE, create_app
 from drs_filer.ga4gh.drs.endpoints import service_info as service_info_module
-from tests.mock_data import API, SERVICE_INFO, body
+from tests.mock_data import API, DRS_SERVICE_FIELDS, SERVICE_INFO, body
 
 
 def _config_service_info() -> dict[str, Any]:
-    """Get the service info of the base config (the overlays don't set it).
+    """Get the service info served from the base config (no overlay sets it).
 
-    The config doesn't set the version: it is that of the package.
+    The config doesn't set the version: it is that of the package. The app
+    adds the DRS fields (`DRS_SERVICE_FIELDS`).
 
     Returns:
         Service info.
@@ -28,7 +30,7 @@ def _config_service_info() -> dict[str, Any]:
         "service"
     ]
     assert "version" not in service
-    return {**service, "version": version("drs-filer")}
+    return {**service, "version": version("drs-filer"), **DRS_SERVICE_FIELDS}
 
 
 def test_get_service_info_from_config(client: FlaskClient) -> None:
@@ -45,7 +47,7 @@ def test_post_service_info(client: FlaskClient) -> None:
     assert response.headers["Content-Type"] == "application/json"
     response = client.get(f"{API}/service-info")
     assert response.status_code == 200
-    assert body(response) == SERVICE_INFO
+    assert body(response) == {**SERVICE_INFO, **DRS_SERVICE_FIELDS}
 
 
 def test_get_service_info_after_restart(
@@ -58,7 +60,10 @@ def test_get_service_info_after_restart(
     client = create_app().app.test_client()
     response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 201
-    assert body(client.get(f"{API}/service-info")) == SERVICE_INFO
+    assert body(client.get(f"{API}/service-info")) == {
+        **SERVICE_INFO,
+        **DRS_SERVICE_FIELDS,
+    }
     client = create_app().app.test_client()
     response = client.get(f"{API}/service-info")
     assert response.status_code == 200
@@ -104,7 +109,10 @@ def test_post_service_info_with_stored_records(
     service_info.insert_one({**SERVICE_INFO, "name": "Old name"})
     response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 201
-    assert body(client.get(f"{API}/service-info")) == SERVICE_INFO
+    assert body(client.get(f"{API}/service-info")) == {
+        **SERVICE_INFO,
+        **DRS_SERVICE_FIELDS,
+    }
     assert service_info.count_documents({}) == 1
 
 
@@ -113,6 +121,37 @@ def test_post_service_info_invalid(client: FlaskClient) -> None:
     request_body = {key: value for key, value in SERVICE_INFO.items() if key != "id"}
     response = client.post(f"{API}/service-info", json=request_body)
     assert response.status_code == 400
+
+
+def test_post_service_info_unknown_organization_field(client: FlaskClient) -> None:
+    """Service info with an undefined field in `organization` is rejected."""
+    organization = {**SERVICE_INFO["organization"], "email": "a@example.org"}
+    response = client.post(
+        f"{API}/service-info", json={**SERVICE_INFO, "organization": organization}
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "service_type",
+    [
+        {"group": "org.ga4gh", "artifact": "trs", "version": "1.5.0"},
+        {"group": "org.ga4gh", "artifact": "drs", "version": "1.2.0"},
+        {"group": "org.example", "artifact": "drs", "version": "1.5.0"},
+    ],
+)
+def test_post_service_info_other_type(
+    client: FlaskClient, service_type: dict[str, str]
+) -> None:
+    """Service info of another type than DRS 1.5.0 is rejected.
+
+    It would describe another API than the one served.
+    """
+    response = client.post(
+        f"{API}/service-info", json={**SERVICE_INFO, "type": service_type}
+    )
+    assert response.status_code == 400
+    assert response.headers["Content-Type"] == "application/problem+json"
 
 
 def test_post_service_info_invalid_format(client: FlaskClient) -> None:
@@ -144,3 +183,33 @@ def test_post_service_info_database_error(client: FlaskClient) -> None:
         response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 500
     assert body(response)["status"] == 500
+
+
+def test_post_service_info_drs_fields_rejected(client: FlaskClient) -> None:
+    """The DRS fields of the service info can't be posted: the app sets them."""
+    for key, value in DRS_SERVICE_FIELDS.items():
+        response = client.post(f"{API}/service-info", json={**SERVICE_INFO, key: value})
+        assert response.status_code == 400, key
+
+
+def test_post_service_info_not_drs(client: FlaskClient) -> None:
+    """Service info of another type than DRS is rejected.
+
+    `GET /service-info` serves `DrsService`, of type `drs`.
+    """
+    service_type = {**SERVICE_INFO["type"], "artifact": "trs"}
+    response = client.post(
+        f"{API}/service-info", json={**SERVICE_INFO, "type": service_type}
+    )
+    assert response.status_code == 400
+
+
+def test_get_service_info_drs_fields_computed(
+    client: FlaskClient, service_info: Collection[dict[str, Any]]
+) -> None:
+    """The DRS fields are computed when serving, not stored."""
+    response = client.get(f"{API}/service-info")
+    assert response.status_code == 200
+    stored = service_info.find_one({}, {"_id": False})
+    assert stored is not None
+    assert not DRS_SERVICE_FIELDS.keys() & stored.keys()

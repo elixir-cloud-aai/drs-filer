@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 import requests
 
-from tests.mock_data import SERVICE_INFO, drs_object
+from tests.mock_data import DRS_SERVICE_FIELDS, SERVICE_INFO, drs_object
 
 DRS_FILER_URL = os.environ.get("DRS_FILER_URL", "")
 TIMEOUT = 30  # seconds per request
@@ -52,7 +52,9 @@ def object_id() -> Iterator[str]:
     Yields:
         Identifier of the object.
     """
-    response = requests.post(_url("/objects"), json=drs_object(2), timeout=TIMEOUT)
+    response = requests.post(
+        _url("/objects/register"), json=drs_object(2), timeout=TIMEOUT
+    )
     assert response.status_code == 200, response.text
     object_id: str = response.json()
     yield object_id
@@ -138,4 +140,15 @@ def test_service_info() -> None:
     assert response.status_code == 201
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)
     assert response.status_code == 200
-    assert response.json() == SERVICE_INFO
+    assert response.json() == {**SERVICE_INFO, **DRS_SERVICE_FIELDS}
+
+
+def test_drs_1_5_0() -> None:
+    """The app serves DRS 1.5.0; the passport operations answer `501`."""
+    response = requests.get(_url("/openapi.json"), timeout=TIMEOUT)
+    assert response.status_code == 200
+    assert response.json()["info"]["version"] == "1.5.0"
+    response = requests.post(
+        _url("/objects"), json={"bulk_object_ids": ["x"]}, timeout=TIMEOUT
+    )
+    assert response.status_code == 501

@@ -21,7 +21,9 @@ def _register(client: FlaskClient, access_methods: int) -> tuple[str, list[str]]
     Returns:
         Identifier of the object, and those of its access methods.
     """
-    object_id = body(client.post(f"{API}/objects", json=drs_object(access_methods)))
+    object_id = body(
+        client.post(f"{API}/objects/register", json=drs_object(access_methods))
+    )
     obj = body(client.get(f"{API}/objects/{object_id}"))
     return object_id, [method["access_id"] for method in obj["access_methods"]]
 
@@ -140,7 +142,7 @@ def test_get_access_url_method_without_url(client: FlaskClient) -> None:
     """An access method registered without `access_url` has no access URL."""
     request_body = drs_object(1)
     del request_body["access_methods"][0]["access_url"]
-    object_id = body(client.post(f"{API}/objects", json=request_body))
+    object_id = body(client.post(f"{API}/objects/register", json=request_body))
     obj = body(client.get(f"{API}/objects/{object_id}"))
     access_id = obj["access_methods"][0]["access_id"]
     response = client.get(f"{API}/objects/{object_id}/access/{access_id}")
@@ -221,7 +223,7 @@ def test_delete_access_method_no_access_methods(client: FlaskClient) -> None:
     """An object without access methods (e.g., a bundle) has none to delete."""
     request_body = drs_object()
     del request_body["access_methods"]
-    response = client.post(f"{API}/objects", json=request_body)
+    response = client.post(f"{API}/objects/register", json=request_body)
     assert response.status_code == 200
     object_id = body(response)
     response = client.delete(f"{API}/objects/{object_id}/access/unknown")

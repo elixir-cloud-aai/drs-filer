@@ -20,7 +20,7 @@ def _register(client: FlaskClient, access_methods: int = 1) -> str:
     Returns:
         Identifier of the object.
     """
-    response = client.post(f"{API}/objects", json=drs_object(access_methods))
+    response = client.post(f"{API}/objects/register", json=drs_object(access_methods))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     assert isinstance(object_id, str)
@@ -61,7 +61,7 @@ def test_post_object_invalid(client: FlaskClient) -> None:
     """An object without required fields is rejected."""
     request_body = drs_object()
     del request_body["checksums"]
-    response = client.post(f"{API}/objects", json=request_body)
+    response = client.post(f"{API}/objects/register", json=request_body)
     assert response.status_code == 400
     problem = body(response)
     assert problem["status"] == 400
@@ -76,7 +76,7 @@ def test_post_object_invalid_timestamp(client: FlaskClient) -> None:
     The formats of the specification (`date-time`) are validated.
     """
     response = client.post(
-        f"{API}/objects", json={**drs_object(), "created_time": "2024-06-12"}
+        f"{API}/objects/register", json={**drs_object(), "created_time": "2024-06-12"}
     )
     assert response.status_code == 400
     problem = body(response)
@@ -88,7 +88,7 @@ def test_post_object_ids_exhausted(client: FlaskClient) -> None:
     """If no unique identifier is found, the request fails."""
     with patch.object(register_objects, "generate_id", return_value="taken"):
         assert client.put(f"{API}/objects/taken", json=drs_object()).status_code == 200
-        response = client.post(f"{API}/objects", json=drs_object())
+        response = client.post(f"{API}/objects/register", json=drs_object())
     assert response.status_code == 500
     assert body(response)["status"] == 500
 
@@ -103,7 +103,9 @@ def test_post_object_duplicate_access_id(client: FlaskClient) -> None:
     with patch.object(
         register_objects, "generate_id", side_effect=lambda **_: next(ids)
     ):
-        response = client.post(f"{API}/objects", json=drs_object(access_methods=2))
+        response = client.post(
+            f"{API}/objects/register", json=drs_object(access_methods=2)
+        )
     assert response.status_code == 200, body(response)
     assert body(response) == "obj001"
     obj = body(client.get(f"{API}/objects/obj001"))
@@ -123,7 +125,9 @@ def test_post_object_access_ids_exhausted(
     with patch.object(
         register_objects, "generate_id", return_value="taken"
     ) as generate_id:
-        response = client.post(f"{API}/objects", json=drs_object(access_methods=2))
+        response = client.post(
+            f"{API}/objects/register", json=drs_object(access_methods=2)
+        )
     assert generate_id.call_count == 1 + 10
     assert response.status_code == 500
     assert body(response)["status"] == 500
