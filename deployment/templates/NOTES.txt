@@ -18,12 +18,12 @@ Reads are public; writes (POST, PUT and DELETE) need an access token of an
 admin of the identity provider in `config` (see deployment/README.md,
 Configuration).
 {{- /* `config.api.specs.drs.disable_auth`, level by level, as levels may be
-null or not maps */}}
+null or not maps; parsed as the app parses booleans */}}
 {{- $noAuth := .Values.config | default dict }}
 {{- range list "api" "specs" "drs" }}
 {{- $noAuth = kindIs "map" $noAuth | ternary (get (kindIs "map" $noAuth | ternary $noAuth dict) .) dict }}
 {{- end }}
-{{- if and (kindIs "map" $noAuth) (get $noAuth "disable_auth") }}
+{{- if and (kindIs "map" $noAuth) (hasKey $noAuth "disable_auth") (eq (include "foca-common.parseBool" (dict "value" (get $noAuth "disable_auth") "key" "config.api.specs.drs.disable_auth")) "true") }}
 
 WARNING: authentication is disabled (config.api.specs.drs.disable_auth):
 everyone who can reach the app can register, change and delete objects. Use

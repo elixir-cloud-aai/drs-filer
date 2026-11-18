@@ -340,6 +340,7 @@ def test_spec_security() -> None:
         ({"auth": {"issuers": []}}, "issuer"),
         ({"auth": {"audience": None}}, "audience"),
         ({"access_control": {"group_mapping": None}}, "admin"),
+        ({"access_control": {"enforce": False}}, "enforce"),
     ],
 )
 def test_missing_deployment_settings_fail_start(

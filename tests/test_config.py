@@ -96,6 +96,7 @@ def test_auth_without_deployment_defaults() -> None:
     access_control = security["access_control"]
     assert access_control["enabled"] is True
     assert access_control["enforce"] is True
+    assert access_control["require_enforced"] is True
     assert access_control["require_admin"] is True
     assert "group_mapping" not in access_control
     assert access_control["policies"] == {}

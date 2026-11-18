@@ -11,7 +11,10 @@ security:
     # "Running without authentication" in `docs/development.md`)
     issuers:
       - https://login.example.org/oidc/
-    # Accept tokens for any audience (i.e., of any app)
+    # Accept tokens for any audience (i.e., of any app); with your own
+    # identity provider, set `audience` (your client ID) and
+    # `verify_audience: True` in your overlay, or tokens issued for any
+    # other app of that provider are accepted too
     verify_audience: False
   access_control:
     # Start without admin groups (nobody can write until one is mapped in an

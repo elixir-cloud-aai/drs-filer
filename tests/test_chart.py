@@ -827,14 +827,31 @@ def test_notes(tmp_path: Path) -> None:
     assert "WARNING" not in notes
 
 
-def test_notes_auth_disabled(tmp_path: Path) -> None:
-    """The notes warn of disabled authentication.
+@pytest.mark.parametrize(
+    ("value", "disabled"),
+    [
+        ("true", True),
+        ('"yes"', True),
+        ('"1"', True),
+        ("false", False),
+        ('"false"', False),
+        ('"no"', False),
+        ("0", False),
+    ],
+)
+def test_notes_auth_disabled(tmp_path: Path, value: str, disabled: bool) -> None:
+    """The notes warn of disabled authentication, as the app parses booleans.
 
     Args:
         tmp_path: Directory for the copy of the chart.
+        value: JSON value of `disable_auth`.
+        disabled: Whether the value disables authentication.
     """
-    notes = render_notes(tmp_path, "--set", "config.api.specs.drs.disable_auth=true")
-    assert "authentication is disabled (config.api.specs.drs.disable_auth)" in notes
+    notes = render_notes(
+        tmp_path, "--set-json", f"config.api.specs.drs.disable_auth={value}"
+    )
+    warning = "authentication is disabled (config.api.specs.drs.disable_auth)"
+    assert (warning in notes) is disabled
 
 
 @pytest.mark.parametrize("value", ["config.api.specs=null", "config.api=null"])

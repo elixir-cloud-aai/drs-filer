@@ -219,8 +219,13 @@ Docker Compose uses the overlay
 any audience, and no admins required, so that the app starts, but nobody
 can write until you set your identity provider and admin group, or disable
 authentication, see [Running without
-authentication](development.md#running-without-authentication)). To use your
-own overlays instead, set
+authentication](development.md#running-without-authentication)). If your
+overlay sets your own identity provider, also set
+`security.auth.audience` (your client ID) and
+`security.auth.verify_audience: True`, as `config.dev.yaml` accepts tokens
+for any audience, i.e., also those issued for other apps of that provider,
+and map an admin group (`security.access_control.group_mapping`), as it
+requires none. To use your own overlays instead, set
 `DRS_FILER_CONFIG_OVERLAY` on the host to their paths in the container, and
 mount them in a `docker-compose.override.yaml`, e.g.:
 

@@ -52,6 +52,9 @@ security:
     access_control:
         enabled: True
         enforce: True
+        # Refuse to start if `enforce` is false, which would let any valid
+        # token of a trusted issuer write, not only admins (FOCA)
+        require_enforced: True
         model: access_control/model.conf
         db_name: drsStore
         collection_name: policy_rules
