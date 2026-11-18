@@ -52,7 +52,7 @@ known-first-party = ["drs_filer", "tests"]
 convention = "google"
 
 [tool.mypy]
-files = ["drs_filer", "scripts", "tests"]
+files = ["drs_filer", "docs/hooks.py", "scripts", "tests"]
 python_version = "3.12"
 # Complete type hints: all functions annotated, generic types parametrized
 # (instead of ruff's `ANN` rules, which report missing hints only, without
@@ -86,7 +86,7 @@ module = ["tests.ga4gh.*"]
 disable_error_code = ["attr-defined", "call-arg"]
 
 [tool.coverage.run]
-source = ["drs_filer", "scripts"]
+source = ["drs_filer", "docs", "scripts"]
 
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']

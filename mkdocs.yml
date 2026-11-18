@@ -8,7 +8,14 @@ repo_name: elixir-cloud-aai/drs-filer
 edit_uri: edit/dev/docs/
 copyright: Copyright &copy; ELIXIR On-Cloud
 
-# Files included in pages (see `pymdownx.snippets`)
+# Python hooks of the build (not part of the site, nor their bytecode)
+exclude_docs: |
+  hooks.py
+  __pycache__/
+hooks:
+  - docs/hooks.py
+
+# Files included in pages (see `docs/hooks.py` and `pymdownx.snippets`)
 watch:
   - README.md
   - deployment/README.md
@@ -88,6 +95,8 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
+# Pages missing here fail the build; release notes
+# (`docs/releases/<version>.md`) go under "Changelog", newest first
 nav:
   - Home: index.md
   - Getting started: getting-started.md
