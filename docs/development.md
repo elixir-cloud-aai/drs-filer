@@ -100,6 +100,18 @@ same targets for Codecov in `codecov.yml`):
     DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke
     ```
 
+The chart tests (`tests/test_chart.py`) render the Helm chart with `helm
+template`; they are skipped without [Helm](https://helm.sh/) (but fail in
+CI), and need the library chart, downloaded once (and after changes of
+`deployment/Chart.lock`) with:
+
+```bash
+helm dependency build deployment
+```
+
+To install the chart on a local [kind](https://kind.sigs.k8s.io/) cluster
+as the job `chart-install` does, see its steps in `ci.yml`.
+
 Tests can't open connections (TCP, or connected UDP), except to the test
 database (and the smoke test to the app). Shared fixtures are in
 `tests/conftest.py`, request bodies in `tests/mock_data.py`.
@@ -167,6 +179,8 @@ condition and action pins. Its jobs, and how to run them locally:
 | `lint` | Lint | `uv lock --check`, `uv run pre-commit run --all-files`, `pipx run --spec cffconvert==2.0.0 cffconvert --validate -i CITATION.cff` |
 | `docs` | Docs | `uv run --extra docs mkdocs build --strict` (see [Documentation](#documentation)) |
 | `test` | Test (mongomock), Test (MongoDB 7.0) | `uv run coverage run -m pytest && uv run coverage report`, and against MongoDB as in [Tests](#tests) |
+| `chart` | Chart | `helm dependency build deployment`, `helm lint deployment --strict -f deployment/ci/test-values.yaml`, `uv run pytest tests/test_chart.py` |
+| `chart-install` | Chart install | Installs the chart on kind with the image of the commit and runs the smoke test through a port forward (see [Tests](#tests)) |
 | `smoke` | Smoke test | `docker compose up --build --detach --wait`, then the smoke test as in [Tests](#tests) |
 | `readiness` | Release readiness | The checks of pins and release notes in [Versioning and releases](#versioning-and-releases), for the version in `CITATION.cff` while it has no tag |
 | `push` | Push image | Pushes the image by digest, untagged (pushes to `dev` in this repository only) |
@@ -247,9 +261,7 @@ releases](#versioning-and-releases)), and replace a line
 links adapted to the docs (links to pages of the docs become links to these
 pages, which MkDocs checks; links to files on GitHub point to the commit
 that Read the Docs builds). The deployment guide includes the chart's README
-this way once the chart is built on the FOCA library chart
-([#86](https://github.com/elixir-cloud-aai/drs-filer/issues/86)). The hooks
-are tested in `tests/test_docs_hooks.py`.
+this way. The hooks are tested in `tests/test_docs_hooks.py`.
 
 ## Versioning and releases
 
@@ -321,7 +333,8 @@ python scripts/check_release_pins.py
 [ ! -f docs/releases/X.Y.Z.md ] || python scripts/release_notes.py check docs/releases/X.Y.Z.md
 readme="$(mktemp -d)/README.md" && cp deployment/README.md "${readme}"
 python scripts/chart_readme.py "${readme}" vX.Y.Z  # links of the chart
-helm lint deployment --strict  # as `prepare`
+helm dependency build deployment && (cd deployment && sha256sum -c charts.sha256)
+helm lint deployment --strict -f deployment/ci/test-values.yaml  # as `prepare`
 helm package deployment --version X.Y.Z --app-version X.Y.Z -d "$(mktemp -d)"
 git push origin <sha>:main  # fails unless it is a fast-forward
 git tag -s vX.Y.Z <sha> -m "vX.Y.Z"
@@ -353,10 +366,11 @@ workflow](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/.github/workflo
 passed for it (a run for the push of the commit to `dev`; if CI hasn't
 finished, failed or was cancelled, e.g., the image job of a commit that a
 later one superseded, re-run CI, then the release workflow). It packages
-the Helm chart with the release version as `version` and `appVersion`, and
-the release image (`elixircloud/drs-filer:X.Y.Z`) as its default image
-(`drs_filer.image`; the repository's chart defaults to the `dev` image). In
-the packaged README, links to the latest docs and to files on branch `dev`
+the Helm chart with the release version as `version` and `appVersion`, so
+that it deploys the release image (`elixircloud/drs-filer:X.Y.Z`; the
+repository's chart has the placeholder `version` 0.0.0 and `appVersion`
+`dev`), with the library chart (checked against `deployment/charts.sha256`).
+In the packaged README, links to the latest docs and to files on branch `dev`
 point to the release (`/en/vX.Y.Z/`, `blob/vX.Y.Z/`); the release fails if
 any link to a version that moves is left (`scripts/chart_readme.py`). The
 chart in the repository is unchanged. After approval in the `release`
@@ -401,11 +415,9 @@ commits on `dev` are published by the CI workflow (environment
 `dev-images`): it pushes the image by digest, scans it, and attests, signs
 and tags exactly that digest once all other jobs passed.
 
-The chart's version is the release version from the first release on
-(chart versions before, up to 3.0.0, were set by hand). The move to the FOCA
-library chart ([#86](https://github.com/elixir-cloud-aai/drs-filer/issues/86))
-changes the image values that the release sets (to `drsFiler.image` and
-`drsFiler.tag`) and adds the checks of the locked library chart.
+The chart's version is the release version from the first release on; the
+hand-written chart before the move to the FOCA library chart had versions
+up to 3.0.0, which no release packaged.
 
 The CI workflow builds the image of every pull request and scans it with
 [Trivy](https://trivy.dev/) (the shared action
@@ -539,7 +551,7 @@ The Docker Hub organization is the repository variable `DOCKERHUB_ORG` (by
 default `elixircloud`; forks set it to the organization they publish to,
 with the Docker Hub secrets in the environments `dev-images` and
 `release`), so that the scan jobs, which have no secrets, know the image
-name too, and the released chart's default image (`drs_filer.image`) is the
+name too, and the released chart's default image (`drsFiler.image`) is the
 published one. Forks without `DOCKERHUB_ORG` publish nothing: their CI runs
 the same checks (the scan of a local build included, without the upload to
 code scanning) and passes without the secrets, and their weekly scan is
@@ -551,6 +563,7 @@ from the first release on, and the default branch is left empty, so that
 rule activates the versions of tags (`v*`), so that the docs linked from
 packaged charts exist.
 
-The release workflow installs a fixed Helm version (`version:` of
-`azure/setup-helm` in `release.yml`). Dependabot updates the action, but not
-this version: bump it by hand.
+The release workflow and CI's jobs "Chart" and "Chart install" install a
+fixed Helm version (`version:` of `azure/setup-helm` in `release.yml` and
+`ci.yml`). Dependabot updates the action, but not this version: bump it by
+hand, in all three places.

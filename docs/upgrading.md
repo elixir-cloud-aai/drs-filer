@@ -3,6 +3,28 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Helm chart on foca-common
+
+The Helm chart is rebuilt on FOCA's library chart `foca-common` (#86), as
+the charts of the other FOCA apps: camelCase values (`hostName`,
+`drsFiler.*`), resource names derived from the release name (e.g.,
+`drs-filer-mongodb` for MongoDB), MongoDB 7.0 with authentication (a Secret
+named by `mongodb.auth.existingSecret`), a claim kept on uninstall, an
+Ingress, Gateway API HTTPRoute or OpenShift Route, and NetworkPolicies. The
+library chart is downloaded with `helm dependency build deployment` before
+installing from the repository.
+
+- Rendering fails for the values of the earlier charts (`host_name`,
+  `drs_filer.*`, `apiServer`, `clusterType`, `mongodb.volumeSize`), with the
+  value that replaces each.
+- Releases of the earlier charts can't be upgraded (their names and
+  selectors differ; `helm upgrade` fails): dump the database, uninstall the
+  release, which **deletes the earlier claim `mongodb` with the data**,
+  install the current chart and restore the dump, as described in [From
+  earlier charts](deployment.md#from-earlier-charts).
+- Set `mongodb.image` to an image pinned to a minor version (default
+  `docker.io/library/mongo:7.0`), not `mongo:noble`.
+
 ## Access methods without identifiers
 
 Before #121, an access identifier that duplicated one of an earlier access
@@ -13,7 +35,10 @@ as they are. They can't be addressed by
 the other access methods of the object (#123), which failed with
 `500 Internal Server Error`. Objects without access methods (e.g.,
 bundles) and access methods registered without `access_url` have no access
-URL: requests for them get `404 Not Found` (was `500`).
+URL: requests for them get `404 Not Found` (was `500`). Likewise, objects
+without access methods have none to delete:
+`DELETE /objects/{object_id}/access/{access_id}` gets `404 Not Found` for
+them (was `500`, #127).
 
 - List the affected objects in the app's container, e.g., in the Compose
   stack (with the Helm chart: `kubectl exec deploy/drs-filer -- python -c

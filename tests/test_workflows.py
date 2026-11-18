@@ -19,6 +19,8 @@ JOBS = {
     "lint": "Lint",
     "docs": "Docs",
     "test": "Test (${{ matrix.database }})",
+    "chart": "Chart",
+    "chart-install": "Chart install",
     "smoke": "Smoke test",
     "readiness": "Release readiness",
     "push": "Push image",
@@ -339,12 +341,13 @@ def test_release_chart_checked() -> None:
 
 
 def test_release_chart_packaged() -> None:
-    """The release packages the chart with the release image as default.
+    """The release packages the chart with the library and the published image.
 
-    The package has the release version as `version` and `appVersion`, and
-    the release image (`IMAGE_NAME`, also in forks with another
-    `DOCKERHUB_ORG`, tagged with the release version) as its default image;
-    the packaged files are checked, not only the copy that is packaged.
+    The package has the release version as `version` and `appVersion` (the
+    default tag of the image), the library chart in the version of
+    `Chart.lock`, and the published image (`IMAGE_NAME`, also in forks with
+    another `DOCKERHUB_ORG`) without a tag of its own; the packaged files are
+    checked, not only the copy that is packaged.
     """
     steps = _release()["jobs"]["prepare"]["steps"]
     step = {step["name"]: step for step in steps}["Package chart"]
@@ -353,25 +356,34 @@ def test_release_chart_packaged() -> None:
         "CHART_VERSION": "${{ steps.version.outputs.chart_version }}",
     }
     script = " ".join(step["run"].replace("\\\n", " ").split())
+    assert "helm dependency build deployment" in script
+    assert "(cd deployment && sha256sum -c charts.sha256)" in script
     assert '--version "${CHART_VERSION}" --app-version "${VERSION}"' in script
-    assert 'image="${IMAGE_NAME}:${VERSION}"' in script
+    assert 'image="${IMAGE_NAME}"' in script
     assert (
-        "IMAGE=\"${image}\" yq -i '.drs_filer.image = strenv(IMAGE)'"
+        "IMAGE=\"${image}\" yq -i '.drsFiler.image = strenv(IMAGE)'"
         ' "${chart}/values.yaml"'
     ) in script
     assert 'python scripts/chart_readme.py "${chart}/README.md" "v${VERSION}"' in script
+    assert 'helm lint "${chart}" --strict -f deployment/ci/test-values.yaml' in script
     packaged = 'tar -xzOf "${package}" drs-filer/'
     assert f'{packaged}README.md | cmp - "${{chart}}/README.md"' in script
-    assert f'{packaged}values.yaml | yq .drs_filer.image)" == "${{image}}" ]]' in script
+    assert (
+        f'{packaged}charts/foca-common/Chart.yaml | yq .version)"' in script
+        and "\"$(yq '.dependencies[0].version' deployment/Chart.lock)\"" in script
+    )
+    assert f'{packaged}values.yaml | yq .drsFiler.image)" == "${{image}}" ]]' in script
+    assert f'{packaged}values.yaml | yq .drsFiler.tag)" == "" ]]' in script
     assert f'{packaged}Chart.yaml | yq .appVersion)" == "${{VERSION}}" ]]' in script
+    # No legacy value is set
+    assert "drs_filer" not in step["run"]
 
 
 def test_release_chart_image_value() -> None:
-    """The value that the release sets is the image of the chart's app."""
+    """The values that the release checks are those of the chart's app image."""
     values = yaml.safe_load((ROOT / "deployment" / "values.yaml").read_text())
-    assert isinstance(values["drs_filer"]["image"], str)
-    template = (ROOT / "deployment" / "templates" / "drs-filer-deploy.yaml").read_text()
-    assert "image: {{ .Values.drs_filer.image }}" in template
+    assert values["drsFiler"]["image"] == "docker.io/elixircloud/drs-filer"
+    assert values["drsFiler"]["tag"] == ""
 
 
 def test_release_tag_checked_first() -> None:

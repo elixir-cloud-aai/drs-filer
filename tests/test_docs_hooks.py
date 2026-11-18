@@ -223,6 +223,12 @@ def test_on_page_markdown_without_include() -> None:
     assert _render(markdown) == markdown
 
 
+def test_deployment_page_includes_readme() -> None:
+    """The deployment page includes the chart's README with the hook."""
+    page = (ROOT / "docs/deployment.md").read_text(encoding="utf-8")
+    assert hooks.INCLUDE in page.splitlines()
+
+
 def _version() -> str:
     """Return the version that the docs show for the current release.
 

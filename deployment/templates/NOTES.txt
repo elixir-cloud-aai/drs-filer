@@ -1,11 +1,61 @@
-Elixir Cloud DRS-Filer is being deployed!
+{{- $context := dict "root" . "settings" (include "drs-filer.settings" . | fromYaml) -}}
+{{- $fullname := include "foca-common.fullname" . -}}
+{{- $httpRoute := dig "httpRoute" "enabled" false .Values.drsFiler -}}
+{{- $exposed := or .Values.drsFiler.ingress.enabled $httpRoute (include "foca-common.routeEnabled" $context) -}}
+{{- /*
+HTTPS, as advertised by the app (see `drs-filer.settings`): TLS is
+terminated by the ingress, the Gateway, the route or a proxy in front of
+the cluster.
+*/ -}}
+{{- $url := "http://localhost:8080" -}}
+{{- if $exposed -}}
+{{- $url = printf "https://%s" .Values.hostName -}}
+{{- end -}}
+DRS-Filer is being deployed as release {{ .Release.Name }}
+in namespace {{ .Release.Namespace }}!
 
-Once deployed:
+WARNING: DRS-Filer has no authentication: everyone who can reach the app can
+register, change and delete objects. Restrict who can reach it (e.g., with
+the ingress controller, the Gateway or drsFiler.networkPolicy; see
+deployment/README.md, Access).
+{{- if not .Values.mongodb.auth.enabled }}
 
-  1. Access the API via https://{{ .Values.host_name }}/ga4gh/drs/v1/
+WARNING: MongoDB runs without authentication (mongodb.auth.enabled is
+false): every pod that can reach it can read and change the data (see
+deployment/README.md, Authentication).
+{{- end }}
+{{- if and .Values.drsFiler.ingress.enabled (not .Values.drsFiler.ingress.https.enabled) }}
+
+NOTE: The Ingress has no TLS (drsFiler.ingress.https.enabled is false), so
+TLS must be terminated in front of the cluster for the URLs below (see
+deployment/README.md, Exposing the app).
+{{- end }}
+{{- if $httpRoute }}
+
+The HTTPRoute serves the app via the Gateway in drsFiler.httpRoute.parentRefs:
+make sure that its listener terminates TLS for {{ .Values.hostName }}, and
+check that the route is accepted with
+`kubectl get httproute {{ $fullname }} -n {{ .Release.Namespace }} -o yaml`.
+{{- end }}
+{{- if not $exposed }}
+
+WARNING: Neither an Ingress (drsFiler.ingress.enabled is false), an
+HTTPRoute (drsFiler.httpRoute.enabled is false) nor an OpenShift Route
+(drsFiler.route.enabled is false, or the cluster does not serve
+route.openshift.io/v1) was created, so the app is only reachable within the
+cluster, unless resources outside the release expose it. To access it from
+this machine, run:
+
+  kubectl port-forward svc/{{ $fullname }} 8080:8080 -n {{ .Release.Namespace }}
+{{- end }}
+
+Once deployed (check with
+`kubectl rollout status deploy/{{ $fullname }} -n {{ .Release.Namespace }}`):
+
+  1. Access the API via {{ $url }}/ga4gh/drs/v1/
 
      To test the connection, you can run:
 
-       curl -X GET "https://{{ .Values.host_name }}/ga4gh/drs/v1/service-info" -H "Accept: application/json"
+       curl -X GET "{{ $url }}/ga4gh/drs/v1/service-info" -H "Accept: application/json"
 
-  2. Access the Swagger UI via https://{{ .Values.host_name }}/ga4gh/drs/v1/ui
+  2. Access the Swagger UI via {{ $url }}/ga4gh/drs/v1/ui/

@@ -1,11 +1,12 @@
 # Everything that must pass on pull requests and pushes to `dev`: the pull
 # request title, lint, the docs build, test (against mongomock, with
-# coverage, and against MongoDB), the smoke test of the Docker Compose stack,
-# the readiness of a release in preparation, the scan of the Docker image
-# for known vulnerabilities, and, on pushes, push the Docker image by digest
-# (with SBOM and provenance attestations), scan exactly that digest, then
-# attest, sign (Sigstore) and tag it `dev` and `sha-<commit>` once all other
-# jobs passed. Forks, which have none of the secrets, run the same checks
+# coverage, and against MongoDB), lint and test the Helm chart, install it
+# on kind, the smoke test of the Docker Compose stack, the readiness of a
+# release in preparation, the scan of the Docker image for known
+# vulnerabilities, and, on pushes, push the Docker image by digest (with
+# SBOM and provenance attestations), scan exactly that digest, then attest,
+# sign (Sigstore) and tag it `dev` and `sha-<commit>` once all other jobs
+# passed. Forks, which have none of the secrets, run the same checks
 # without publishing, unless they set the repository variable
 # `DOCKERHUB_ORG` to publish to their own organization.
 # `github.repository_owner == 'elixir-cloud-aai'` marks runs of the upstream
@@ -13,10 +14,9 @@
 # `paths:` filters, so that the gate always reports; skip jobs with `if:`
 # instead (and allow the skip in the gate). Runs also when a pull request is
 # edited, so that the title check follows the title; all jobs run then, as a
-# run that skipped the tests would report "CI passed" for the commit. The
-# chart jobs follow with the library chart (#86). Releases are
-# published by `release.yml`, which requires a successful run of this
-# workflow for the push of the release commit
+# run that skipped the tests would report "CI passed" for the commit.
+# Releases are published by `release.yml`, which requires a successful run
+# of this workflow for the push of the release commit
 
 name: CI
 on:
@@ -207,6 +207,14 @@ jobs:
         run: |
           uv sync --locked --extra dev --python "$(which python)"
           echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      # The chart tests (run if Helm is installed, as on GitHub's runners)
+      # need the library chart, the version locked in `Chart.lock`
+      - name: Build chart dependencies
+        run: |
+          # The library chart is then checked as when it was pinned: OCI
+          # tags can be pushed again
+          helm dependency build deployment
+          (cd deployment && sha256sum -c charts.sha256)
       # Fails below 100% (`fail_under` in `pyproject.toml`)
       - name: Calculate unit test coverage
         if: ${{ matrix.uri == '' }}
@@ -229,6 +237,205 @@ jobs:
       - name: Run tests against MongoDB
         if: ${{ matrix.uri != '' }}
         run: pytest -W ignore::DeprecationWarning
+
+  # The Helm chart (`deployment/`) with FOCA's library chart: checks the
+  # library chart against its digest, lints the chart and renders it
+  # (`tests/test_chart.py`). `test` runs these tests too, with the runner's
+  # Helm; this job with a pinned Helm version
+  chart:
+    name: Chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # As in `lint`
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The versions of `uv.lock`, as in `lint`
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra dev --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      # Same Helm version as in the other chart job and `release.yml` (bump
+      # all three by hand)
+      - name: Set up Helm
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v3.22.1
+      # The library chart foca-common, the version locked in `Chart.lock`
+      - name: Build chart dependencies
+        run: |
+          # The library chart is then checked as when it was pinned: OCI
+          # tags can be pushed again
+          helm dependency build deployment
+          (cd deployment && sha256sum -c charts.sha256)
+      # With the values that users must pass (the Secret of MongoDB's
+      # credentials, so that the templates render as installed), and without
+      # authentication
+      - name: Lint chart
+        run: |
+          helm lint deployment --strict -f deployment/ci/test-values.yaml
+          helm lint deployment --strict -f deployment/ci/test-values.yaml \
+            --set mongodb.auth.enabled=false --set mongodb.auth.existingSecret=
+      # The tests fail instead of skipping if Helm is missing (`CI`)
+      - name: Test chart
+        run: |
+          helm version
+          pytest -W ignore::DeprecationWarning tests/test_chart.py
+
+  # The chart as deployed in a cluster: installs it on kind (the defaults,
+  # with the values of `deployment/ci/test-values.yaml`: a host name and the
+  # Secret of MongoDB's credentials, created here with random passwords),
+  # with the image built from the commit, loaded into the cluster's node
+  # (pushed nowhere, so the job needs no secrets and runs for pull requests
+  # from forks), waits until the app is ready, and checks the API through a
+  # port forward (the Ingress has no controller on kind): an object's
+  # `self_uri`, with the host name that the chart renders into the app's
+  # config overlay, and the smoke test (`tests/smoke/`)
+  chart-install:
+    name: Chart install
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLUSTER: drs-filer
+      NAMESPACE: drs-filer
+      # A local name, which no registry serves: the chart uses the image
+      # loaded into the node (`imagePullPolicy: Never`)
+      IMAGE: drs-filer:ci
+      # The app's pods of the release `drs-filer`
+      APP_PODS: app.kubernetes.io/instance=drs-filer,app.kubernetes.io/component=app
+      API: http://localhost:8080/ga4gh/drs/v1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Same Helm version as in the other chart job and `release.yml` (bump
+      # all three by hand)
+      - name: Set up Helm
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v3.22.1
+      # The library chart foca-common, as in `chart`
+      - name: Build chart dependencies
+        run: |
+          helm dependency build deployment
+          (cd deployment && sha256sum -c charts.sha256)
+      # Dependabot updates the action, but not the kind version: bump it by
+      # hand
+      - name: Create kind cluster
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          version: v0.33.0
+          cluster_name: ${{ env.CLUSTER }}
+      # The build gets no Git metadata, so the version is passed
+      - name: Build and load image
+        run: |
+          docker build --build-arg SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0+kind \
+            --tag "${IMAGE}" .
+          kind load docker-image "${IMAGE}" --name "${CLUSTER}"
+      # The Secret named in `deployment/ci/test-values.yaml`; `--wait` waits
+      # until the app and MongoDB are ready (readiness probes)
+      - name: Install chart
+        run: |
+          kubectl create namespace "${NAMESPACE}"
+          kubectl create secret generic drs-filer-mongodb-credentials \
+            -n "${NAMESPACE}" \
+            --from-literal=root-username=root \
+            --from-literal=root-password="$(openssl rand -hex 24)" \
+            --from-literal=username=drs-filer \
+            --from-literal=password="$(openssl rand -hex 24)"
+          helm install drs-filer deployment -n "${NAMESPACE}" \
+            -f deployment/ci/test-values.yaml \
+            --set drsFiler.image="${IMAGE}" \
+            --set drsFiler.imagePullPolicy=Never \
+            --wait --timeout 600s
+      # A port forward to the app's Service, kept running for the next steps
+      # (and restarted until the app answers, as it ends on a refused
+      # connection)
+      - name: Forward app port
+        run: |
+          log="${RUNNER_TEMP}/port-forward.log"
+          kubectl rollout status deployment/drs-filer -n "${NAMESPACE}" \
+            --timeout=300s
+          pid=""
+          for _ in $(seq 60); do
+            if [[ -z "${pid}" ]] || ! kill -0 "${pid}" 2> /dev/null; then
+              nohup kubectl port-forward -n "${NAMESPACE}" service/drs-filer \
+                8080:8080 >> "${log}" 2>&1 &
+              pid=$!
+              sleep 2
+            fi
+            if curl --fail --silent --max-time 10 --output /dev/null \
+                "${API}/service-info"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          cat "${log}"
+          exit 1
+      # The `self_uri` of a registered object has the public URL that the
+      # chart sets from `hostName` (of `deployment/ci/test-values.yaml`)
+      - name: Check public URL
+        env:
+          HOST: drs.example.org
+        run: |
+          body="${RUNNER_TEMP}/body.json"
+          object='{
+            "checksums": [{"checksum": "abc", "type": "md5"}],
+            "created_time": "2024-01-01T00:00:00Z",
+            "size": 1,
+            "access_methods": [{"type": "https", "access_url": {"url": "https://storage.example.org/x"}}]
+          }'
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -X POST --header 'Content-Type: application/json' \
+            --data "${object}" --output "${body}" "${API}/objects"
+          id="$(jq -r . "${body}")"
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            --output "${body}" "${API}/objects/${id}"
+          jq -e ".self_uri == \"https://${HOST}:443/ga4gh/drs/v1/${id}\"" "${body}" \
+            || { cat "${body}"; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -X DELETE --output /dev/null "${API}/objects/${id}"
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # As in `lint`
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: uv.lock
+      # The versions of `uv.lock`, as in `lint`, for the mock data
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra dev --python "$(which python)"
+          echo "${PWD}/.venv/bin" >> "$GITHUB_PATH"
+      - name: Run smoke test
+        env:
+          DRS_FILER_URL: ${{ env.API }}
+        run: pytest tests/smoke -v -W ignore::DeprecationWarning
+      - name: Show cluster state
+        if: failure()
+        run: |
+          kubectl get all,configmaps,pvc,networkpolicies -n "${NAMESPACE}" || true
+          kubectl describe pods -n "${NAMESPACE}" || true
+          # The pods of the app and of MongoDB
+          kubectl logs -n "${NAMESPACE}" --all-containers --prefix \
+            -l app.kubernetes.io/instance=drs-filer --tail=100 || true
+          cat "${RUNNER_TEMP}/port-forward.log" || true
+      - name: Tear down cluster
+        if: always()
+        run: kind delete cluster --name "${CLUSTER}"
 
   # The app as Docker Compose runs it (image build, MongoDB, health checks),
   # with the smoke test (`tests/smoke/`) against its API
@@ -501,7 +708,7 @@ jobs:
     timeout-minutes: 30
     # The same expression as `PUBLISH` (`tests/test_workflows.py`)
     if: github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')
-    needs: [lint, docs, test, smoke, readiness, push, scan]
+    needs: [lint, docs, test, chart, chart-install, smoke, readiness, push, scan]
     # Docker Hub secrets; the environment only allows branch `dev`
     environment: dev-images
     permissions:
@@ -585,7 +792,7 @@ jobs:
     name: CI passed
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [title, lint, docs, test, smoke, readiness, push, scan, publish]
+    needs: [title, lint, docs, test, chart, chart-install, smoke, readiness, push, scan, publish]
     if: always()
     permissions: {}
     steps:

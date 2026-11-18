@@ -18,6 +18,7 @@ hooks:
 # Files included in pages (see `docs/hooks.py` and `pymdownx.snippets`)
 watch:
   - README.md
+  - deployment/README.md
 
 theme:
   name: material

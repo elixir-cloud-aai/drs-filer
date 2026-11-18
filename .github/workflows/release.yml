@@ -160,43 +160,58 @@ jobs:
               echo "::error::No successful run of the CI workflow (ci.yml) for a push of ${SHA}; once CI passed for it (re-run it if it failed or was cancelled), re-run this workflow"
               exit 1
           fi
-      # Dependabot updates the action, but not this version: bump it by hand
+      # Dependabot updates the action, but not this version: bump it by hand,
+      # also in the jobs `chart` and `chart-install` of `ci.yml`
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
         with:
           version: v3.22.1
       # `version` and `appVersion` are the release version (the chart
-      # version in its SemVer form). The chart is packaged from a copy whose
-      # README links to the docs and files of the release instead of the
-      # latest docs and branch `dev` (see `scripts/chart_readme.py`; fails if
-      # any link to a version that moves is left), and whose default image
-      # is the release image. The chart's move to the library chart
-      # foca-common (#86) changes the image values (`drsFiler.image` and
-      # `drsFiler.tag`, with `appVersion` as the default tag) and adds the
-      # checks of the locked library chart here
+      # version in its SemVer form); `appVersion` is the default image tag.
+      # The package includes the library chart foca-common (the version
+      # locked in `Chart.lock`, checked against its digest), so that it
+      # installs without access to its repository. The chart is packaged from
+      # a copy whose README links to the docs and files of the release
+      # instead of the latest docs and branch `dev` (see
+      # `scripts/chart_readme.py`; fails if any link to a version that moves
+      # is left)
       - name: Package chart
         id: chart
         env:
           VERSION: ${{ steps.version.outputs.version }}
           CHART_VERSION: ${{ steps.version.outputs.chart_version }}
         run: |
+          helm dependency build deployment
+          (cd deployment && sha256sum -c charts.sha256)
           chart="$(mktemp -d)/drs-filer"
           cp -R deployment "${chart}"
-          # The default image (`drs_filer.image`, with its tag) is the
-          # release image, fully qualified, also in forks that publish to
-          # another organization (`DOCKERHUB_ORG`)
-          image="${IMAGE_NAME}:${VERSION}"
-          IMAGE="${image}" yq -i '.drs_filer.image = strenv(IMAGE)' "${chart}/values.yaml"
+          # The default image is the published one, fully qualified as in
+          # `values.yaml`, also in forks that publish to another
+          # organization (`DOCKERHUB_ORG`); `values.yaml` is rewritten (by
+          # yq) only then
+          image="${IMAGE_NAME}"
+          if [[ "$(yq .drsFiler.image "${chart}/values.yaml")" != "${image}" ]]; then
+              IMAGE="${image}" yq -i '.drsFiler.image = strenv(IMAGE)' "${chart}/values.yaml"
+          fi
           python scripts/chart_readme.py "${chart}/README.md" "v${VERSION}"
-          helm lint "${chart}" --strict
+          # With the values that users must pass (e.g., the Secret of
+          # MongoDB's credentials), so that the templates render as
+          # installed (left out of the package by `.helmignore`)
+          helm lint "${chart}" --strict -f deployment/ci/test-values.yaml
           helm package "${chart}" \
               --version "${CHART_VERSION}" --app-version "${VERSION}" -d dist
           package="dist/drs-filer-${CHART_VERSION}.tgz"
           # The packaged README is the checked one
           tar -xzOf "${package}" drs-filer/README.md | cmp - "${chart}/README.md"
-          # The default image is the release image
-          [[ "$(tar -xzOf "${package}" drs-filer/values.yaml | yq .drs_filer.image)" \
+          # The library chart is packaged with it, in the locked version
+          library="$(tar -xzOf "${package}" drs-filer/charts/foca-common/Chart.yaml \
+              | yq .version)"
+          [[ "${library}" == "$(yq '.dependencies[0].version' deployment/Chart.lock)" ]]
+          # The default image is the published one, tagged by `appVersion`
+          [[ "$(tar -xzOf "${package}" drs-filer/values.yaml | yq .drsFiler.image)" \
               == "${image}" ]]
+          [[ "$(tar -xzOf "${package}" drs-filer/values.yaml | yq .drsFiler.tag)" \
+              == "" ]]
           [[ "$(tar -xzOf "${package}" drs-filer/Chart.yaml | yq .appVersion)" \
               == "${VERSION}" ]]
           # For `publish` to check the downloaded chart against
