@@ -8,7 +8,14 @@ import mongomock
 from pymongo.collection import Collection
 import pytest
 
-from drs_filer.utils import DB, get_collection, get_endpoints_config, get_foca_config
+from drs_filer.utils import (
+    DB,
+    check_id_settings,
+    get_collection,
+    get_endpoints_config,
+    get_foca_config,
+    get_id_settings,
+)
 
 MONGO_CONFIG: dict[str, Any] = {
     "host": "mongodb",
@@ -59,6 +66,81 @@ def test_get_endpoints_config_missing() -> None:
     app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))  # type: ignore[attr-defined]
     with app.app_context(), pytest.raises(KeyError):
         get_endpoints_config()
+
+
+def _id_app(endpoints: dict[str, Any]) -> Flask:
+    """Create an app with the given `endpoints` section of the config.
+
+    Args:
+        endpoints: The `endpoints` section.
+
+    Returns:
+        Flask app.
+    """
+    app = Flask(__name__)
+    app.config.foca = Config.model_validate(  # type: ignore[attr-defined]
+        {"endpoints": endpoints}
+    )
+    return app
+
+
+def test_get_id_settings() -> None:
+    """The character set and length of a section are returned as set."""
+    app = _id_app({"objects": {"id_charset": "aab", "id_length": 3}})
+    with app.app_context():
+        assert get_id_settings("objects") == ("aab", 3)
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"id_charset": "string.ascii_letters", "id_length": 6},
+        {"id_charset": "", "id_length": 6},
+        {"id_charset": None, "id_length": 6},
+        {"id_charset": "abc", "id_length": -1},
+        {"id_charset": "abc", "id_length": 2.5},
+        {"id_charset": "abc", "id_length": False},
+    ],
+)
+def test_get_id_settings_invalid(settings: dict[str, Any]) -> None:
+    """Invalid settings raise a ValueError that names the section.
+
+    Args:
+        settings: Invalid settings of the section.
+    """
+    app = _id_app({"access_methods": settings})
+    with (
+        app.app_context(),
+        pytest.raises(ValueError, match=r"^Invalid 'endpoints\.access_methods': "),
+    ):
+        get_id_settings("access_methods")
+
+
+@pytest.mark.parametrize(
+    "endpoints",
+    [{}, {"objects": {"id_length": 6}}, {"objects": {"id_charset": "abc"}}],
+    ids=["no-section", "no-charset", "no-length"],
+)
+def test_get_id_settings_missing(endpoints: dict[str, Any]) -> None:
+    """Missing settings raise a KeyError.
+
+    Args:
+        endpoints: The `endpoints` section, without some settings.
+    """
+    app = _id_app(endpoints)
+    with app.app_context(), pytest.raises(KeyError):
+        get_id_settings("objects")
+
+
+def test_check_id_settings() -> None:
+    """All sections are checked: one invalid section fails the check."""
+    valid = {"id_charset": "abc", "id_length": 6}
+    app = _id_app({"objects": valid, "access_methods": valid})
+    with app.app_context():
+        check_id_settings()
+    app = _id_app({"objects": valid, "access_methods": {**valid, "id_length": 0}})
+    with app.app_context(), pytest.raises(ValueError, match="access_methods"):
+        check_id_settings()
 
 
 def test_get_collection() -> None:

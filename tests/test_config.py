@@ -1,6 +1,7 @@
 """Tests of the shipped app config and the Compose overlay."""
 
 from pathlib import Path
+import string
 
 import yaml
 
@@ -62,3 +63,17 @@ def test_dev_overlay() -> None:
             "external_port": 8080,
         },
     }
+
+
+def test_id_charsets_literal() -> None:
+    """Identifiers are drawn from the characters of the shipped config.
+
+    The characters are listed themselves (no expression), and are those that
+    earlier versions evaluated `string.ascii_letters + string.digits +
+    ".-_~"` to: letters, digits and the unreserved characters of URLs.
+    """
+    endpoints = yaml.safe_load(CONFIG_PATH.read_text())["endpoints"]
+    expected = string.ascii_letters + string.digits + ".-_~"
+    for section in ("objects", "access_methods"):
+        assert endpoints[section]["id_charset"] == expected
+        assert endpoints[section]["id_length"] == 6

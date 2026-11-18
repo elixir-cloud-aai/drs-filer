@@ -3,7 +3,6 @@
 from copy import deepcopy
 import json
 from pathlib import Path
-import string  # noqa: F401
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -16,7 +15,6 @@ from werkzeug.exceptions import InternalServerError
 
 from drs_filer.ga4gh.drs.endpoints.register_objects import (
     __add_access_ids,
-    generate_id,
     register_object,
 )
 
@@ -32,8 +30,8 @@ MONGO_CONFIG: dict[str, Any] = {
     },
 }
 ENDPOINT_CONFIG: dict[str, Any] = {
-    "objects": {"id_charset": "string.digits", "id_length": 6},
-    "access_methods": {"id_charset": "string.digits", "id_length": 6},
+    "objects": {"id_charset": "0123456789", "id_length": 6},
+    "access_methods": {"id_charset": "0123456789", "id_length": 6},
     "url_prefix": "http",
     "external_host": "1.2.3.4",
     "external_port": 8080,
@@ -105,9 +103,3 @@ def test_add_access_ids() -> None:
         res = __add_access_ids(mock_data)
         print(res)
         assert isinstance(res, list)
-
-
-def test_generate_id() -> None:
-    """Test for 'generate_id()'."""
-    random_id = generate_id()
-    assert isinstance(random_id, str)

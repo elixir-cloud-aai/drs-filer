@@ -67,11 +67,14 @@ exceptions:
 
 # Custom app configuration
 endpoints:
+    # Generated identifiers: `id_length` characters drawn from those listed
+    # in `id_charset` (the characters themselves, not an expression, which
+    # fails the start), by default letters, digits and `.-_~`
     objects:
-        id_charset: 'string.ascii_letters + string.digits + ".-_~"'
+        id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
         id_length: 6
     access_methods:
-        id_charset: 'string.ascii_letters + string.digits + ".-_~"'
+        id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
         id_length: 6
     # Placeholders, to be replaced by each deployment (`README.md`); served
     # as they are, so they must conform to the service info specification,
