@@ -28,19 +28,31 @@ db:
 
 api:
     specs:
-        - path:
-            - api/20200131.11d2c12.service-info.yaml
-            - api/20200622.383121d.data_repository_service.swagger.yaml
-            - api/additional.data_repository_service.swagger.yaml
-          append: null
-          # Each operation names the controllers of the installed package
-          # (`drs_filer.ga4gh.drs.server`) itself
-          connexion:
-              strict_validation: True
-              validate_responses: True
-              options:
-                  swagger_ui: True
-                  serve_spec: True
+        drs:
+            # The vendored GA4GH DRS specification, unchanged, named after
+            # the date and the abbreviated hash of its commit, and the app's
+            # changes and additions (`additions.openapi.yaml`), merged in
+            # this order:
+            # - DRS 1.5.0, `openapi.yaml` of `preview/release/drs-1.5.0/` on
+            #   branch `gh-pages` of
+            #   https://github.com/ga4gh/data-repository-service-schemas,
+            #   bundled from commit fe25c39 (2025-03-24, tag `drs-1.5.0`);
+            #   it includes the schemas of the GA4GH service info 1.0.0
+            #   (`Service`, `ServiceType`), unchanged
+            # Licensed under the Apache License 2.0
+            path:
+                - api/20250324.fe25c39.openapi.yaml
+                - api/additions.openapi.yaml
+            # All operations are routed to the controllers of the installed
+            # package
+            add_operation_fields:
+                x-openapi-router-controller: drs_filer.ga4gh.drs.server
+            connexion:
+                strict_validation: True
+                validate_responses: True
+                options:
+                    swagger_ui: True
+                    serve_spec: True
 
 log:
     version: 1
@@ -67,9 +79,11 @@ exceptions:
 
 # Service info (GA4GH `Service` schema), validated on startup and served by
 # `GET /service-info` (until replaced with `POST /service-info`, see
-# `docs/configuration.md`); `version` is that of the installed package
-# (`package`) unless set. The values in reserved example domains are
-# placeholders (FOCA warns of them on startup): deployments set their own
+# `docs/configuration.md`), with the DRS fields that the app computes
+# (`maxBulkRequestLength`, `drs`); `version` is that of the installed package
+# (`package`) unless set. `type.version` is the version of the DRS
+# specification that the app serves. The values in reserved example domains
+# are placeholders (FOCA warns of them on startup): deployments set their own
 service_info:
     package: drs-filer
     service:
@@ -78,7 +92,7 @@ service_info:
         type:
             group: "org.ga4gh"
             artifact: "drs"
-            version: "1.1.0"
+            version: "1.5.0"
         description: "GA4GH Data Repository Service (DRS) implementation."
         organization:
             name: "Example Organization"

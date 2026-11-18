@@ -52,7 +52,9 @@ def object_id() -> Iterator[str]:
     Yields:
         Identifier of the object.
     """
-    response = requests.post(_url("/objects"), json=drs_object(2), timeout=TIMEOUT)
+    response = requests.post(
+        _url("/objects/register"), json=drs_object(2), timeout=TIMEOUT
+    )
     assert response.status_code == 200, response.text
     object_id: str = response.json()
     yield object_id

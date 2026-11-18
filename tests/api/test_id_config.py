@@ -53,7 +53,7 @@ def test_literal_charsets(
         access={"charset": "xyz", "length": 40},
     )
     client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(2))
+    response = client.post(f"{API}/objects/register", json=drs_object(2))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     assert len(object_id) == 12

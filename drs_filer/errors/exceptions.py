@@ -11,11 +11,17 @@ from foca.errors import (
     Conflict,
     ExtraParameterProblem,
     Forbidden,
+    HTTPError,
     InternalServerError,
     NotFound,
     RequestValidationProblem,
     Unauthorized,
 )
+from werkzeug.exceptions import NotImplemented as _NotImplemented
+
+# Documentation of the operations of the DRS specification that DRS-Filer
+# doesn't implement
+DOCS_API_URL = "https://drs-filer.readthedocs.io/en/latest/api/"
 
 
 class AccessMethodNotDeleted(Conflict):
@@ -47,6 +53,28 @@ class URLNotFound(NotFound):
 
 class ValidationError(Exception):
     """Value or object is not compatible with required type or schema."""
+
+
+class OperationNotImplemented(HTTPError, _NotImplemented):
+    """Raised for operations of the DRS specification that aren't implemented."""
+
+    pass
+
+
+class PassportOperationNotImplemented(OperationNotImplemented):
+    """Raised for the passport `POST` operations of the DRS specification.
+
+    DRS-Filer doesn't implement them, by design (see "Passport POST
+    endpoints" in `docs/api.md`).
+    """
+
+    pass
+
+
+class AuthorizationInfoNotImplemented(OperationNotImplemented):
+    """Raised for the authorization info of objects (`OPTIONS`), until #98."""
+
+    pass
 
 
 # Problem details of exceptions raised in app context, served by FOCA
@@ -123,5 +151,31 @@ exceptions = {
         "title": "Internal server error",
         "detail": "An unexpected error occurred.",
         "status": 500,
+    },
+    OperationNotImplemented: {
+        "title": "Not implemented",
+        "detail": (
+            "DRS-Filer doesn't implement this operation; see "
+            f"{DOCS_API_URL}#deviations-from-the-specification"
+        ),
+        "status": 501,
+    },
+    PassportOperationNotImplemented: {
+        "title": "Not implemented",
+        "detail": (
+            "DRS-Filer doesn't accept GA4GH Passports in request bodies: get "
+            "objects and access URLs with GET, with a bearer access token in "
+            "the Authorization header if needed; see "
+            f"{DOCS_API_URL}#passport-post-endpoints"
+        ),
+        "status": 501,
+    },
+    AuthorizationInfoNotImplemented: {
+        "title": "Not implemented",
+        "detail": (
+            "DRS-Filer doesn't report the authorization info of objects yet; "
+            f"see {DOCS_API_URL}#deviations-from-the-specification"
+        ),
+        "status": 501,
     },
 }

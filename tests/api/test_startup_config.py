@@ -125,7 +125,7 @@ def test_public_url_from_custom_config(
         )
     )
     client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(1))
+    response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     obj = body(client.get(f"{API}/objects/{object_id}"))
@@ -144,7 +144,7 @@ def test_service_info_version_from_package(
     client = create_app().app.test_client()
     info = body(client.get(f"{API}/service-info"))
     assert info["version"] == version("drs-filer")
-    assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.1.0"}
+    assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
     overlay.write_text(
         yaml.safe_dump({"service_info": {"service": {"version": "1.2.3"}}})
     )
@@ -210,7 +210,7 @@ def test_integers_from_environment(
         "      length: ${DRS_TEST_ID_LENGTH}\n"
     )
     client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(1))
+    response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     assert len(object_id) == 9

@@ -8,13 +8,14 @@ from jsonschema import Draft4Validator
 from werkzeug.test import TestResponse
 import yaml
 
-# The DRS specification, with the definition of error responses (`Error`)
-DRS_SPEC = (
-    Path(__file__).parents[1]
-    / "drs_filer"
-    / "api"
-    / "20200622.383121d.data_repository_service.swagger.yaml"
-)
+# The package directory, with the base config and the API specifications
+PACKAGE_DIR = Path(__file__).parents[1] / "drs_filer"
+CONFIG_FILE = PACKAGE_DIR / "config.yaml"
+API_DIR = PACKAGE_DIR / "api"
+# The vendored DRS specification (DRS 1.5.0)
+DRS_SPEC = API_DIR / "20250324.fe25c39.openapi.yaml"
+# The app's additions, with the schema of error responses (`Problem`)
+ADDITIONS_SPEC = API_DIR / "additions.openapi.yaml"
 # Base URL of the API in the test client
 API = "/ga4gh/drs/v1"
 # Base of the `self_uri` of objects, from the test overlay
@@ -67,9 +68,17 @@ SERVICE_INFO: dict[str, Any] = {
     "id": "org.example.drs",
     "name": "DRS-filer",
     "organization": {"name": "Example organization", "url": "https://example.org"},
-    "type": {"artifact": "drs", "group": "org.ga4gh", "version": "1.1.0"},
+    "type": {"artifact": "drs", "group": "org.ga4gh", "version": "1.5.0"},
     "updatedAt": "2024-06-12T12:58:19Z",
     "version": "1.0.0",
+}
+
+# Fields of the service info that the app computes (`DrsService` of DRS
+# 1.5.0): bulk requests aren't implemented, so the bulk maximum is the least
+# allowed one
+DRS_SERVICE_FIELDS: dict[str, Any] = {
+    "maxBulkRequestLength": 1,
+    "drs": {"maxBulkRequestLength": 1},
 }
 
 
@@ -104,22 +113,36 @@ def error_messages(exc: BaseException) -> str:
     return "\n".join(messages)
 
 
+def load_yaml(path: Path) -> dict[str, Any]:
+    """Load a YAML file, e.g., the config or a specification.
+
+    Args:
+        path: Path of the file.
+
+    Returns:
+        Its content.
+    """
+    content: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return content
+
+
 def validate_error(problem: Any) -> None:
     """Check that an error response body conforms to the specification.
 
     FOCA doesn't validate error responses against the specification, so the
-    tests do: against its `Error` definition (problem details, RFC 9457),
-    with the JSON Schema draft of Swagger 2.0 (draft 4).
+    tests do: against the `Problem` schema of the additions (problem
+    details, RFC 9457), with the JSON Schema draft of OpenAPI 3.0 (draft 4,
+    as Connexion validates).
 
     Args:
         problem: Decoded body of an error response.
 
     Raises:
-        AssertionError: The body doesn't conform to `Error`.
+        AssertionError: The body doesn't conform to `Problem`.
     """
-    definitions = yaml.safe_load(DRS_SPEC.read_text())["definitions"]
+    components = load_yaml(ADDITIONS_SPEC)["components"]
     validator = Draft4Validator(
-        {"$ref": "#/definitions/Error", "definitions": definitions}
+        {"$ref": "#/components/schemas/Problem", "components": components}
     )
     errors = [error.message for error in validator.iter_errors(problem)]
     assert not errors, errors

@@ -398,7 +398,7 @@ jobs:
           }'
           curl --fail-with-body --silent --show-error --max-time 30 \
             -X POST --header 'Content-Type: application/json' \
-            --data "${object}" --output "${body}" "${API}/objects"
+            --data "${object}" --output "${body}" "${API}/objects/register"
           id="$(jq -r . "${body}")"
           curl --fail-with-body --silent --show-error --max-time 30 \
             --output "${body}" "${API}/objects/${id}"

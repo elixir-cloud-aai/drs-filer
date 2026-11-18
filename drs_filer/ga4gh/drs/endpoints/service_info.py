@@ -1,7 +1,8 @@
 """Controller for service info endpoint.
 
 The service info is stored as a single record, with `_id` `CURRENT_ID`,
-which `GET /service-info` serves. On startup, the service info of the config
+which `GET /service-info` serves, with the DRS fields that the app computes
+(`drs_service_fields()`). On startup, the service info of the config
 (FOCA's section `service_info`, with the version of the package unless
 `service_info.service.version` is set) replaces it, if it differs; `POST
 /service-info` replaces it until the next startup. Both remove the records
@@ -22,6 +23,27 @@ logger = logging.getLogger(__name__)
 
 # `_id` of the record of the service info that is served
 CURRENT_ID = "current"
+# The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
+# of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
+# implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
+# is the least that the specification allows
+MAX_BULK_REQUEST_LENGTH = 1
+
+
+def drs_service_fields() -> dict[str, Any]:
+    """Get the DRS fields of the service info, which the app computes.
+
+    They are added to the stored service info when it is served (`GET
+    /service-info`), not stored, and can't be posted.
+
+    Returns:
+        The fields of `DrsService` (DRS 1.5.0): `maxBulkRequestLength`
+        (deprecated) and `drs`.
+    """
+    return {
+        "maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH,
+        "drs": {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH},
+    }
 
 
 class RegisterServiceInfo:
