@@ -164,7 +164,7 @@ def test_set_service_info_from_config_skip() -> None:
         assert service_info.get_service_info() == SERVICE_INFO_CONFIG
 
 
-def test_get_service_info_other_records() -> None:
+def test_other_records_not_served_and_removed() -> None:
     """Records other than the current one are neither served nor kept.
 
     Earlier versions stored one record per service info `id` and served the

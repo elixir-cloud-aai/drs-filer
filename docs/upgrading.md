@@ -11,7 +11,8 @@ stored by an earlier version: those stayed the ones served, which could make
 `GET /service-info` answer `500 Internal Server Error` with a valid config.
 The service info is now stored as a single record, and the records of
 earlier versions are removed on the first start. Posted service info is
-served until the app starts again; to keep it, put it in the config
+served until the app starts again (also when Gunicorn starts a worker); to
+keep it, put it in the config
 (`endpoints.service_info`, see [Configuration](../README.md#configuration)).
 
 ## Identifier character sets

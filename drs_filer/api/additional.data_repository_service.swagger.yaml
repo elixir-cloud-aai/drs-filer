@@ -3,8 +3,8 @@ paths:
     post:
       summary: Register service info.
       description: >-
-        Create or replace the service info. On each start, the app replaces it
-        with the service info of its config.
+        Create or replace the service info. Each start of the app (also of a
+        Gunicorn worker) replaces it with the service info of its config.
       operationId: postServiceInfo
       tags:
         - DRS-Filer

@@ -85,6 +85,8 @@ class RegisterServiceInfo:
         except NotFound:
             db_info = {}
         if db_info != self.conf_info:
+            # The config isn't validated against the specification on
+            # startup; a missing `id` would only show in `GET /service-info`
             if "id" not in self.conf_info:
                 logger.error(
                     "The service info configuration does not conform to the "
@@ -103,9 +105,11 @@ class RegisterServiceInfo:
         """Insert or replace the current service info document.
 
         Removes the records stored by earlier versions first, as the unique
-        index on `id` refuses a second record with the same `id`.
+        index on `id` refuses a second record with the same `id`. The
+        current record is never removed, so service info can only be
+        missing briefly before it is set for the first time.
 
-        Arguments:
+        Args:
             data: Service info according to API specification.
         """
         self.db_coll_info.delete_many({"_id": {"$ne": CURRENT_ID}})
