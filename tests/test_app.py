@@ -30,10 +30,14 @@ def _write(path: Path, content: dict[str, Any]) -> str:
 
 
 def test_create_app() -> None:
-    """The app is created from the packaged config, with the service info."""
+    """The app is created from the packaged config, with the service info.
+
+    The settings of generated identifiers are checked on startup.
+    """
     with (
         patch.object(app_module, "Foca") as foca,
         patch.object(app_module, "RegisterServiceInfo") as service_info,
+        patch.object(app_module, "check_id_settings") as check_id_settings,
         # ast-grep-ignore: pydantic-v1-dict
         patch.dict(os.environ),
     ):
@@ -42,6 +46,7 @@ def test_create_app() -> None:
     assert foca.call_args.kwargs["config_file"] == PACKAGE_DIR / "config.yaml"
     assert app is foca.return_value.create_app.return_value
     service_info.return_value.set_service_info_from_config.assert_called_once()
+    check_id_settings.assert_called_once_with()
 
 
 def test_overlay_variable() -> None:

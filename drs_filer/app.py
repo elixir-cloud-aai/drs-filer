@@ -12,6 +12,7 @@ from foca import Foca
 from foca.config.config_parser import CONFIG_OVERLAY_ENV_VAR
 
 from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
+from drs_filer.utils import check_id_settings
 
 # The package, with the base config and the API specifications
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -23,7 +24,9 @@ OVERLAY_VARIABLE = CONFIG_OVERLAY_ENV_VAR
 def create_app() -> App:
     """Create the app from the config, and register the service info.
 
-    The config is the package's `config.yaml`, with the overlays of
+    Settings of generated identifiers are checked first, so that invalid
+    ones (e.g., character sets given as expressions) fail the start. The
+    config is the package's `config.yaml`, with the overlays of
     `FOCA_CONFIG_OVERLAY` merged into it by FOCA, if any (separated by `:`, in
     order; relative paths of overlays are relative to the working directory).
     FOCA resolves the relative paths of the API specifications against the
@@ -33,9 +36,14 @@ def create_app() -> App:
 
     Returns:
         Connexion app.
+
+    Raises:
+        KeyError: Settings of generated identifiers are missing.
+        ValueError: Settings of generated identifiers are invalid.
     """
     app = Foca(config_file=CONFIG_FILE).create_app()
     with app.app.app_context():
+        check_id_settings()
         service_info = RegisterServiceInfo()
         service_info.set_service_info_from_config()
     return app

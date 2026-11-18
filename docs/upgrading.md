@@ -3,6 +3,43 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Identifier character sets
+
+The character sets of generated identifiers (`endpoints.objects.id_charset`
+and `endpoints.access_methods.id_charset`) list the characters themselves
+and are never evaluated (#54): Python expressions, which earlier versions
+evaluated with `eval()`, could run any code. Only unreserved characters of
+URLs are allowed (letters, digits and `.-_~`), as identifiers are part of
+URLs. Identifiers are generated with FOCA's `generate_id()`, from a
+cryptographically secure source.
+
+- Expressions (e.g., `string.ascii_letters + string.digits` or
+  `'0123456789abcdef'`, with quotes) and other characters (e.g., spaces or
+  `/`) fail the start, with an error that names the setting (e.g.,
+  `Invalid 'endpoints.objects': ...`). Replace expressions with the
+  characters, e.g., the former default
+  `'string.ascii_letters + string.digits + ".-_~"'` with:
+
+  ```yaml
+  endpoints:
+    objects:
+      id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
+    access_methods:
+      id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
+  ```
+
+  This is the default of the base config now, with the same characters as
+  before: overlays that don't set `id_charset` need no change.
+- Character sets of unreserved characters (e.g., `"abc123"`) keep working
+  for object identifiers. They now work for access identifiers, too, and
+  so do those that happened to be valid Python (e.g., digits only); both
+  failed requests with `500 Internal Server Error`.
+- An empty or non-string `id_charset` (e.g., a YAML list, which worked for
+  object identifiers), or an `id_length` that isn't a positive integer, also
+  fails the start (before, `0` and negative lengths gave empty identifiers,
+  and `true` identifiers of one character).
+- Identifiers registered before the upgrade stay as they are.
+
 ## FOCA 0.22
 
 DRS-Filer is upgraded from FOCA 0.13 to FOCA 0.22 (#87), on the FOCA image

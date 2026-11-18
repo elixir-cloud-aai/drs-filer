@@ -1,14 +1,13 @@
 """Controller for registering new DRS objects."""
 
 import logging
-from random import choice
-import string
 from typing import Any
 
+from foca.utils.misc import generate_id
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import InternalServerError
-from drs_filer.utils import get_collection, get_endpoints_config
+from drs_filer.utils import get_collection, get_endpoints_config, get_id_settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +42,7 @@ def register_object(
     was_replaced = False
     if object_id is None:
         replace = False
-        id_length = endpoints["objects"]["id_length"]
-        id_charset: str = endpoints["objects"]["id_charset"]
-        # evaluate character set expression or interpret literal string as set
-        # `eval()` of the operator's config (not of requests); replaced by a
-        # literal character set in #54
-        try:
-            id_charset = eval(id_charset)  # noqa: S307
-        except Exception:
-            id_charset = "".join(sorted(set(id_charset)))
+        id_charset, id_length = get_id_settings("objects")
 
     # Add unique access identifiers for each access method
     if "access_methods" in data:
@@ -117,33 +108,12 @@ def __add_access_ids(data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Returns:
         Access methods metadata complete with unique access identifiers.
     """
-    endpoints = get_endpoints_config()
-    # `eval()` of the operator's config (not of requests); replaced by a
-    # literal character set in #54
-    id_charset = eval(endpoints["access_methods"]["id_charset"])  # noqa: S307
-    id_length = endpoints["access_methods"]["id_length"]
+    id_charset, id_length = get_id_settings("access_methods")
     access_ids = []
     for method in data:
-        access_id = generate_id(id_charset, id_length)
+        access_id = generate_id(charset=id_charset, length=id_length)
         if access_id not in access_ids:
             method["access_id"] = access_id
             access_ids.append(access_id)
 
     return data
-
-
-def generate_id(
-    charset: str = "".join([string.ascii_letters, string.digits]), length: int = 6
-) -> str:
-    """Generate random string based on allowed set of characters.
-
-    Args:
-        charset: String of allowed characters.
-        length: Length of returned string.
-
-    Returns:
-        Random string of specified length and composed of defined set of
-        allowed characters.
-    """
-    # Identifiers, not secrets: a cryptographic generator is not needed
-    return "".join(choice(charset) for __ in range(length))  # noqa: S311

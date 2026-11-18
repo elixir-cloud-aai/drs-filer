@@ -48,8 +48,8 @@ SERVICE_INFO_CONFIG: dict[str, Any] = {
     "version": "1.0.0",
 }
 ENDPOINT_CONFIG: dict[str, Any] = {
-    "objects": {"id_charset": "string.digits", "id_length": 6},
-    "access_methods": {"id_charset": "string.digits", "id_length": 6},
+    "objects": {"id_charset": "0123456789", "id_length": 6},
+    "access_methods": {"id_charset": "0123456789", "id_length": 6},
     "service_info": deepcopy(SERVICE_INFO_CONFIG),
     "url_prefix": "http",
     "external_host": "1.2.3.4",

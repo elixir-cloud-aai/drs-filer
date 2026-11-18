@@ -152,6 +152,22 @@ endpoints:
     version: 0.1.0
 ```
 
+Objects registered without an identifier (`POST /objects`) and their access
+methods get random identifiers of `id_length` characters (default 6), drawn
+from `id_charset` (default: letters, digits and `.-_~`), in
+`endpoints.objects` and `endpoints.access_methods`. `id_charset` lists the
+characters themselves, which must be unreserved characters of URLs (letters,
+digits and `.-_~`); other characters and expressions such as
+`string.ascii_letters + string.digits` fail the start (see
+[Upgrading][upgrading]):
+
+```yaml
+endpoints:
+  objects:
+    id_charset: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    id_length: 8
+```
+
 Docker Compose uses the overlay [`config.dev.yaml`][drs-filer-config-dev]
 (public URL `http://localhost:8080`, for the `self_uri` of objects). To use
 your own overlays instead, set `DRS_FILER_CONFIG_OVERLAY` on the host to
