@@ -48,8 +48,11 @@ doesn't define are rejected.
 `POST /objects` and `PUT /objects/{object_id}` take the metadata of an
 object (`DrsObjectRegister`): `size`, `created_time` and at least one
 checksum are required; `name`, `updated_time`, `version`, `mime_type`,
-`access_methods`, `contents` (for bundles), `description` and `aliases` are
-optional. Both return the identifier of the object, e.g.:
+`contents` (for bundles), `description` and `aliases` are optional. The DRS
+specification requires at least one access method (`access_methods`) for
+single blobs (objects without `contents`); register blobs with one, as
+DRS-Filer doesn't check this yet and can't serve access URLs of objects
+without access methods. Both return the identifier of the object, e.g.:
 
 ```bash
 curl -X POST "http://localhost:8080/ga4gh/drs/v1/objects" \
@@ -93,13 +96,14 @@ Errors are answered with problem details (RFC 9457), as
 {"title": "Not found", "detail": "The requested `DrsObject` wasn't found.", "status": 404}
 ```
 
-Requests that fail the validation of their body or parameters
-(`400 Bad Request`) also have `type`, `code` (`invalid-request`) and
+Requests that fail the validation of their body or parameters against the
+API specification (`400 Bad Request`) also have `type`, `code` (`invalid-request`) and
 `errors`, which lists the invalid fields, each with `detail`, `code` and
 `pointer` (a JSON Pointer into the request body, e.g., `#/created_time`) or
 `parameter` (the name of an invalid parameter). The `Error` definition of
 the DRS specification describes them, with `FieldError` for the entries of
-`errors`; only `title` and `status` are always set. The exceptions of the
+`errors`. Only `title` and `status` are always set: e.g., the answer to a
+body that isn't JSON has neither `code` nor `errors`. The exceptions of the
 app and their problem details are listed in
 [`drs_filer/errors/exceptions.py`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/errors/exceptions.py)
 (see the [API reference](reference.md#errors)).

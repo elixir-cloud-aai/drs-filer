@@ -57,7 +57,7 @@ def test_readthedocs_reshims_after_installing_uv() -> None:
     """
     pre = _jobs()["pre_create_environment"]
     assert len(pre) == 2
-    assert '"uv==' in pre[0]
+    assert re.fullmatch(r'python -m pip install "uv==[^"]+"', pre[0])
     assert pre[1] == "asdf reshim python"
 
 

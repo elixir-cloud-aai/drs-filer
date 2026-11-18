@@ -55,7 +55,10 @@ endpoints:
 
 The service info (`GET /service-info`) is served from
 `endpoints.service_info`, which the app stores in the database on startup;
-`POST /service-info` replaces it. It is served as it is, so its URLs and
+`POST /service-info` replaces it, but only until the app (or a Gunicorn
+worker) starts again, which stores the configured service info again if the
+stored one differs. Set the service info of a deployment in its overlay,
+not with `POST /service-info`. It is served as it is, so its URLs and
 timestamps must have the formats of the specification (`GET /service-info`
 fails with `500 Internal Server Error` otherwise):
 

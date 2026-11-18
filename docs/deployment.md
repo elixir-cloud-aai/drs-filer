@@ -46,7 +46,8 @@ their Services, and an Ingress (Kubernetes) or a Route (OpenShift).
     ```
 
 The chart doesn't set the service info: the app serves the placeholders of
-the base config until a client sets it with `POST /service-info` (see
+the base config, and service info set with `POST /service-info` lasts only
+until the app restarts (see
 [Service info](configuration.md#service-info)).
 
 ## Upgrading
