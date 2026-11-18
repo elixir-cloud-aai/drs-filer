@@ -93,6 +93,37 @@ def test_post_object_ids_exhausted(client: FlaskClient) -> None:
     assert body(response)["status"] == 500
 
 
+def test_post_object_duplicate_access_id(client: FlaskClient) -> None:
+    """A duplicate access identifier is drawn again (#121).
+
+    Every access method gets an identifier that is unique within the object.
+    Access identifiers are drawn before the object identifier.
+    """
+    ids = iter(["acc001", "acc001", "acc002", "obj001"])
+    with patch.object(
+        register_objects, "generate_id", side_effect=lambda **_: next(ids)
+    ):
+        response = client.post(f"{API}/objects", json=drs_object(access_methods=2))
+    assert response.status_code == 200, body(response)
+    assert body(response) == "obj001"
+    obj = body(client.get(f"{API}/objects/obj001"))
+    assert [method["access_id"] for method in obj["access_methods"]] == [
+        "acc001",
+        "acc002",
+    ]
+
+
+def test_post_object_access_ids_exhausted(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """If no unique access identifier is found, the request fails (#121)."""
+    with patch.object(register_objects, "generate_id", return_value="taken"):
+        response = client.post(f"{API}/objects", json=drs_object(access_methods=2))
+    assert response.status_code == 500
+    assert body(response)["status"] == 500
+    assert objects.count_documents({}) == 0
+
+
 def test_put_object_new(client: FlaskClient) -> None:
     """An object is registered with the given identifier."""
     response = client.put(f"{API}/objects/my-object", json=drs_object())
