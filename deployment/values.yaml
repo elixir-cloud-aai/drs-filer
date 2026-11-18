@@ -22,10 +22,29 @@ hostName: ""
 # App config overriding the base config in the image (`drs_filer/config.yaml`
 # of the image's version); mappings are merged recursively, other values
 # (including lists) are replaced. Stored in a ConfigMap, so must not contain
-# secrets (see deployment/README.md, Configuration). DRS-Filer has no
-# authentication: everyone who can reach it can read and write (see
-# deployment/README.md, Access). Example:
+# secrets (see deployment/README.md, Configuration). Reads are public; writes
+# need an access token of an admin, so deployments must set the trusted token
+# issuers (`security.auth.issuers`) and `security.auth.audience` (unless each
+# issuer has an `audience` of its own, or `security.auth.verify_audience` is
+# false), and map an admin group to the role `admin` (unless
+# `security.access_control.require_admin` is false), with the claim with the
+# groups of users (`security.access_control.claim_groups`); rendering fails
+# without them (see deployment/README.md, Configuration). Example:
 config: {}
+#   security:
+#     auth:
+#       # Trusted token issuers (`iss` claim)
+#       issuers: ["https://login.example.org/oidc/"]
+#       # Client IDs of the apps calling DRS-Filer (`aud` claim)
+#       audience: ["drs-portal"]
+#       # Claims released via user info only, not in access tokens
+#       userinfo_claims: ["groups"]
+#     access_control:
+#       # Claim with the groups of users
+#       claim_groups: groups
+#       # Members of this group may write
+#       group_mapping:
+#         drs-admins: admin
 #   # Service info (GA4GH `Service` schema), validated on startup; the
 #   # defaults are placeholders, so set all fields of the deployment (mappings
 #   # are merged with the defaults); `version` is that of the image's app,

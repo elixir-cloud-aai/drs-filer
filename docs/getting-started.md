@@ -53,10 +53,16 @@ docker compose logs
 ## Usage
 
 Register an object (see [Registering objects](api.md#registering-objects)),
-which returns its identifier, then get it by that identifier:
+which returns its identifier, then get it by that identifier. Registering
+needs an access token of an admin (see [Access control](access-control.md));
+without an identity provider, start the app without authentication first
+(see [Running without
+authentication](development.md#running-without-authentication)), and leave
+out the `Authorization` header:
 
 ```bash
 curl -X POST "http://localhost:8080/ga4gh/drs/v1/objects/register" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "sample.bam",

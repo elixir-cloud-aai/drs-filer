@@ -13,6 +13,7 @@ import yaml
 from drs_filer import app as app_module
 from drs_filer.custom_config import CustomConfig
 from drs_filer.utils import get_custom_config
+from tests.conftest import CONFIG_OVERLAY
 
 PACKAGE_DIR = Path(app_module.__file__).resolve().parent
 
@@ -61,10 +62,11 @@ def test_create_app_custom_config(
     """The custom config of the app is typed (`CustomConfig`).
 
     Args:
-        monkeypatch: Fixture to unset the overlays with.
+        monkeypatch: Fixture to set the test overlay with (the settings
+            each deployment must make).
         mongo_client: MongoDB client of the app.
     """
-    monkeypatch.delenv(app_module.OVERLAY_VARIABLE, raising=False)
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(CONFIG_OVERLAY))
     app = app_module.create_app()
     with app.app.app_context():
         assert isinstance(get_custom_config(), CustomConfig)
@@ -91,7 +93,7 @@ def test_create_app_any_working_directory(
         tmp_path: Working directory without the specifications.
         mongo_client: MongoDB client of the app.
     """
-    monkeypatch.delenv(app_module.OVERLAY_VARIABLE, raising=False)
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(CONFIG_OVERLAY))
     monkeypatch.chdir(tmp_path)
     app = app_module.create_app()
     with app.app.app_context():
@@ -137,7 +139,9 @@ def test_create_app_overlays(
         tmp_path / "second.yaml",
         {"custom": {"service": {"external_host": "localhost"}}, "db": {"host": "db"}},
     )
-    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, f"{first}::{second}:")
+    monkeypatch.setenv(
+        app_module.OVERLAY_VARIABLE, f"{CONFIG_OVERLAY}:{first}::{second}:"
+    )
     app = app_module.create_app()
     with app.app.app_context():
         config = get_config()

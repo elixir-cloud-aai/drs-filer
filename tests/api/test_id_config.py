@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 from drs_filer.app import create_app
+from tests.conftest import admin_client
 from tests.mock_data import API, body, drs_object, error_messages
 
 
@@ -52,7 +53,7 @@ def test_literal_charsets(
         # collide (a duplicate one is left unset)
         access={"charset": "xyz", "length": 40},
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/objects/register", json=drs_object(2))
     assert response.status_code == 200, body(response)
     object_id = body(response)

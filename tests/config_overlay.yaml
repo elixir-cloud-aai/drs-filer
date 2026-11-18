@@ -1,7 +1,20 @@
 # Config overlay for app tests, with the settings each deployment must make:
-# the public URL of the app, for the `self_uri` of objects
+# the public URL of the app, for the `self_uri` of objects, and the identity
+# provider, which is fictitious (and mocked by the tests, see
+# `tests/conftest.py`), with the audience, the group claim and the admin
+# group
 custom:
   service:
     url_prefix: https
     external_host: drs.example.org
     external_port: 443
+security:
+  auth:
+    issuers:
+      - https://login.example.org/oidc/
+    audience:
+      - client-id
+  access_control:
+    claim_groups: groups
+    group_mapping:
+      drs-admins: admin

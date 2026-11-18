@@ -41,10 +41,11 @@ on Kubernetes and for development, respectively.
 !!! note "Work in progress"
     DRS-Filer is being aligned with the other services of ELIXIR On-Cloud:
     the rest of DRS 1.5
-    ([#88](https://github.com/elixir-cloud-aai/drs-filer/issues/88))
-    and access tokens for writes and optionally reads
-    ([#94](https://github.com/elixir-cloud-aai/drs-filer/issues/94),
-    [#96](https://github.com/elixir-cloud-aai/drs-filer/issues/96)).
+    ([#88](https://github.com/elixir-cloud-aai/drs-filer/issues/88)),
+    owners of objects
+    ([#95](https://github.com/elixir-cloud-aai/drs-filer/issues/95))
+    and optional login for reads
+    ([#96](https://github.com/elixir-cloud-aai/drs-filer/issues/96)).
 
 ## Citation
 

@@ -69,6 +69,33 @@ local overlay only (`config.local.yaml` is ignored by Git), with the server
 on a loopback host (`server.host: 127.0.0.1`; FOCA warns otherwise); never
 commit or deploy it.
 
+## Running without authentication
+
+Writes need an access token of an admin (see [Access
+control](access-control.md)), also with Docker Compose, whose development
+overlay (`config.dev.yaml`) trusts a fictitious identity provider and
+requires no admins. To set your own identity provider and admin group, see
+[Docker Compose](configuration.md#docker-compose) and [Deployment
+configuration](configuration.md#deployment-configuration). To try writes
+locally without an identity provider, disable authentication with the
+overlay
+[`config.noauth.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/config.noauth.yaml),
+which sets FOCA's `api.specs.drs.disable_auth` (`false` in the base
+config), after `config.dev.yaml`, via `DRS_FILER_CONFIG_OVERLAY` (which
+`docker-compose.yaml` passes to the app as `FOCA_CONFIG_OVERLAY`):
+
+```bash
+DRS_FILER_CONFIG_OVERLAY=/etc/drs-filer/config.dev.yaml:/etc/drs-filer/config.noauth.yaml \
+  docker compose up --build --wait
+```
+
+All operations are then public, writes too, and FOCA warns on startup that
+authentication is disabled (`Authentication is disabled for spec 'drs'`).
+Run `docker compose up --wait` without the variable to enable it again. Only
+use this on your machine (Docker Compose publishes the app on the loopback
+interface only), never for deployments. The smoke test (see
+[Tests](#tests)) needs it, or an admin's access token in `DRS_FILER_TOKEN`.
+
 ## Tests
 
 The tests come in three levels; `uv run pytest` runs the first two, which
@@ -81,7 +108,11 @@ same targets for Codecov in `codecov.yml`):
 - **App tests** (`tests/api/`, one module per group of endpoints): every
   endpoint through Flask's test client, with the app created from the
   shipped config and the test overlay (`tests/config_overlay.yaml`), so that
-  request validation and error handling are covered too. They use an
+  request validation, authentication, access control and error handling
+  are covered too. The identity provider of the test overlay is mocked
+  (`mock_get()` in `tests/conftest.py`); the test client `client` sends an
+  admin's access token, `anonymous_client` none, and `make_headers()` makes
+  tokens of other users (`tests/api/test_auth.py`). They use an
   in-memory MongoDB (mongomock), or a real one if `MONGODB_TEST_URI` is set,
   as in CI; the tests drop database `drsStore` there and refuse to start if
   it exists already:
@@ -94,7 +125,10 @@ same targets for Codecov in `codecov.yml`):
 
 - **Smoke test** (`tests/smoke/`): the API of a running app, e.g., of the
   Compose stack (see [Getting started](getting-started.md)); skipped unless
-  `DRS_FILER_URL` is set. It registers objects and service info:
+  `DRS_FILER_URL` is set. It registers objects and service info, so it
+  needs an admin's access token in `DRS_FILER_TOKEN`, or an app without
+  authentication (see [Running without
+  authentication](#running-without-authentication)), as in CI:
 
     ```bash
     DRS_FILER_URL=http://localhost:8080/ga4gh/drs/v1 uv run pytest tests/smoke

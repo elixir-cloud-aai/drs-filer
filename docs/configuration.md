@@ -30,6 +30,8 @@ The settings that deployments usually change:
 
 | Setting | Default | Description |
 | --- | --- | --- |
+| `security.auth.issuers`, `security.auth.audience` | none (required) | Trusted token issuers and the client IDs of their tokens, see [Deployment configuration](#deployment-configuration) |
+| `security.access_control.claim_groups`, `security.access_control.group_mapping` | none (required) | Claim with the groups of users, and the groups whose members are admins, see [Deployment configuration](#deployment-configuration) |
 | `custom.service.url_prefix`, `custom.service.external_host`, `custom.service.external_port` | `http`, `localhost`, `8080` | Public URL of the app, see [Public URL](#public-url) |
 | `custom.service.api_path` | `ga4gh/drs/v1` | Path of the API in the public URL |
 | `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
@@ -48,6 +50,78 @@ the setting and the reason, but not the value. So does the section
 checked against the service info specification instead, which allows other
 fields (a misspelled field is served as an extra field), and its errors
 show the invalid value.
+
+## Deployment configuration
+
+Writes need an access token of an admin (see [Access
+control](access-control.md)). DRS-Filer works with any OpenID Connect
+provider that issues access tokens as per [RFC
+9068](https://www.rfc-editor.org/rfc/rfc9068) (JWTs). The identity provider,
+its claims and the groups mapped to the role `admin` are deployment
+configuration: the base config has no defaults for them, so each deployment
+sets them in an overlay (or in the Helm chart's `config` value), otherwise
+the app refuses to start (and the chart refuses to render):
+
+- `security.auth.issuers`: the trusted token issuers (the `iss` claim of
+  their tokens, e.g., `https://login.example.org/oidc/`); tokens of other
+  issuers are rejected (see
+  [Authentication](access-control.md#authentication));
+- `security.auth.audience`: the client IDs of the apps whose tokens are
+  accepted (the `aud` claim, e.g., of a portal or gateway that registers
+  objects, or of a client for scripts), unless
+  `security.auth.verify_audience` is `false`, which accepts tokens for any
+  audience (not recommended);
+- `security.access_control.claim_groups`: the claim with the groups of users
+  (e.g., `groups`), needed for admins; add it to
+  `security.auth.userinfo_claims` if the identity provider releases it via
+  user info only, not in access tokens;
+- `security.access_control.group_mapping`: the group(s) whose members are
+  admins (values of the group claim, see
+  [Admins](access-control.md#admins)), or
+  `security.access_control.require_admin: false` to run without admins
+  (nobody can write then).
+
+For example:
+
+```yaml
+security:
+    auth:
+        issuers:
+            - https://login.example.org/oidc/
+        audience:
+            - drs-portal
+        userinfo_claims:
+            - groups
+    access_control:
+        claim_groups: groups
+        group_mapping:
+            drs-admins: admin
+```
+
+Notes:
+
+- Groups that contain `:` or `#` (e.g., entitlements, which are URNs) must
+  be quoted as keys in YAML.
+- Without the group claim in the token or in `userinfo_claims`, no user gets
+  the role `admin`. Clients must request the scope that releases the claim
+  when logging in, and the identity provider must allow it for the client.
+- DRS-Filer accepts only access tokens with the `typ` header `at+jwt`
+  (`security.auth.verify_token_type`, enabled by default). Before going live,
+  check that the identity provider issues such tokens to the clients, and
+  that their `aud` matches `audience`: otherwise writes fail with `401
+  Unauthorized`.
+- To accept tokens of some clients only (e.g., of a portal in front of
+  DRS-Filer), list their client IDs in `security.auth.clients` (FOCA
+  compares them with the `client_id` claim of tokens, or `azp` without it).
+
+The policy rules (`security.access_control.policies`, see FOCA's [access
+control](https://foca.readthedocs.io/en/latest/access-control/#configuring-policies))
+say what each role may do. The base config has none, so only admins can
+write; they are named, so that an overlay can add, change or remove single
+rules by name (FOCA's [named
+entries](https://foca.readthedocs.io/en/latest/configuration/#named-entries)).
+Settings for specific identity providers belong to the documentation of the
+deployment, not here.
 
 ## Public URL
 
@@ -141,7 +215,17 @@ custom:
 
 Docker Compose uses the overlay
 [`config.dev.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/config.dev.yaml)
-(public URL `http://localhost:8080`). To use your own overlays instead, set
+(public URL `http://localhost:8080`; a fictitious token issuer, tokens for
+any audience, and no admins required, so that the app starts, but nobody
+can write until you set your identity provider and admin group, or disable
+authentication, see [Running without
+authentication](development.md#running-without-authentication)). If your
+overlay sets your own identity provider, also set
+`security.auth.audience` (your client ID) and
+`security.auth.verify_audience: True`, as `config.dev.yaml` accepts tokens
+for any audience, i.e., also those issued for other apps of that provider,
+and map an admin group (`security.access_control.group_mapping`), as it
+requires none. To use your own overlays instead, set
 `DRS_FILER_CONFIG_OVERLAY` on the host to their paths in the container, and
 mount them in a `docker-compose.override.yaml`, e.g.:
 

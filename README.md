@@ -53,9 +53,12 @@ Swagger UI at
 curl -X GET "http://localhost:8080/ga4gh/drs/v1/service-info" -H "accept: application/json"
 ```
 
-DRS-Filer has no authentication yet: anybody who can reach it can register,
-change and delete objects. Docker Compose therefore publishes it on the
-host's loopback interface only.
+Reads are public; registering, changing and deleting objects needs an access
+token of an admin of a trusted identity provider. The Compose setup trusts
+a fictitious one, so to try writes locally, disable authentication (see
+[Running without
+authentication](https://drs-filer.readthedocs.io/en/latest/development/#running-without-authentication));
+Docker Compose publishes the app on the host's loopback interface only.
 <!-- --8<-- [end:quick-start] -->
 
 ## Citation

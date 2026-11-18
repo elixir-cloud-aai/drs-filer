@@ -347,10 +347,42 @@ def test_config_custom_null() -> None:
     assert config["custom"]["service"]["external_host"] == HOST
 
 
-def test_no_auth_settings() -> None:
-    """The app has no authentication, so the chart requires no token issuers."""
-    config = overlay(render())
-    assert "security" not in config
+def test_auth_settings() -> None:
+    """The overlay has the identity provider and admin group of the values."""
+    security = overlay(render())["security"]
+    assert security["auth"]["issuers"] == ["https://login.example.org/oidc/"]
+    assert security["auth"]["audience"] == ["test-client"]
+    assert security["access_control"]["group_mapping"] == {"test-admins": "admin"}
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (("--set-json", "config.security.auth.issuers=[]"), "issuers"),
+        (("--set-json", "config.security.auth.audience=null"), "audience"),
+        (("--set-json", "config.security.access_control.group_mapping={}"), "admin"),
+        (("--set", "config.security.access_control.enforce=false"), "enforce"),
+    ],
+)
+def test_access_control_required(args: tuple[str, ...], message: str) -> None:
+    """Rendering fails without what the app needs to start (as on startup).
+
+    Args:
+        args: Arguments that unset a required setting.
+        message: Expected part of the error.
+    """
+    assert message in render_error(*args)
+
+
+def test_access_control_without_admins() -> None:
+    """Without required admins, no admin group is needed."""
+    resources = render(
+        "--set-json",
+        "config.security.access_control.group_mapping={}",
+        "--set",
+        "config.security.access_control.require_admin=false",
+    )
+    assert overlay(resources)["security"]["access_control"]["require_admin"] is False
 
 
 def test_deployment() -> None:
@@ -776,7 +808,6 @@ def test_readme_references() -> None:
             assert matches, f"{path.name}: {prefix}{part[:40]}"
             sections.extend(matches)
     assert {
-        "Access",
         "Configuration",
         "From earlier charts",
         "Several replicas",
@@ -784,9 +815,7 @@ def test_readme_references() -> None:
 
 
 def test_notes(tmp_path: Path) -> None:
-    """The notes show the API's URL, that the Ingress has no TLS, and warn.
-
-    DRS-Filer has no authentication, so the notes always warn of that.
+    """The notes show the API's URL, that the Ingress has no TLS, and who may write.
 
     Args:
         tmp_path: Directory for the copy of the chart.
@@ -794,8 +823,47 @@ def test_notes(tmp_path: Path) -> None:
     notes = render_notes(tmp_path)
     assert f"https://{HOST}/ga4gh/drs/v1/service-info" in notes
     assert "The Ingress has no TLS" in notes
-    assert notes.count("WARNING") == 1
-    assert "WARNING: DRS-Filer has no authentication" in notes
+    assert "writes (POST, PUT and DELETE) need an access token of" in notes
+    assert "WARNING" not in notes
+
+
+@pytest.mark.parametrize(
+    ("value", "disabled"),
+    [
+        ("true", True),
+        ('"yes"', True),
+        ('"1"', True),
+        ("false", False),
+        ('"false"', False),
+        ('"no"', False),
+        ("0", False),
+    ],
+)
+def test_notes_auth_disabled(tmp_path: Path, value: str, disabled: bool) -> None:
+    """The notes warn of disabled authentication, as the app parses booleans.
+
+    Args:
+        tmp_path: Directory for the copy of the chart.
+        value: JSON value of `disable_auth`.
+        disabled: Whether the value disables authentication.
+    """
+    notes = render_notes(
+        tmp_path, "--set-json", f"config.api.specs.drs.disable_auth={value}"
+    )
+    warning = "authentication is disabled (config.api.specs.drs.disable_auth)"
+    assert (warning in notes) is disabled
+
+
+@pytest.mark.parametrize("value", ["config.api.specs=null", "config.api=null"])
+def test_notes_config_not_maps(tmp_path: Path, value: str) -> None:
+    """The notes render with sections of `config` that are null.
+
+    Args:
+        tmp_path: Directory for the copy of the chart.
+        value: Value that sets a section to null.
+    """
+    notes = render_notes(tmp_path, "--set-json", value)
+    assert "authentication is disabled" not in notes
 
 
 def test_notes_mongodb_without_auth(tmp_path: Path) -> None:
