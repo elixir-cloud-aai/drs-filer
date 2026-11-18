@@ -10,6 +10,8 @@ service info `id`).
 import logging
 from typing import Any
 
+from pymongo.errors import DuplicateKeyError
+
 from drs_filer.errors.exceptions import (
     NotFound,
     ValidationError,
@@ -80,19 +82,19 @@ class RegisterServiceInfo:
             drs_filer.errors.exceptions.ValidationError: Service info
                 configuration does not conform to API specification.
         """
+        # The config isn't validated against the specification on startup; a
+        # missing `id` (or empty service info) would only show in requests
+        if "id" not in self.conf_info:
+            logger.error(
+                "The service info configuration does not conform to the "
+                "API specification."
+            )
+            raise ValidationError
         try:
             db_info = self.get_service_info()
         except NotFound:
             db_info = {}
         if db_info != self.conf_info:
-            # The config isn't validated against the specification on
-            # startup; a missing `id` would only show in `GET /service-info`
-            if "id" not in self.conf_info:
-                logger.error(
-                    "The service info configuration does not conform to the "
-                    "API specification."
-                )
-                raise ValidationError
             self._upsert_service_info(data=self.conf_info)
             logger.info("Service info registered.")
         else:
@@ -107,12 +109,29 @@ class RegisterServiceInfo:
         Removes the records stored by earlier versions first, as the unique
         index on `id` refuses a second record with the same `id`. The
         current record is never removed, so service info can only be
-        missing briefly before it is set for the first time.
+        missing briefly before it is set for the first time. If an instance
+        of an earlier version stores a record with the same `id` in between
+        (e.g., during a rolling update), it is removed, and the replacement
+        is tried once more.
 
         Args:
             data: Service info according to API specification.
         """
         self.db_coll_info.delete_many({"_id": {"$ne": CURRENT_ID}})
+        try:
+            self._replace_current(data=data)
+        except DuplicateKeyError:
+            self.db_coll_info.delete_many(
+                {"id": data["id"], "_id": {"$ne": CURRENT_ID}}
+            )
+            self._replace_current(data=data)
+
+    def _replace_current(self, data: dict[str, Any]) -> None:
+        """Insert or replace the current service info document.
+
+        Args:
+            data: Service info according to API specification.
+        """
         self.db_coll_info.replace_one(
             filter={"_id": CURRENT_ID},
             replacement=data,

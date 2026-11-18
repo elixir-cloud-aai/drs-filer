@@ -3,11 +3,13 @@
 from copy import deepcopy
 import string  # noqa: F401
 from typing import Any
+from unittest.mock import MagicMock, call
 
 from flask import Flask
 from foca.models.config import Config, MongoConfig
 import mongomock
 from pymongo.collection import Collection
+from pymongo.errors import DuplicateKeyError
 import pytest
 
 from drs_filer.errors.exceptions import (
@@ -141,6 +143,46 @@ def test_set_service_info_from_config_corrupt() -> None:
     with app.app_context(), pytest.raises(ValidationError):
         service_info = RegisterServiceInfo()
         service_info.set_service_info_from_config()
+
+
+def test_set_service_info_from_config_empty() -> None:
+    """Empty service info in the config fails, also with none stored."""
+    app = Flask(__name__)
+    endpoints = {**deepcopy(ENDPOINT_CONFIG), "service_info": {}}
+    app.config.foca = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=endpoints,
+    )
+    app.config.foca.db.dbs["drsStore"].collections[
+        "service_info"
+    ].client = mongomock.MongoClient().db.collection
+
+    with app.app_context(), pytest.raises(ValidationError):
+        RegisterServiceInfo().set_service_info_from_config()
+
+
+def test__upsert_service_info_conflict() -> None:
+    """A record with the same `id`, stored meanwhile, is removed on conflict.
+
+    E.g., by an instance of an earlier version during a rolling update,
+    between the removal of other records and the replacement.
+    """
+    app = Flask(__name__)
+    app.config.foca = Config(
+        db=MongoConfig(**MONGO_CONFIG),
+        endpoints=ENDPOINT_CONFIG,
+    )
+    collection = MagicMock()
+    collection.replace_one.side_effect = [DuplicateKeyError("id"), None]
+    app.config.foca.db.dbs["drsStore"].collections["service_info"].client = collection
+    data = deepcopy(SERVICE_INFO_CONFIG)
+
+    with app.app_context():
+        RegisterServiceInfo()._upsert_service_info(data=data)
+    assert collection.replace_one.call_count == 2
+    assert collection.delete_many.call_args_list[-1] == call(
+        {"id": data["id"], "_id": {"$ne": CURRENT_ID}}
+    )
 
 
 def test_set_service_info_from_config_skip() -> None:
