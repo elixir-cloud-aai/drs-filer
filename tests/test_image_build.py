@@ -3,7 +3,7 @@
 The image build downloads packages only with hash checks: the runtime
 dependencies and the build requirements of the app (`build-system.requires`)
 are exported from the lock (`uv.lock`), with their hashes, and installed with
-uv; the image has no pip. Its build context is checked by
+uv, as the base image has no pip. Its build context is checked by
 `tests/test_dockerignore.py`.
 """
 
@@ -208,19 +208,17 @@ def test_locked_foca_is_base_image_foca() -> None:
     """The lock has the FOCA release of the base image.
 
     The image build fails otherwise (`scripts/image_requirements.py`); this
-    test fails earlier, without building the image. The tag of the FOCA 0.13
-    image is a date, so the `Dockerfile` names its FOCA release in a comment
-    right above it. A FOCA commit pin has no locked release, and is checked
-    by `scripts/image_requirements.py`.
+    test fails earlier, without building the image. A FOCA commit pin
+    (temporary) has no locked release, and is checked by
+    `scripts/image_requirements.py`.
     """
     locked = _locked_versions(_export("--no-dev"))
     match = re.search(
-        r"^## FOCA release: (?P<version>\S+)\n"
-        r"FROM elixircloud/foca:[^@\s]+@sha256:[0-9a-f]{64} AS base$",
+        r"^FROM elixircloud/foca:(?P<version>[^-@\s]+)-py",
         DOCKERFILE.read_text(),
         flags=re.MULTILINE,
     )
-    assert match, "No FOCA base image, with its release, in the Dockerfile"
+    assert match, "No FOCA base image in the Dockerfile"
     assert locked.get("foca", match["version"]) == match["version"]
 
 
@@ -253,13 +251,13 @@ def test_runtime_requirements_without_build_requirements() -> None:
 
     They have hashes (except a temporary FOCA commit, which the image build
     leaves out), but no dev dependencies (the `dev` extra) and no `yq`, which
-    the Helm chart's config Job used. setuptools is a runtime dependency, as
-    FOCA 0.13 imports `pkg_resources` (`pyproject.toml`).
+    the Helm chart's config Job used.
     """
     exported = _export("--no-dev")
     packages = _pinned(exported)
-    assert {"connexion", "foca", "gunicorn", "setuptools"} <= packages.keys()
+    assert {"connexion", "foca", "gunicorn"} <= packages.keys()
     assert "yq" not in packages
+    assert "setuptools" not in packages
     assert "setuptools-scm" not in packages
     assert "pytest" not in packages
     # TEMPORARY: a FOCA commit has no hashes (see `_foca_commit()`)
@@ -346,8 +344,8 @@ def test_downloads_hash_checked() -> None:
     # As nothing is resolved (`--no-deps`), the installed packages are checked
     assert ["pip", "check", "--system"] in commands, commands
     for args in commands:
-        if args[:2] in (["pip", "check"], ["pip", "uninstall"]):
-            # Check or remove installed packages, download nothing
+        if args[:2] == ["pip", "check"]:
+            # Checks the installed packages, downloads nothing
             continue
         if args[0] == "pip":
             assert args[1] == "install", args
@@ -460,36 +458,3 @@ def test_uv_mounted_only() -> None:
     for options, commands in uses:
         assert "--mount=from=uv,source=/uv,target=/usr/local/bin/uv" in options
         assert commands[0] == "export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never"
-
-
-def test_build_tools_removed() -> None:
-    """The image has no build tools, and no pip.
-
-    The FOCA 0.13 image comes with compilers, headers, Git, curl and jq,
-    which the app doesn't need, and with pip and wheel, which nothing uses
-    at runtime: the final stage removes them.
-    """
-    purges = [
-        shlex.split(command)
-        for command in _run_commands()
-        if command.startswith("apt-get purge")
-    ]
-    assert len(purges) == 1, purges
-    assert {"build-essential", "python3-dev", "git", "curl", "jq"} <= set(purges[0])
-    assert "--auto-remove" in purges[0]
-    uninstalls = [
-        args
-        for args in map(_uv_args, _run_commands())
-        if args is not None and args[:2] == ["pip", "uninstall"]
-    ]
-    assert uninstalls == [
-        [
-            "pip",
-            "uninstall",
-            "--system",
-            "pip",
-            "wheel",
-            "pydantic-core",
-            "annotated-types",
-        ]
-    ]

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from typing import Any
 
+from foca.config.config_parser import ConfigParser
 import pytest
 import yaml
 
@@ -105,7 +106,7 @@ def test_chart_overlay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     overlay = tmp_path / path.name
     overlay.write_text(config_map["data"][path.name])
-    config = app_module._merged_config(str(overlay))
+    config = ConfigParser.merge_yaml(app_module.CONFIG_FILE, overlay)
     assert config["endpoints"]["url_prefix"] == "https"
     assert config["endpoints"]["external_host"] == "drs.example.org"
     assert config["endpoints"]["external_port"] == 443

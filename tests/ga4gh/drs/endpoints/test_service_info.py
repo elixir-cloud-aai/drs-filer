@@ -17,24 +17,24 @@ from drs_filer.errors.exceptions import (
 )
 from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
 
-INDEX_CONFIG = {"keys": [("id", 1)]}
-COLLECTION_CONFIG = {
+INDEX_CONFIG: dict[str, Any] = {"keys": [("id", 1)]}
+COLLECTION_CONFIG: dict[str, Any] = {
     "indexes": [INDEX_CONFIG],
 }
-DB_CONFIG = {
+DB_CONFIG: dict[str, Any] = {
     "collections": {
         "objects": COLLECTION_CONFIG,
         "service_info": COLLECTION_CONFIG,
     },
 }
-MONGO_CONFIG = {
+MONGO_CONFIG: dict[str, Any] = {
     "host": "mongodb",
     "port": 27017,
     "dbs": {
         "drsStore": DB_CONFIG,
     },
 }
-SERVICE_INFO_CONFIG = {
+SERVICE_INFO_CONFIG: dict[str, Any] = {
     "contactUrl": "mailto:support@example.com",
     "createdAt": "2019-06-04T12:58:19Z",
     "description": "This service provides...",
@@ -56,7 +56,7 @@ ENDPOINT_CONFIG: dict[str, Any] = {
     "external_port": 8080,
     "api_path": "ga4gh/drs/v1",
 }
-SERVICE_CONFIG = {
+SERVICE_CONFIG: dict[str, Any] = {
     "url_prefix": "http",
     "external_host": "1.2.3.4",
     "external_port": 8080,
@@ -259,6 +259,9 @@ def test__get_headers() -> None:
         db=MongoConfig(**MONGO_CONFIG),
         endpoints=ENDPOINT_CONFIG,
     )
+    app.config.foca.db.dbs["drsStore"].collections[
+        "service_info"
+    ].client = mongomock.MongoClient().db.collection
 
     with app.app_context():
         service_info = RegisterServiceInfo()

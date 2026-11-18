@@ -36,7 +36,7 @@ paths:
       parameters: []
       produces:
       - application/json
-      x-swagger-router-controller: ga4gh.drs.server
+      x-swagger-router-controller: drs_filer.ga4gh.drs.server
 definitions:
   Service:
     description: GA4GH service

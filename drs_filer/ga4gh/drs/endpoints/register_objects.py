@@ -8,7 +8,7 @@ from typing import Any
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import InternalServerError
-from drs_filer.utils import get_collection, get_foca_config
+from drs_filer.utils import get_collection, get_endpoints_config
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +31,20 @@ def register_object(
         A unique identifier for the object.
     """
     # Set parameters
-    foca_config = get_foca_config()
+    endpoints = get_endpoints_config()
     db_collection = get_collection("objects")
-    url_prefix = foca_config.endpoints["url_prefix"]
-    external_host = foca_config.endpoints["external_host"]
-    external_port = foca_config.endpoints["external_port"]
-    api_path = foca_config.endpoints["api_path"]
+    url_prefix = endpoints["url_prefix"]
+    external_host = endpoints["external_host"]
+    external_port = endpoints["external_port"]
+    api_path = endpoints["api_path"]
 
     # Set flags and parameters for POST/PUT routes
     replace = True
     was_replaced = False
     if object_id is None:
         replace = False
-        id_length = foca_config.endpoints["objects"]["id_length"]
-        id_charset: str = foca_config.endpoints["objects"]["id_charset"]
+        id_length = endpoints["objects"]["id_length"]
+        id_charset: str = endpoints["objects"]["id_charset"]
         # evaluate character set expression or interpret literal string as set
         # `eval()` of the operator's config (not of requests); replaced by a
         # literal character set in #54
@@ -117,11 +117,11 @@ def __add_access_ids(data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Returns:
         Access methods metadata complete with unique access identifiers.
     """
-    foca_config = get_foca_config()
+    endpoints = get_endpoints_config()
     # `eval()` of the operator's config (not of requests); replaced by a
     # literal character set in #54
-    id_charset = eval(foca_config.endpoints["access_methods"]["id_charset"])  # noqa: S307
-    id_length = foca_config.endpoints["access_methods"]["id_length"]
+    id_charset = eval(endpoints["access_methods"]["id_charset"])  # noqa: S307
+    id_length = endpoints["access_methods"]["id_length"]
     access_ids = []
     for method in data:
         access_id = generate_id(id_charset, id_length)

@@ -58,6 +58,22 @@ def GetObject(object_id: str) -> dict[str, Any]:
     Returns:
         DRS object as dictionary, JSONified if returned in app context.
     """
+    return _get_object(object_id)
+
+
+def _get_object(object_id: str) -> dict[str, Any]:
+    """Get DRS object, without logging the request (for other controllers).
+
+    Args:
+        object_id: Identifier of DRS object to be retrieved.
+
+    Returns:
+        DRS object as dictionary.
+
+    Raises:
+        drs_filer.errors.exceptions.ObjectNotFound: No object has the
+            identifier.
+    """
     db_collection = get_collection("objects")
     obj = db_collection.find_one({"id": object_id})
     if not obj:
@@ -79,7 +95,7 @@ def GetAccessURL(object_id: str, access_id: str) -> dict[str, Any]:
         any relevant header information; response is JSONified if returned in
         app context.
     """
-    obj = GetObject.__wrapped__(object_id)
+    obj = _get_object(object_id)
     try:
         access_methods = obj["access_methods"]
         access_urls = [
@@ -183,7 +199,7 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         return access_id
 
     # Nothing deleted: find out why, from the current state of the object
-    obj = GetObject.__wrapped__(object_id=object_id)
+    obj = _get_object(object_id)
     # Every object needs access methods (as in `GetAccessURL`)
     try:
         access_ids = [m.get("access_id") for m in obj["access_methods"]]

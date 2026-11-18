@@ -21,7 +21,6 @@ from collections.abc import Iterator
 import os
 from pathlib import Path
 import socket
-from types import SimpleNamespace
 from typing import Any
 
 from connexion import App
@@ -203,8 +202,8 @@ def mongo_client(
 ) -> MongoClient[dict[str, Any]]:
     """MongoDB client used by all apps created in a test (see `db_client`).
 
-    FOCA 0.13 connects with Flask-PyMongo to the configured host; the tests
-    replace that client.
+    FOCA connects with PyMongo to the configured host; the tests replace that
+    client.
 
     Args:
         monkeypatch: Patches of FOCA's MongoDB client.
@@ -213,20 +212,9 @@ def mongo_client(
     Returns:
         MongoDB client.
     """
-
-    def create_client(db: str, **kwargs: Any) -> SimpleNamespace:
-        """Replace FOCA's `_create_mongo_client()`.
-
-        Args:
-            db: Name of the database.
-            kwargs: Other arguments (app, host, port); ignored.
-
-        Returns:
-            Object with the database as `db`, as Flask-PyMongo's client.
-        """
-        return SimpleNamespace(db=db_client[db])
-
-    monkeypatch.setattr(register_mongodb, "_create_mongo_client", create_client)
+    monkeypatch.setattr(
+        register_mongodb, "MongoClient", lambda *args, **kwargs: db_client
+    )
     return db_client
 
 

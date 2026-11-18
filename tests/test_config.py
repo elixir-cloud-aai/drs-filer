@@ -7,6 +7,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "drs_filer" / "config.yaml"
 DEV_OVERLAY_PATH = ROOT / "config.dev.yaml"
+# HTTP methods of the Path Item Objects of OpenAPI 2
+METHODS = {"get", "put", "post", "delete", "options", "head", "patch"}
 
 
 def test_debug_mode_off() -> None:
@@ -17,21 +19,34 @@ def test_debug_mode_off() -> None:
     """
     server = yaml.safe_load(CONFIG_PATH.read_text())["server"]
     assert server["debug"] is False
-    assert server["environment"] == "production"
 
 
 def test_operations_routed_to_package() -> None:
     """All operations are routed to the controllers of the installed package.
 
-    The vendored specifications name `ga4gh.drs.server`, which is importable
-    only from the package directory, not from an installed package.
+    Each operation names `drs_filer.ga4gh.drs.server` itself: FOCA's
+    `add_operation_fields` doesn't change fields that operations set, and
+    `ga4gh.drs.server` is importable only from the package directory, not
+    from an installed package.
     """
     specs = yaml.safe_load(CONFIG_PATH.read_text())["api"]["specs"]
-    assert specs
-    for spec in specs:
-        assert spec["add_operation_fields"] == {
-            "x-swagger-router-controller": "drs_filer.ga4gh.drs.server",
-        }
+    paths = [path for spec in specs for path in spec["path"]]
+    assert paths
+    for path in paths:
+        spec = yaml.safe_load((CONFIG_PATH.parent / path).read_text())
+        operations = [
+            operation
+            for path_item in spec["paths"].values()
+            for method, operation in path_item.items()
+            if method in METHODS
+        ]
+        assert operations, path
+        for operation in operations:
+            controller = operation.get("x-swagger-router-controller")
+            assert controller == "drs_filer.ga4gh.drs.server", (
+                path,
+                operation["operationId"],
+            )
 
 
 def test_dev_overlay() -> None:

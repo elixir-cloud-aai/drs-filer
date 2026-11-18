@@ -61,11 +61,6 @@ disallow_untyped_defs = true
 disallow_any_generics = true
 warn_unused_ignores = true
 
-# FOCA 0.13 ships no type information
-[[tool.mypy.overrides]]
-module = ["foca", "foca.*"]
-ignore_missing_imports = true
-
 # Connexion 2 ships no type information
 [[tool.mypy.overrides]]
 module = ["connexion", "connexion.*"]
@@ -82,11 +77,13 @@ module = ["mongomock", "mongomock.*"]
 ignore_missing_imports = true
 
 # FOCA attaches its config to Flask's config at runtime (`app.config.foca`),
-# which the tests set up directly; the app code reads it through
-# `drs_filer.utils.get_foca_config()`
+# which the tests set up directly, also calling the undecorated controllers
+# (`__wrapped__`), and keeps the app's own section (`endpoints`) as an extra
+# field of its model, which the tests pass to `Config()`; the app code reads
+# them through `drs_filer.utils`
 [[tool.mypy.overrides]]
 module = ["tests.ga4gh.*"]
-disable_error_code = ["attr-defined"]
+disable_error_code = ["attr-defined", "call-arg"]
 
 [tool.coverage.run]
 source = ["drs_filer", "scripts"]
@@ -116,8 +113,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 # The Python version of the base image in the `Dockerfile`, the only one the
-# app is tested with. FOCA 0.13 has no image with a newer Python; the FOCA
-# upgrade moves to the org's default Python
+# app is tested with
 requires-python = ">=3.12"
 description = "GA4GH Data Repository Service (DRS) implementation by ELIXIR On-Cloud"
 license = "Apache-2.0"
@@ -125,12 +121,9 @@ dynamic = ["version"]
 dependencies = [
     # FOCA is bumped by hand, together with the base image in the
     # `Dockerfile`, which must have the locked FOCA release
-    "foca>=0.13.0,<0.14",
+    "foca>=0.22.0,<0.23",
     "gunicorn>=26.2.0,<28",
     "PyYAML>=6.0,<7",
-    # FOCA 0.13 imports `pkg_resources`, which setuptools 82 removed; drop
-    # with the FOCA upgrade (78.1.1 fixes CVE-2025-47273)
-    "setuptools>=78.1.1,<82",
 ]
 
 [project.optional-dependencies]
@@ -145,6 +138,7 @@ dev = [
     "pytest>=8.4",
     # Used by the tests; builds use `build-system.requires`
     "setuptools-scm>=8",
+    "types-jsonschema>=4.17",
     "types-PyYAML>=6.0.12",
     "types-requests>=2.31",
     # Locks the dependencies (`uv lock`); the tests export the lock with it
@@ -162,13 +156,6 @@ docs = [
 # checked by the tests), locked in `uv.lock` with their hashes, so that the
 # image build installs them hash-checked
 build-system = ["setuptools>=77", "setuptools-scm>=8"]
-
-[tool.uv]
-# FOCA 0.13 requires `typing`, the backport for Python 3.4 and earlier, which
-# is useless on later Pythons (its latest release would even be locked, which
-# refuses to install on them); left out of the lock. The base image has it
-# already, so FOCA's requirement is still met there
-override-dependencies = ["typing; python_version < '3.5'"]
 
 [project.readme]
 file = "README.md"

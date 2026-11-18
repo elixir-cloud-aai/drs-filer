@@ -6,11 +6,11 @@ FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678
 
 ##### BASE IMAGE #####
 ## Pinned by digest, so that rebuilds use the same base image. The image of
-## FOCA 0.13 (Python 3.12; FOCA 0.13 has no image with a newer Python); its
-## tag is a date, so the FOCA release it has is given here (checked by
-## `tests/test_image_build.py`):
-## FOCA release: 0.13.0
-FROM elixircloud/foca:20240520-py3.12@sha256:022f4581a0d2279ca708777fe45a044bc11744e05a9900fdc82e0b1d6420e518 AS base
+## the locked FOCA release, whose tag names it (checked by
+## `tests/test_image_build.py`), with Python 3.12. It has no pip, no build
+## tools (compilers, headers, Git, curl, jq), and runs as a non-root user
+## (UID 1000, group 0)
+FROM elixircloud/foca:0.22.0-py3.12@sha256:32219208c5b4254f877f78d40cb7bc7969d055dafc2e8cb1cdaf3fe578cd6fb6 AS base
 
 ##### BUILD #####
 ## Build the app's wheel, in a stage of its own, so that the image doesn't
@@ -24,6 +24,7 @@ FROM elixircloud/foca:20240520-py3.12@sha256:022f4581a0d2279ca708777fe45a044bc11
 ## with downloads that aren't hash-checked), offline and without network, so
 ## that it downloads nothing
 FROM base AS build
+USER root
 COPY pyproject.toml uv.lock /tmp/src/
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
   export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
@@ -50,8 +51,8 @@ RUN --network=none --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
 FROM base
 
 ##### METADATA #####
-## OCI annotations; images built from the FOCA image inherit its own labels,
-## so all static ones are set here
+## OCI annotations; images built from the FOCA image inherit its own, so all
+## static ones are set here
 LABEL org.opencontainers.image.title="DRS-Filer"
 LABEL org.opencontainers.image.description="GA4GH Data Repository Service (DRS) implementation by ELIXIR On-Cloud"
 LABEL org.opencontainers.image.url="https://github.com/elixir-cloud-aai/drs-filer"
@@ -61,46 +62,32 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.authors="ELIXIR On-Cloud <cloud-service@elixir-europe.org>"
 LABEL org.opencontainers.image.vendor="ELIXIR On-Cloud"
 
-## Remove the build tools and other programs of the FOCA 0.13 image that the
-## app doesn't need (compilers, headers, Git, curl, jq), as root (the FOCA
-## 0.13 image runs as root; the app runs as user 1000 below)
+## Install dependencies first, so that code changes do not reinstall them;
+## the FOCA image runs as non-root user. Only the locked ones are installed:
+## the runtime dependencies (`project.dependencies` of `pyproject.toml`; the
+## export leaves out the extras and the dependency group `build-system`),
+## with all their own dependencies, at the exact versions of `uv.lock`,
+## checked against its hashes, as wheels only, and without resolving
+## anything else (`--no-deps`), and compiled, as the root file system of
+## deployments may be read-only; as root (back to user 1000 below).
+## `--frozen` takes the lock as is, unchecked against `pyproject.toml` (CI's
+## `uv lock --check` checks it). A direct reference to a FOCA commit
+## (temporary) has no hash and is left out, as the image has no Git: the
+## build fails unless the base image has FOCA of that commit. It also fails
+## unless the base image has the locked FOCA release, if one is locked
+## (`scripts/image_requirements.py`). uv installs them into the Python of the
+## base image (`--system`), and its lock file in `/tmp` is removed. Packages
+## that the base image already has at the locked version are kept as they
+## are (trusted through its digest), not checked against the hashes again
 USER root
-RUN apt-get purge -y --auto-remove build-essential python3-dev git curl jq \
-  && rm -rf /var/lib/apt/lists/*
-
-## Install dependencies first, so that code changes do not reinstall them.
-## Only the locked ones are installed: the runtime dependencies
-## (`project.dependencies` of `pyproject.toml`; the export leaves out the
-## extras and the dependency group `build-system`), with all their own
-## dependencies, at the exact versions of `uv.lock`, checked against its
-## hashes, as wheels only, and without resolving anything else (`--no-deps`),
-## and compiled, as the root file system of deployments may be read-only.
-## `--frozen` takes the lock as is, unchecked against `pyproject.toml` (the
-## tests check it). The build fails unless the base image has the locked FOCA
-## release (`scripts/image_requirements.py`). uv installs them into the
-## Python of the base image (`--system`), and its lock file in `/tmp` is
-## removed.
-## Unlike later FOCA images, the FOCA 0.13 image doesn't match the release:
-## its FOCA (version 0.13.0) requires pydantic 2, the release pydantic 1. So
-## the packages that it already has at the locked version are reinstalled
-## from the lock too (`--reinstall`), hash-checked, as all others. It marks
-## the packages it installed with files (`REQUESTED`) that their records
-## (`RECORD`) don't list, which uv would leave behind on replacing them (as a
-## second installed version), so they are removed first. pip and wheel of the
-## base image are removed, as nothing installs packages at runtime, and so are
-## the leftovers of its pydantic 2 (pydantic-core, annotated-types); only
-## `typing`, which FOCA 0.13 requires (but doesn't use), stays unlocked
-## (`tool.uv` in `pyproject.toml`)
 COPY pyproject.toml uv.lock scripts/image_requirements.py /tmp/src/
 RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
   export UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never \
   && uv export --frozen --no-dev --no-emit-project \
     --project /tmp/src --output-file /tmp/src/locked.txt \
   && python /tmp/src/image_requirements.py /tmp/src/locked.txt > /tmp/src/requirements.txt \
-  && find /usr/local/lib -path "*/site-packages/*.dist-info/REQUESTED" -delete \
-  && uv pip install --system --reinstall --require-hashes --only-binary :all: \
-    --no-deps --compile-bytecode -r /tmp/src/requirements.txt \
-  && uv pip uninstall --system pip wheel pydantic-core annotated-types \
+  && uv pip install --system --require-hashes --only-binary :all: --no-deps \
+    --compile-bytecode -r /tmp/src/requirements.txt \
   && rm -f /tmp/uv-*.lock
 
 ## Install app from the wheel of the build stage (non-editable; the base

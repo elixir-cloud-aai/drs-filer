@@ -41,7 +41,7 @@ def test_get_access_url_object_not_found(client: FlaskClient) -> None:
     """The access URL of an unknown object is not found."""
     response = client.get(f"{API}/objects/unknown/access/unknown")
     assert response.status_code == 404
-    assert body(response)["msg"] == "The requested `DrsObject` wasn't found."
+    assert body(response)["detail"] == "The requested `DrsObject` wasn't found."
 
 
 def test_get_access_url_not_found(client: FlaskClient) -> None:
@@ -49,7 +49,7 @@ def test_get_access_url_not_found(client: FlaskClient) -> None:
     object_id, _ = _register(client, access_methods=1)
     response = client.get(f"{API}/objects/{object_id}/access/unknown")
     assert response.status_code == 404
-    assert body(response)["msg"] == "The requested access URL wasn't found."
+    assert body(response)["detail"] == "The requested access URL wasn't found."
 
 
 def test_get_access_url_invalid_parameter(client: FlaskClient) -> None:
@@ -106,7 +106,7 @@ def test_delete_access_method_not_found(client: FlaskClient) -> None:
     object_id, _ = _register(client, access_methods=2)
     response = client.delete(f"{API}/objects/{object_id}/access/unknown")
     assert response.status_code == 404
-    assert body(response)["msg"] == "The requested access method wasn't found."
+    assert body(response)["detail"] == "The requested access method wasn't found."
 
 
 def test_delete_access_method_object_not_found(client: FlaskClient) -> None:

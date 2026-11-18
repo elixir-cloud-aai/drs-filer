@@ -7,7 +7,7 @@ from drs_filer.errors.exceptions import (
     NotFound,
     ValidationError,
 )
-from drs_filer.utils import get_collection, get_foca_config
+from drs_filer.utils import get_collection, get_endpoints_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class RegisterServiceInfo:
             db_coll_info: Database collection storing service info objects.
             conf_info: Service info details as per enpoints config.
         """
-        conf = get_foca_config().endpoints
+        conf = get_endpoints_config()
         self.url_prefix = conf["url_prefix"]
         self.host_name = conf["external_host"]
         self.external_port = conf["external_port"]
