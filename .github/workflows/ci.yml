@@ -1,20 +1,22 @@
 # Everything that must pass on pull requests and pushes to `dev`: the pull
 # request title, lint, the docs build, test (against mongomock, with
 # coverage, and against MongoDB), the smoke test of the Docker Compose stack,
-# and, on pushes, the `dev` image, once all other jobs passed. Forks, which have none of the
-# secrets, run the same checks without publishing, unless they set the
-# repository variable `DOCKERHUB_ORG` to publish to their own organization.
+# the readiness of a release in preparation, the scan of the Docker image
+# for known vulnerabilities, and, on pushes, push the Docker image by digest
+# (with SBOM and provenance attestations), scan exactly that digest, then
+# attest, sign (Sigstore) and tag it `dev` and `sha-<commit>` once all other
+# jobs passed. Forks, which have none of the secrets, run the same checks
+# without publishing, unless they set the repository variable
+# `DOCKERHUB_ORG` to publish to their own organization.
 # `github.repository_owner == 'elixir-cloud-aai'` marks runs of the upstream
 # repository. The gate `passed` ("CI passed") is the only required check. No
 # `paths:` filters, so that the gate always reports; skip jobs with `if:`
 # instead (and allow the skip in the gate). Runs also when a pull request is
 # edited, so that the title check follows the title; all jobs run then, as a
 # run that skipped the tests would report "CI passed" for the commit. As in
-# trs-filer (`ci.yml`), without its chart, release readiness, image scan
-# and signing jobs: the image is pushed by tag, not by digest, and isn't
-# scanned or signed; it carries only BuildKit's unsigned SBOM and provenance
-# attestations, no signed GitHub attestations (drs-filer has no release
-# workflow yet)
+# trs-filer (`ci.yml`), without its chart jobs (#86). Releases are
+# published by `release.yml`, which requires a successful run of this
+# workflow for the push of the release commit
 
 name: CI
 on:
@@ -267,27 +269,93 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
-  # Builds the image and pushes it, tagged `dev` and `sha-<commit>` (never
-  # `latest`, which is for releases), once all other jobs passed. Pull
-  # requests (e.g., of Dependabot and forks) and pushes in forks without
-  # `DOCKERHUB_ORG` get no Docker Hub secrets and publish nothing. Only the
-  # newest commit of the branch is pushed (the head check below), so that an
-  # older run can't overwrite `dev`; no job-level concurrency group, which
-  # would cancel pending jobs and fail their gates. Needs the
-  # environment `dev-images`, with the secrets `DOCKERHUB_LOGIN` and
-  # `DOCKERHUB_TOKEN`, restricted to branch `dev`: if it is missing, GitHub
-  # creates it on the first run, unprotected and without the secrets, and
-  # the login fails
+  # The release workflow's checks of pins and curated notes, before the
+  # immutable tag exists: for the version in `CITATION.cff` (set before a
+  # release, see "Versioning and releases" in `docs/development.md`) while
+  # it has no tag, or its tag is on this commit. On pull requests and in
+  # forks, findings are warnings (so that they don't fail the gate). On
+  # pushes to the upstream repository, findings fail the run, which the
+  # release workflow requires to pass for the release commit; they also hold
+  # back the `dev` image (`publish` needs this job) until they are fixed
+  readiness:
+    name: Release readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The scripts use the standard library only
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # In forks, findings are warnings too: forks often lack the upstream
+      # repository's later tags, so released versions would look unreleased
+      - name: Check pins and release notes
+        env:
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          UPSTREAM: ${{ github.repository_owner == 'elixir-cloud-aai' }}
+        run: |
+          version="$(sed -En "s/^version:[[:space:]]*[\"']?([0-9A-Za-z.+-]+)[\"']?[[:space:]]*(#.*)?$/\1/p" CITATION.cff)"
+          if [[ -z "${version}" ]]; then
+              echo "No version in CITATION.cff: no release in preparation"
+              exit 0
+          fi
+          # The commit of the (annotated) tag, if any: later commits are
+          # skipped, but not the tagged commit itself (e.g., if it was
+          # tagged before this job ran)
+          tagged="$(git ls-remote origin "refs/tags/v${version}^{}" | cut -f1)"
+          if [[ -n "${tagged}" && "${tagged}" != "${SHA}" ]]; then
+              echo "v${version} is tagged: no release in preparation"
+              exit 0
+          fi
+          level=error
+          if [[ "${EVENT}" == "pull_request" || "${UPSTREAM}" != "true" ]]; then
+              level=warning
+          fi
+          status=0
+          python scripts/check_release_pins.py 2> pins.txt || status=1
+          sed "s/^::error::/::${level}::/" pins.txt
+          notes="docs/releases/${version}.md"
+          if [[ -f "${notes}" ]]; then
+              if grep -n "TODO" "${notes}"; then
+                  echo "::${level}::${notes} contains TODO: finish the release notes before tagging v${version}"
+                  status=1
+              fi
+              python scripts/release_notes.py check "${notes}" 2> notes.txt || status=1
+              sed "s/^::error /::${level} /" notes.txt
+          fi
+          if [[ "${level}" == "error" ]]; then
+              exit "${status}"
+          fi
+
+  # Builds the image and pushes it by digest only (untagged, with SBOM and
+  # provenance attestations, `mode=max`), for `scan` to scan and `publish`
+  # to sign and tag once all other jobs passed, as in `release.yml`. Runs
+  # alongside the tests, so that the scan starts early; digests of runs that
+  # fail (or fail the scan) are never signed or tagged, but stay on Docker
+  # Hub, untagged (pullable by digest only). Pull requests (e.g., of
+  # Dependabot and forks) and pushes in forks without `DOCKERHUB_ORG` get no
+  # Docker Hub secrets and publish nothing; `scan` and the Compose build of
+  # `smoke` build the image for them. Needs the environment `dev-images`,
+  # with the secrets `DOCKERHUB_LOGIN` and `DOCKERHUB_TOKEN`, restricted to
+  # branch `dev`: if it is missing, GitHub creates it on the first run,
+  # unprotected and without the secrets, and the login fails
   push:
     name: Push image
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # The same expression as `PUBLISH` (`tests/test_workflows.py`)
     if: github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')
-    needs: [lint, test, smoke]
+    # Docker Hub secrets; the environment only allows branch `dev`
     environment: dev-images
     permissions:
       contents: read
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -295,22 +363,7 @@ jobs:
           persist-credentials: false
           # Full history and tags, to derive the version
           fetch-depth: 0
-      - name: Check that commit is still the branch head
-        id: head
-        env:
-          REPOSITORY: ${{ github.repository }}
-          REF: ${{ github.ref }}
-          SHA: ${{ github.sha }}
-        run: |
-          head=$(git ls-remote "https://github.com/${REPOSITORY}.git" "${REF}" | cut -f1)
-          [ -n "${head}" ] || { echo "::error::Could not look up ${REF}"; exit 1; }
-          if [ "${head}" = "${SHA}" ]; then
-            echo "current=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::Skipping push: ${REF} has moved on to ${head}"
-          fi
       - name: Set up Python
-        if: steps.head.outputs.current == 'true'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -322,7 +375,6 @@ jobs:
       # installed at the exact versions of the lock, checked against its
       # hashes, as wheels only, into a virtual environment of their own
       - name: Derive version
-        if: steps.head.outputs.current == 'true'
         id: version
         run: |
           uv_image="$(sed -En 's/^FROM (ghcr\.io\/astral-sh\/uv:[^ @]+@sha256:[0-9a-f]{64}) AS uv$/\1/p' Dockerfile)"
@@ -343,50 +395,197 @@ jobs:
           echo "Version: ${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
-        if: steps.head.outputs.current == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      # `sha-<commit>` and `dev`, with OCI labels for the version, commit and
-      # source
-      - name: Generate image tags and labels
-        if: steps.head.outputs.current == 'true'
+      # OCI labels with the version, commit and source; the tags are set by
+      # `publish`, after the scan
+      - name: Generate image labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE_NAME }}
           flavor: latest=false
-          tags: |
-            type=sha,format=long
-            type=raw,value=dev
+          tags: type=raw,value=dev
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_LOGIN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push image by digest
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          sbom: true
+          provenance: mode=max
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.version.outputs.version }}
+
+  # Scans the image with Trivy (shared action
+  # `elixir-cloud-aai/.github/actions/scan-image`): where `push` runs
+  # (`PUBLISH`), exactly the digest that it pushed (`<image>@<digest>`;
+  # public, so pulling it needs no login), otherwise (pull requests, forks
+  # without `DOCKERHUB_ORG`) a local build; in a job without credentials or
+  # signing permissions, as the Trivy action resolves the Trivy binary from a
+  # mutable tag. The findings that have a fix are uploaded to code scanning
+  # (only in this repository, and not for pull requests from forks, whose
+  # token cannot write them), and the job fails on critical and high
+  # vulnerabilities that have a fix. Accepted findings are listed, with a
+  # reason and an expiry date, in `.trivyignore.yaml`. The release workflow
+  # scans the release image the same way (`release.yml`), and `latest` is
+  # scanned weekly (`scan.yml`)
+  scan:
+    name: Scan image
+    # Skipped where `PUBLISH` is "false"
+    needs: push
+    if: ${{ !cancelled() && (needs.push.result == 'success' || needs.push.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to code scanning
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        if: env.PUBLISH != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build image
+        if: env.PUBLISH != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          # Single image, for the local Docker daemon (no attestations)
+          provenance: false
+          # Named as the pushed image, so that code scanning matches the
+          # findings of both
+          tags: ${{ env.IMAGE_NAME }}:scan
+      - name: Determine image
+        id: image
+        env:
+          DIGEST: ${{ needs.push.outputs.digest }}
+        run: |
+          if [[ "${PUBLISH}" != "true" ]]; then
+            echo "image=${IMAGE_NAME}:scan" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid image digest '${DIGEST}'"
+            exit 1
+          fi
+          echo "image=${IMAGE_NAME}@${DIGEST}" >> "$GITHUB_OUTPUT"
+      - name: Scan image
+        uses: elixir-cloud-aai/.github/actions/scan-image@31f22fccc1f3c597ed7c1d1f75b2f85522155348 # v1.1.0
+        with:
+          image: ${{ steps.image.outputs.image }}
+          category: image
+          upload: ${{ github.repository_owner == 'elixir-cloud-aai' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+
+  # Attests the build provenance of the scanned digest (GitHub artifact
+  # attestation, also pushed to the registry), signs it with Sigstore keyless
+  # signing (`cosign`, via the workflow's OIDC token) and only then tags
+  # exactly that digest `dev` and `sha-<commit>` (never `latest`, which is
+  # for releases), once all other jobs passed, so that the published image is
+  # the scanned one; see "Verifying images" in `docs/operations.md`. Only
+  # the newest commit of the branch is tagged (the head check below), so
+  # that an older run can't move `dev` back; no job-level concurrency group,
+  # which would cancel pending jobs and fail their gates
+  publish:
+    name: Publish image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The same expression as `PUBLISH` (`tests/test_workflows.py`)
+    if: github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')
+    needs: [lint, docs, test, smoke, readiness, push, scan]
+    # Docker Hub secrets; the environment only allows branch `dev`
+    environment: dev-images
+    permissions:
+      contents: read
+      id-token: write # Sigstore signing certificates
+      attestations: write # GitHub artifact attestations
+    env:
+      DIGEST: ${{ needs.push.outputs.digest }}
+    steps:
+      - name: Check that commit is still the branch head
+        id: head
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          head=$(git ls-remote "https://github.com/${REPOSITORY}.git" "${REF}" | cut -f1)
+          [ -n "${head}" ] || { echo "::error::Could not look up ${REF}"; exit 1; }
+          if [ "${head}" = "${SHA}" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping publish: ${REF} has moved on to ${head}"
+          fi
+      - name: Check image digest
+        if: steps.head.outputs.current == 'true'
+        run: |
+          if [[ ! "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid image digest '${DIGEST}'"
+            exit 1
+          fi
+      - name: Set up Docker Buildx
+        if: steps.head.outputs.current == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to Docker Hub
         if: steps.head.outputs.current == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKERHUB_LOGIN }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push image
+      - name: Attest build provenance
         if: steps.head.outputs.current == 'true'
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          context: .
-          push: true
-          sbom: true
-          provenance: mode=max
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.version.outputs.version }}
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ env.DIGEST }}
+          push-to-registry: true
+          # No artifact metadata storage record (needs another permission)
+          create-storage-record: false
+      - name: Install cosign
+        if: steps.head.outputs.current == 'true'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      # The signature covers the digest, and so every tag of it
+      - name: Sign image
+        if: steps.head.outputs.current == 'true'
+        run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
+      # Of the scanned and signed digest. A single source is copied as is;
+      # `sha-<commit>` first, so that `dev` never moves to an image without
+      # its commit tag
+      - name: Tag image
+        if: steps.head.outputs.current == 'true'
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          for tag in "${IMAGE_NAME}:sha-${SHA}" "${IMAGE_NAME}:dev"; do
+            docker buildx imagetools create --tag "${tag}" "${IMAGE_NAME}@${DIGEST}"
+            actual="$(docker buildx imagetools inspect "${tag}" \
+              --format '{{ json .Manifest }}' | jq -r .digest)"
+            if [[ "${actual}" != "${DIGEST}" ]]; then
+              echo "::error::${tag} points to ${actual}, expected ${DIGEST}"
+              exit 1
+            fi
+          done
 
   # Gate, the only check that the ruleset requires: fails if any other job
   # failed or was cancelled, or was skipped where it should have run. Only
-  # `title` (on pushes and for Dependabot) and `push` (where `PUBLISH` is
-  # "false": pull requests, and forks without `DOCKERHUB_ORG`) may be
-  # skipped. Every other job goes into `needs` (`tests/test_workflows.py`)
+  # `title` (on pushes and for Dependabot), and `push` and `publish` (where
+  # `PUBLISH` is "false": pull requests, and forks without `DOCKERHUB_ORG`)
+  # may be skipped. Every other job goes into `needs`
+  # (`tests/test_workflows.py`)
   passed:
     name: CI passed
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [title, lint, docs, test, smoke, push]
+    needs: [title, lint, docs, test, smoke, readiness, push, scan, publish]
     if: always()
     permissions: {}
     steps:
@@ -395,5 +594,6 @@ jobs:
         with:
           needs: ${{ toJSON(needs) }}
           allow-skipped: >-
-            ${{ format('title {0}',
-              !(github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')) && 'push' || '') }}
+            ${{ format('title {0} {1}',
+              !(github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')) && 'push' || '',
+              !(github.event_name == 'push' && (github.repository_owner == 'elixir-cloud-aai' || vars.DOCKERHUB_ORG != '')) && 'publish' || '') }}
