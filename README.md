@@ -153,11 +153,13 @@ endpoints:
 ```
 
 Objects registered without an identifier (`POST /objects`) and their access
-methods get random identifiers of `id_length` characters (default 6) drawn from `id_charset` (default:
-letters, digits and `.-_~`), in `endpoints.objects` and
-`endpoints.access_methods`. `id_charset` lists the characters themselves;
-expressions such as `string.ascii_letters + string.digits` fail the start
-(see [Upgrading][upgrading]):
+methods get random identifiers of `id_length` characters (default 6), drawn
+from `id_charset` (default: letters, digits and `.-_~`), in
+`endpoints.objects` and `endpoints.access_methods`. `id_charset` lists the
+characters themselves, which must be unreserved characters of URLs (letters,
+digits and `.-_~`); other characters and expressions such as
+`string.ascii_letters + string.digits` fail the start (see
+[Upgrading][upgrading]):
 
 ```yaml
 endpoints:

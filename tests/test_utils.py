@@ -95,6 +95,9 @@ def test_get_id_settings() -> None:
     "settings",
     [
         {"id_charset": "string.ascii_letters", "id_length": 6},
+        {"id_charset": "'ab' + 'cd'", "id_length": 6},
+        {"id_charset": "ab/", "id_length": 6},
+        {"id_charset": ["a", "b"], "id_length": 6},
         {"id_charset": "", "id_length": 6},
         {"id_charset": None, "id_length": 6},
         {"id_charset": "abc", "id_length": -1},

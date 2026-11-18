@@ -94,12 +94,19 @@ def test_register_object_exceed_retries() -> None:
 
 
 def test_add_access_ids() -> None:
-    """Test for __add_access_ids()."""
+    """Access identifiers follow the settings of `endpoints.access_methods`.
+
+    Identifiers are drawn from `0123456789`, with length 6.
+    """
     app = Flask(__name__)
     app.config.foca = Config(endpoints=ENDPOINT_CONFIG)
     objects = json.loads(Path(data_objects_path).read_text())
     mock_data = objects[0]["access_methods"]
     with app.app_context():
         res = __add_access_ids(mock_data)
-        print(res)
-        assert isinstance(res, list)
+    assert isinstance(res, list)
+    access_ids = [method["access_id"] for method in res]
+    assert access_ids
+    for access_id in access_ids:
+        assert len(access_id) == 6
+        assert set(access_id) <= set("0123456789")

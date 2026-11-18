@@ -1,8 +1,8 @@
 """App tests of the identifier settings (`endpoints.*.id_charset`).
 
 Identifiers of objects and access methods are drawn from the configured
-characters themselves; expressions, which earlier versions evaluated, fail
-the start of the app.
+characters themselves, which must be unreserved characters of URLs;
+expressions, which earlier versions evaluated, fail the start of the app.
 """
 
 from pathlib import Path
@@ -61,6 +61,9 @@ def test_literal_charsets(
     [
         ("id_charset", 'string.ascii_letters + string.digits + ".-_~"'),
         ("id_charset", "string.digits"),
+        ("id_charset", "'0123456789abcdef'"),
+        ("id_charset", "ab/"),
+        ("id_charset", "a b"),
         ("id_charset", ""),
         ("id_charset", 123),
         ("id_length", 0),
@@ -92,25 +95,29 @@ def test_invalid_settings_fail_start(
         create_app()
 
 
+@pytest.mark.parametrize("section", ["objects", "access_methods"])
 def test_expression_not_evaluated(
-    mongo_client: MongoClient[dict[str, Any]], overlay: Path, tmp_path: Path
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    tmp_path: Path,
+    section: str,
 ) -> None:
-    """Other expressions are characters, too: they are never evaluated.
+    """Other expressions fail the start, too, and are never evaluated.
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
         tmp_path: Directory that an evaluated expression would write to.
+        section: Section of the identifier settings with the expression.
     """
     marker = tmp_path / "evaluated"
     expression = f"open({str(marker)!r}, 'w').close() or 'ab'"
-    _write_ids(
-        overlay,
-        objects={"id_charset": expression, "id_length": 6},
-        access={"id_charset": expression, "id_length": 6},
-    )
-    client = create_app().app.test_client()
-    response = client.post(f"{API}/objects", json=drs_object(1))
-    assert response.status_code == 200, body(response)
-    assert set(body(response)) <= set(expression)
+    settings = {
+        "objects": {"id_charset": "abc", "id_length": 6},
+        "access_methods": {"id_charset": "abc", "id_length": 6},
+    }
+    settings[section]["id_charset"] = expression
+    _write_ids(overlay, settings["objects"], settings["access_methods"])
+    with pytest.raises(ValueError, match="not unreserved characters"):
+        create_app()
     assert not marker.exists()
