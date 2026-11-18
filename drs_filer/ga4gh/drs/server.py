@@ -170,7 +170,8 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
         drs_filer.errors.exceptions.ObjectNotFound: If the object doesn't
             exist.
         drs_filer.errors.exceptions.AccessMethodNotFound: If the object has
-            no access method with the given identifier.
+            no access method with the given identifier (also if it has no
+            access methods, e.g., a bundle).
         drs_filer.errors.exceptions.AccessMethodNotDeleted: If attempting to
             delete the last remaining access method, i.e., if the object has
             no access method with another identifier.
@@ -199,11 +200,8 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
 
     # Nothing deleted: find out why, from the current state of the object
     obj = _get_object(object_id)
-    # Every object needs access methods (as in `GetAccessURL`)
-    try:
-        access_ids = [m.get("access_id") for m in obj["access_methods"]]
-    except KeyError as err:
-        raise InternalServerError from err
+    # Access methods are optional (e.g., for bundles), as in `GetAccessURL`
+    access_ids = [m.get("access_id") for m in obj.get("access_methods", [])]
     if access_id not in access_ids:
         raise AccessMethodNotFound
     if all(other == access_id for other in access_ids):

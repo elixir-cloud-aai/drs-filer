@@ -217,14 +217,16 @@ def test_delete_access_method_duplicate_ids(
     assert len(obj["access_methods"]) == 2
 
 
-def test_delete_access_method_no_access_methods(
-    client: FlaskClient, objects: Collection[dict[str, Any]]
-) -> None:
-    """Deleting from an object stored without access methods is a server error."""
-    object_id, access_ids = _register(client, access_methods=1)
-    objects.update_one({"id": object_id}, {"$unset": {"access_methods": ""}})
-    response = client.delete(f"{API}/objects/{object_id}/access/{access_ids[0]}")
-    assert response.status_code == 500
+def test_delete_access_method_no_access_methods(client: FlaskClient) -> None:
+    """An object without access methods (e.g., a bundle) has none to delete."""
+    request_body = drs_object()
+    del request_body["access_methods"]
+    response = client.post(f"{API}/objects", json=request_body)
+    assert response.status_code == 200
+    object_id = body(response)
+    response = client.delete(f"{API}/objects/{object_id}/access/unknown")
+    assert response.status_code == 404
+    assert body(response)["detail"] == "The requested access method wasn't found."
 
 
 def test_delete_access_method_other_without_id(
