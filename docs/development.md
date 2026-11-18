@@ -423,7 +423,9 @@ The CI workflow builds the image of every pull request and scans it with
 [Trivy](https://trivy.dev/) (the shared action
 [`scan-image`](https://github.com/elixir-cloud-aai/.github/tree/main/actions/scan-image)
 of the organisation, pinned to the commit of a release), and a weekly
-workflow (`scan.yml`) scans `latest`. For pushes to `dev` and for releases,
+workflow (`scan.yml`) scans `latest`, from the first stable release on (a
+published GitHub release `vX.Y.Z`; until then, `latest` is a legacy image of
+2021 and the scan is skipped). For pushes to `dev` and for releases,
 the workflows push the image by digest, untagged, scan exactly that digest
 in a job without credentials or signing identity, and only if the scan
 passes attest, sign and tag it, so that the published images are the

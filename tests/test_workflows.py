@@ -532,6 +532,66 @@ def test_release_chart_check_runs(
     assert (result.returncode == 0) == passes, result.stdout + result.stderr
 
 
+def test_scheduled_scan_waits_for_release() -> None:
+    """The weekly scan of `latest` runs only once a stable release exists."""
+    steps = _load(WORKFLOWS / "scan.yml")["jobs"]["scan"]["steps"]
+    names = [step["name"] for step in steps]
+    check = steps[names.index("Check for a stable release")]
+    (scan,) = (step for step in steps if step.get("uses", "").startswith(SCAN_ACTION))
+    assert names.index(check["name"]) < names.index(scan["name"])
+    assert scan["if"] == f"steps.{check['id']}.outputs.found == 'true'"
+    assert scan["with"]["image"] == "${{ env.IMAGE_NAME }}:latest"
+
+
+@pytest.mark.parametrize(
+    ("tags", "status", "found"),
+    [
+        pytest.param("", 0, False, id="no-release"),
+        pytest.param("v1.2.3rc1\nv0.3.0b1", 0, False, id="pre-releases-only"),
+        pytest.param("v1.2.3rc1\nv1.2.3", 0, True, id="stable"),
+        pytest.param("xv1.2.3\nv1.2.3.4\nv1.2", 0, False, id="not-versions"),
+        pytest.param("v1.2.3", 1, False, id="lookup-fails"),
+    ],
+)
+def test_scheduled_scan_release_check_runs(
+    tmp_path: Path, tags: str, status: int, found: bool
+) -> None:
+    """The release check finds stable releases and fails if the lookup does.
+
+    The step's script runs as GitHub runs it (`bash -e`), with a stub of
+    `gh` that prints the tags of the published releases (or fails).
+
+    Args:
+        tmp_path: Directory of the stub and the output file.
+        tags: Tags that the stub prints, one per line.
+        status: Exit status of the stub.
+        found: Whether the step reports a stable release.
+    """
+    bash = shutil.which("bash")
+    assert bash
+    steps = _load(WORKFLOWS / "scan.yml")["jobs"]["scan"]["steps"]
+    step = {step["name"]: step for step in steps}["Check for a stable release"]
+    stub = tmp_path / "gh"
+    (tmp_path / "tags").write_text(tags)
+    stub.write_text(f'#!{bash}\ncat "{tmp_path / "tags"}"\nexit {status}\n')
+    stub.chmod(0o755)
+    output = tmp_path / "output"
+    output.touch()
+    result = subprocess.run(  # noqa: S603 (fixed arguments, no shell)
+        [bash, "--noprofile", "--norc", "-e", "-c", step["run"]],
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+        },
+        check=False,
+    )
+    assert (result.returncode == 0) == (status == 0), result.stderr
+    assert ("found=true" in output.read_text()) == found
+
+
 def test_verification_commands() -> None:
     """The verification commands name the workflows that sign the images.
 

@@ -51,14 +51,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # `latest` is published by `release.yml` for stable releases only;
-      # until the first one (tag `vX.Y.Z`), `latest` is a legacy image of
-      # the code base before it (2021), which isn't scanned
+      # `latest` is tagged by `release.yml` for stable releases only, before
+      # it publishes their GitHub release; until the first one (`vX.Y.Z`,
+      # published, not a draft), `latest` is a legacy image of the code base
+      # before it (2021), which isn't scanned. Fails if the releases can't be
+      # listed, so that a failed lookup doesn't skip the scan unnoticed
       - name: Check for a stable release
         id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          if git ls-remote --tags origin 'v*' | cut -f2 \
-              | grep -Eq '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          tags="$(gh release list --exclude-drafts --limit 1000 --json tagName --jq '.[].tagName')"
+          if grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "${tags}"; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::No stable release yet: 'latest' is not a release image, skipping the scan"

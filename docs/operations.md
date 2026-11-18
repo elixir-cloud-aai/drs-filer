@@ -155,7 +155,8 @@ cosign verify-blob drs-filer-{{ chart_version }}.tgz \
 
 Images are scanned for known vulnerabilities with [Trivy](https://trivy.dev/)
 in CI and again before a release is published (both fail on fixable
-critical and high vulnerabilities), and the `latest` image weekly. The
+critical and high vulnerabilities), and the `latest` image weekly (from the
+first stable release on). The
 repository's code scanning alerts show the findings that have a fix, which
 the maintainers can act on; findings without a fix (often OS packages of
 the base image) appear there once a fix is released. The weekly scan also
