@@ -51,26 +51,34 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   deployment still replaces them (see
   [Configuration](../README.md#configuration)).
 - Objects and service info stored before the upgrade with other values
-  fail the validation of responses, too (`500 Internal Server Error`): to
-  find objects whose timestamps aren't RFC 3339 date-times, query the
-  database before upgrading, e.g., in the Compose stack:
+  fail the validation of responses, too (`500 Internal Server Error`); one
+  such object also fails `GET /objects`, which lists all objects. Once the
+  upgrade has rolled out (no old instance left that could still store such
+  values), list the objects whose timestamps FOCA refuses, with FOCA's own
+  check (which also refuses dates and times that don't exist, e.g.,
+  `2024-02-30T00:00:00Z`), in the app's container, e.g., in the Compose
+  stack (with the Helm chart: `kubectl exec deploy/drs-filer -- python -c
+  ...`):
 
   ```bash
-  docker compose exec mongodb mongosh drsStore --quiet --eval '
-    db.objects.find(
-      {$or: [
-        {created_time: {$not: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/i}},
-        {updated_time: {$exists: true, $not: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/i}}
-      ]},
-      {_id: 0, id: 1, created_time: 1, updated_time: 1}
-    )'
+  docker compose exec drs-filer python -c '
+  from foca.utils.service_info import is_date_time
+  from drs_filer.app import create_app
+  from drs_filer.utils import get_collection
+
+  with create_app().app.app_context():
+      for obj in get_collection("objects").find({}, {"_id": 0, "id": 1, "created_time": 1, "updated_time": 1}):
+          invalid = {key: value for key, value in obj.items() if key != "id" and not is_date_time(value)}
+          if invalid:
+              print(obj["id"], invalid)
+  ' 2>/dev/null
   ```
 
-  and register them again with valid timestamps (`PUT /objects/{object_id}`).
-  The query checks the shape of the timestamps only; FOCA also refuses
-  dates and times that don't exist (e.g., `2024-02-30T00:00:00Z` or
-  `2024-01-01T25:00:00Z`). One such object also fails `GET /objects`, which
-  lists all objects.
+  It prints the identifier and the invalid timestamps of each such object
+  (e.g., `abc123 {'created_time': '2024-06-12'}`); register them again with
+  valid timestamps (`PUT /objects/{object_id}`). If `GET /service-info`
+  fails after the upgrade, post valid service info
+  (`POST /service-info`).
 
 ### Configuration
 
