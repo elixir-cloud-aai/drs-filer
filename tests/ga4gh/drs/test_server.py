@@ -195,9 +195,9 @@ def test_GetAccessURL_Object_Not_Found() -> None:
             GetAccessURL.__wrapped__("001", "12")
 
 
-def test_GetAccessURL_Key_Error() -> None:
-    """GetAccessURL should raise an error when access methods are missing."""
-    with pytest.raises(InternalServerError):
+def test_GetAccessURL_No_Access_Methods() -> None:
+    """GetAccessURL should raise URLNotFound when access methods are missing."""
+    with pytest.raises(URLNotFound):
         app = Flask(__name__)
         app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG))
         app.config.foca.db.dbs["drsStore"].collections[

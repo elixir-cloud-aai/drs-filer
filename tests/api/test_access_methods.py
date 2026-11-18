@@ -72,14 +72,80 @@ def test_get_access_url_duplicate_ids(
     assert response.status_code == 500
 
 
+def test_get_access_url_other_without_id(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """Access methods stay accessible if another one has no ID.
+
+    Before #121, access methods could be stored without `access_id`.
+    """
+    object_id, access_ids = _register(client, access_methods=2)
+    objects.update_one(
+        {"id": object_id}, {"$unset": {"access_methods.0.access_id": ""}}
+    )
+    response = client.get(f"{API}/objects/{object_id}/access/{access_ids[1]}")
+    assert response.status_code == 200
+    assert body(response)["url"] == "https://storage.example.org/data/object-1.bam"
+    response = client.get(f"{API}/objects/{object_id}/access/{access_ids[0]}")
+    assert response.status_code == 404
+
+
+def test_reregister_access_method_without_id(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """Registering an object again gives its access methods new IDs.
+
+    As in the upgrade notes (`docs/upgrading.md`): the query finds objects
+    with access methods without `access_id`, and `PUT` of the object as
+    `GET` returns it, without `id`, `self_uri` and `access_id`, makes all
+    its access methods addressable.
+    """
+    query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
+    object_id, access_ids = _register(client, access_methods=2)
+    _register(client, access_methods=1)
+    objects.update_one(
+        {"id": object_id}, {"$unset": {"access_methods.0.access_id": ""}}
+    )
+    assert [obj["id"] for obj in objects.find(query)] == [object_id]
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    del obj["id"], obj["self_uri"]
+    for method in obj["access_methods"]:
+        method.pop("access_id", None)
+    response = client.put(f"{API}/objects/{object_id}", json=obj)
+    assert response.status_code == 200
+    assert list(objects.find(query)) == []
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    new_ids = [method["access_id"] for method in obj["access_methods"]]
+    # Generated anew: the kept identifier is replaced, too (a random repeat
+    # of the 6 characters is negligibly unlikely)
+    assert new_ids[1] != access_ids[1]
+    for method in obj["access_methods"]:
+        response = client.get(f"{API}/objects/{object_id}/access/{method['access_id']}")
+        assert response.status_code == 200
+        assert body(response) == method["access_url"]
+
+
 def test_get_access_url_no_access_methods(
     client: FlaskClient, objects: Collection[dict[str, Any]]
 ) -> None:
-    """An object stored without access methods is a server error."""
+    """An object without access methods (e.g., a bundle) has no access URL."""
     object_id, access_ids = _register(client, access_methods=1)
     objects.update_one({"id": object_id}, {"$unset": {"access_methods": ""}})
     response = client.get(f"{API}/objects/{object_id}/access/{access_ids[0]}")
-    assert response.status_code == 500
+    assert response.status_code == 404
+    assert body(response)["detail"] == "The requested access URL wasn't found."
+
+
+def test_get_access_url_method_without_url(client: FlaskClient) -> None:
+    """An access method registered without `access_url` has no access URL."""
+    request_body = drs_object(1)
+    del request_body["access_methods"][0]["access_url"]
+    object_id = body(client.post(f"{API}/objects", json=request_body))
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    access_id = obj["access_methods"][0]["access_id"]
+    response = client.get(f"{API}/objects/{object_id}/access/{access_id}")
+    assert response.status_code == 404
+    assert body(response)["detail"] == "The requested access URL wasn't found."
 
 
 def test_delete_access_method(client: FlaskClient) -> None:
