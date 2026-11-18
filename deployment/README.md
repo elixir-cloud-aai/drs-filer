@@ -20,11 +20,11 @@ The chart renders a config overlay into the `<app>-config` ConfigMap (see
 [Names and labels](#names-and-labels)), which FOCA merges into the base
 config on startup (via `FOCA_CONFIG_OVERLAY`):
 
-- `endpoints` (`url_prefix`, `external_host` and `external_port`) is set to
-  the public URL of the app, `https://<hostName>` on port 443, which the app
-  puts into the `self_uri` of objects; `hostName` is **required** (rendering
-  fails without it). Serve the app over HTTPS for it (see [Exposing the
-  app](#exposing-the-app)).
+- `custom.service` (`url_prefix`, `external_host` and `external_port`) is
+  set to the public URL of the app, `https://<hostName>` on port 443,
+  which the app puts into the `self_uri` of objects; `hostName` is
+  **required** (rendering fails without it). Serve the app over HTTPS for
+  it (see [Exposing the app](#exposing-the-app)).
 - `db.host` is set to the release's MongoDB Service (`<app>-mongodb`),
   unless MongoDB is external (see [External MongoDB](#external-mongodb)).
 - `config` overrides keys of the base config; it takes precedence over the
@@ -46,8 +46,8 @@ mongodb:
   auth:
     existingSecret: drs-filer-mongodb-credentials
 config:
-  endpoints:
-    service_info:
+  service_info:
+    service:
       id: org.example.drs
       name: Example DRS
       description: Data objects of the Example Organization
@@ -56,13 +56,16 @@ config:
         url: https://example.org
       contactUrl: mailto:drs-admins@example.org
       environment: prod
-      version: 1.0.0
 ```
 
-Without `endpoints.service_info`, deployments serve the **placeholder
+Without `service_info.service`, deployments serve the **placeholder
 service info** of the base config (`id: org.example.drs-filer`, organization
 `Example Organization`; see [Service
-info](https://drs-filer.readthedocs.io/en/latest/configuration/#service-info)).
+info](https://drs-filer.readthedocs.io/en/latest/configuration/#service-info));
+its `version` is that of the image's app, unless set. The value
+`config.endpoints` of earlier versions fails rendering, naming the keys
+that replace it (see
+[Upgrading](https://drs-filer.readthedocs.io/en/latest/upgrading/#typed-configuration)).
 The app checks the config on startup and refuses to start, with the reason
 in its log (check with `kubectl logs` and `kubectl rollout status` after
 installs and upgrades). Pods are restarted when the ConfigMap changes.

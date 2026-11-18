@@ -3,6 +3,81 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Typed configuration
+
+The settings of DRS-Filer itself moved from the untyped section `endpoints`
+to the section `custom`, which the app validates on startup (#93,
+`drs_filer/custom_config.py`), and the service info to FOCA's section
+`service_info`, which FOCA validates against the service info
+specification. Invalid values and unknown keys of `custom` (e.g., misspelled
+ones) fail the start, with an error that names the setting, but not the
+value; before, they failed requests, or were ignored. Invalid service info
+fails the start too, with the value in the error; other fields are served as
+extra fields (check the spelling of yours). A config with
+the section `endpoints` fails the start, too, and so does a Helm value
+`config.endpoints` (rendering fails), naming the new keys. Move the
+settings of your overlays (and of the Helm value `config`):
+
+| Before | Now |
+| --- | --- |
+| `endpoints.url_prefix`, `endpoints.external_host`, `endpoints.external_port`, `endpoints.api_path` | `custom.service.url_prefix`, `custom.service.external_host`, `custom.service.external_port`, `custom.service.api_path` |
+| `endpoints.objects.id_charset`, `endpoints.objects.id_length` | `custom.objects.id.charset`, `custom.objects.id.length` |
+| `endpoints.access_methods.id_charset`, `endpoints.access_methods.id_length` | `custom.access_methods.id.charset`, `custom.access_methods.id.length` |
+| `endpoints.service_info` | `service_info.service` |
+
+For example:
+
+```yaml
+custom:
+  service:
+    url_prefix: https
+    external_host: drs.example.org
+    external_port: 443
+  objects:
+    id:
+      charset: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+      length: 8
+service_info:
+  service:
+    id: org.example.drs
+    name: DRS-Filer of Example
+```
+
+- The default public host is `localhost` (was the IP address
+  `193.166.24.114`), as in the Compose overlay; deployments set their own,
+  as before (the Helm chart sets it from `hostName`).
+- `url_prefix` must be `http` or `https`, `external_host` a host name or IP
+  address (IPv6 addresses in brackets) without scheme, port or path (e.g.,
+  not `https://drs.example.org`, which gave broken `self_uri`s),
+  `external_port` an integer from 1 to 65535, and `api_path` segments of
+  letters, digits and `-._~` separated by `/` (not `.` or `..`), without
+  leading or trailing `/`. Lengths and ports are integers or strings of
+  digits (e.g., from `${VAR}`), not booleans or floats. The Helm chart
+  refuses a `hostName` that isn't a host name (e.g., with a scheme or
+  port).
+- The service info reports the version of the installed app (of the image)
+  as `version`, unless `service_info.service.version` is set (the base
+  config had the placeholder `0.0.0`). The base config no longer sets
+  `createdAt` and `updatedAt` (placeholders of 2020); they are served only
+  if set. Service info that doesn't conform to the specification (e.g., a
+  `documentationUrl` that isn't a URL) fails the start, instead of
+  `GET /service-info`. FOCA warns on startup of placeholder values in
+  reserved example domains (e.g., `example.org`), as those of the base
+  config.
+- Code that read the config with `drs_filer.utils.get_endpoints_config()`
+  or `get_id_settings()` uses `drs_filer.utils.get_custom_config()`.
+- Upgrade the image and the config together, and don't register objects
+  while the upgrade rolls out: an app of an earlier version that starts (or
+  starts a Gunicorn worker) with the new config ignores `custom` and
+  `service_info`, so it builds the `self_uri` of objects it registers from
+  its default host and serves its placeholder service info until an app of
+  the new version starts. With the Helm chart, both change in one
+  `helm upgrade`; pods of the earlier version still read the updated
+  ConfigMap until they are replaced. Objects registered meanwhile with
+  another host in `self_uri` can be registered again (`PUT
+  /objects/{object_id}`, see [Access methods without
+  identifiers](#access-methods-without-identifiers)).
+
 ## Helm chart on foca-common
 
 The Helm chart is rebuilt on FOCA's library chart `foca-common` (#86), as
@@ -81,13 +156,16 @@ stored by an earlier version: those stayed the ones served, which could make
 The service info is now stored as a single record, and the records of
 earlier versions are removed on the first start. Posted service info is
 served until the app starts again (also when Gunicorn starts a worker); to
-keep it, put it in the config (`endpoints.service_info`, see
-[Configuration](configuration.md#service-info)).
+keep it, put it in the config (`service_info.service`, see
+[Configuration](configuration.md#service-info) and [Typed
+configuration](#typed-configuration)).
 
 ## Identifier character sets
 
 The character sets of generated identifiers (`endpoints.objects.id_charset`
-and `endpoints.access_methods.id_charset`) list the characters themselves
+and `endpoints.access_methods.id_charset`, now `custom.objects.id.charset`
+and `custom.access_methods.id.charset`, see [Typed
+configuration](#typed-configuration)) list the characters themselves
 and are never evaluated (#54): Python expressions, which earlier versions
 evaluated with `eval()`, could run any code. Only unreserved characters of
 URLs are allowed (letters, digits and `.-_~`), as identifiers are part of
@@ -97,26 +175,28 @@ cryptographically secure source.
 - Expressions (e.g., `string.ascii_letters + string.digits` or
   `'0123456789abcdef'`, with quotes) and other characters (e.g., spaces or
   `/`) fail the start, with an error that names the setting (e.g.,
-  `Invalid 'endpoints.objects': ...`). Replace expressions with the
-  characters, e.g., the former default
-  `'string.ascii_letters + string.digits + ".-_~"'` with:
+  `objects.id.charset`). Replace expressions with the characters, e.g., the
+  former default `'string.ascii_letters + string.digits + ".-_~"'` with:
 
   ```yaml
-  endpoints:
+  custom:
     objects:
-      id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
+      id:
+        charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
     access_methods:
-      id_charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
+      id:
+        charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
   ```
 
   This is the default of the base config now, with the same characters as
-  before: overlays that don't set `id_charset` need no change.
+  before: overlays that don't set the character sets need no change.
 - Character sets of unreserved characters (e.g., `"abc123"`) keep working
   for object identifiers. They now work for access identifiers, too, and
   so do those that happened to be valid Python (e.g., digits only); both
   failed requests with `500 Internal Server Error`.
-- An empty or non-string `id_charset` (e.g., a YAML list, which worked for
-  object identifiers), or an `id_length` that isn't a positive integer, also
+- An empty or non-string character set (`id_charset`, now `charset`; e.g.,
+  a YAML list, which worked for object identifiers), or a length
+  (`id_length`, now `length`) that isn't a positive integer, also
   fails the start (before, `0` and negative lengths gave empty identifiers,
   and `true` identifiers of one character).
 - Identifiers registered before the upgrade stay as they are.
@@ -163,8 +243,9 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   object with `created_time: 2024-06-12`, or service info with
   `documentationUrl: docs/abc`).
 - The service info of the config is served as it is, so it must conform
-  too: check the `endpoints.service_info` of your overlay, as
-  `GET /service-info` fails with `500 Internal Server Error` otherwise. The
+  too: check the service info of your overlay (now
+  `service_info.service`, which is validated on startup, see [Typed
+  configuration](#typed-configuration)). The
   placeholders of the base config (`drs_filer/config.yaml`) conform now; a
   deployment still replaces them (see
   [Configuration](configuration.md)).

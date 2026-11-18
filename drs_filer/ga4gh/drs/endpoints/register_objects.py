@@ -7,7 +7,7 @@ from foca.utils.misc import generate_id
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import InternalServerError
-from drs_filer.utils import get_collection, get_endpoints_config, get_id_settings
+from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +30,14 @@ def register_object(
         A unique identifier for the object.
     """
     # Set parameters
-    endpoints = get_endpoints_config()
+    custom = get_custom_config()
     db_collection = get_collection("objects")
-    url_prefix = endpoints["url_prefix"]
-    external_host = endpoints["external_host"]
-    external_port = endpoints["external_port"]
-    api_path = endpoints["api_path"]
+    service = custom.service
+    id_config = custom.objects.id
 
     # Set flags and parameters for POST/PUT routes
-    replace = True
+    replace = object_id is not None
     was_replaced = False
-    if object_id is None:
-        replace = False
-        id_charset, id_length = get_id_settings("objects")
 
     # Add unique access identifiers for each access method
     if "access_methods" in data:
@@ -57,14 +52,15 @@ def register_object(
             object_id
             if object_id is not None
             else generate_id(
-                charset=id_charset,
-                length=id_length,
+                charset=id_config.charset,
+                length=id_config.length,
             )
         )
 
         # Generate DRS URL
         data["self_uri"] = (
-            f"{url_prefix}://{external_host}:{external_port}/{api_path}/{data['id']}"
+            f"{service.url_prefix}://{service.external_host}:"
+            f"{service.external_port}/{service.api_path}/{data['id']}"
         )
 
         # Replace or insert object, then return (PUT)
@@ -118,11 +114,11 @@ def __add_access_ids(
         InternalServerError: No unique identifier was found for an access
             method within `retries + 1` attempts.
     """
-    id_charset, id_length = get_id_settings("access_methods")
+    id_config = get_custom_config().access_methods.id
     access_ids: set[str] = set()
     for method in data:
         for _ in range(retries + 1):
-            access_id = generate_id(charset=id_charset, length=id_length)
+            access_id = generate_id(charset=id_config.charset, length=id_config.length)
             if access_id not in access_ids:
                 break
         else:

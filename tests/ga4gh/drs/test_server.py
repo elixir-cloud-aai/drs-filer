@@ -10,6 +10,7 @@ import mongomock
 from pymongo.collection import Collection
 import pytest
 
+from drs_filer.custom_config import CustomConfig
 from drs_filer.errors.exceptions import (
     AccessMethodNotDeleted,
     AccessMethodNotFound,
@@ -66,15 +67,19 @@ SERVICE_INFO_CONFIG: dict[str, Any] = {
     "version": "1.0.0",
 }
 
-ENDPOINT_CONFIG: dict[str, Any] = {
-    "objects": {"id_charset": "0123456789", "id_length": 6},
-    "access_methods": {"id_charset": "0123456789", "id_length": 6},
-    "service_info": deepcopy(SERVICE_INFO_CONFIG),
-    "url_prefix": "http",
-    "external_host": "1.2.3.4",
-    "external_port": 8080,
-    "api_path": "ga4gh/drs/v1",
-}
+# The app's own config: identifiers of digits, and the public URL
+CUSTOM_CONFIG = CustomConfig.model_validate(
+    {
+        "objects": {"id": {"charset": "0123456789", "length": 6}},
+        "access_methods": {"id": {"charset": "0123456789", "length": 6}},
+        "service": {
+            "url_prefix": "http",
+            "external_host": "1.2.3.4",
+            "external_port": 8080,
+            "api_path": "ga4gh/drs/v1",
+        },
+    }
+)
 
 data_objects_path = "tests/data_objects.json"
 
@@ -239,7 +244,7 @@ def test_GetAccessURL_Duplicate_Access_Id() -> None:
 def test_DeleteObject() -> None:
     """DeleteObject should return the id of the deleted object."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -260,7 +265,7 @@ def test_DeleteObject() -> None:
 def test_DeleteObject_Not_Found() -> None:
     """ObjectNotFound should be raised if object id is not found."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -282,7 +287,7 @@ def test_DeleteAccessMethod() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -300,7 +305,7 @@ def test_DeleteAccessMethod_ObjectNotFound() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -314,7 +319,7 @@ def test_DeleteAccessMethod_AccessMethodNotFound() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -333,7 +338,7 @@ def test_DeleteAccessMethod_AccessMethodNotDeleted(
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -354,7 +359,7 @@ def _seeded_app() -> tuple[Flask, Collection[dict[str, Any]]]:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     collection: Collection[dict[str, Any]] = mongomock.MongoClient().db.collection
     app.config.foca.db.dbs["drsStore"].collections["objects"].client = collection
@@ -437,7 +442,7 @@ def test_DeleteAccessMethod_InternalServerError(
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
@@ -452,7 +457,7 @@ def test_DeleteAccessMethod_InternalServerError(
 def test_PostObject() -> None:
     """Test for creating a new object with an auto-generated identifier."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -465,7 +470,7 @@ def test_PostObject() -> None:
 def test_PutObject() -> None:
     """Test for creating a new object with a user-supplied identigier."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -478,7 +483,7 @@ def test_PutObject() -> None:
 def test_PutObject_update() -> None:
     """Test for updating an existing object."""
     app = Flask(__name__)
-    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), endpoints=ENDPOINT_CONFIG)
+    app.config.foca = Config(db=MongoConfig(**MONGO_CONFIG), custom=CUSTOM_CONFIG)
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"
     ].client = mongomock.MongoClient().db.collection
@@ -497,7 +502,7 @@ def test_getServiceInfo() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     mock_resp = {**deepcopy(SERVICE_INFO_CONFIG), "_id": CURRENT_ID}
     app.config.foca.db.dbs["drsStore"].collections[
@@ -518,7 +523,7 @@ def test_postServiceInfo() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        endpoints=ENDPOINT_CONFIG,
+        custom=CUSTOM_CONFIG,
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"

@@ -20,6 +20,7 @@ import pytest
 import yaml
 
 from drs_filer import app as app_module
+from drs_filer.custom_config import CustomConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 CHART = ROOT / "deployment"
@@ -277,15 +278,17 @@ def test_names_from_release() -> None:
 def test_config_overlay() -> None:
     """The overlay has the public URL, MongoDB's host and the `config` value.
 
-    The public URL (`endpoints`) is `https://<hostName>:443`.
+    The public URL (`custom.service`) is `https://<hostName>:443`.
     """
-    config = overlay(render("--set", "config.endpoints.service_info.name=My DRS"))
-    assert config["endpoints"] == {
-        "url_prefix": "https",
-        "external_host": HOST,
-        "external_port": 443,
-        "service_info": {"name": "My DRS"},
+    config = overlay(render("--set", "config.service_info.service.name=My DRS"))
+    assert config["custom"] == {
+        "service": {
+            "url_prefix": "https",
+            "external_host": HOST,
+            "external_port": 443,
+        },
     }
+    assert config["service_info"] == {"service": {"name": "My DRS"}}
     assert config["db"] == {"host": MONGODB}
 
 
@@ -315,10 +318,11 @@ def test_overlay_merged_by_app(tmp_path: Path) -> None:
     file = tmp_path / path.name
     file.write_text(yaml.safe_dump(overlay(resources)), encoding="utf-8")
     config = ConfigParser.merge_yaml(app_module.CONFIG_FILE, file)
-    assert config["endpoints"]["url_prefix"] == "https"
-    assert config["endpoints"]["external_host"] == HOST
-    assert config["endpoints"]["external_port"] == 443
-    assert config["endpoints"]["api_path"] == "ga4gh/drs/v1"
+    service = CustomConfig(**config["custom"]).service
+    assert service.url_prefix == "https"
+    assert service.external_host == HOST
+    assert service.external_port == 443
+    assert service.api_path == "ga4gh/drs/v1"
     assert config["db"]["host"] == MONGODB
 
 
@@ -327,20 +331,20 @@ def test_config_overrides_generated() -> None:
     config = overlay(
         render(
             "--set",
-            "config.endpoints.external_port=8443",
+            "config.custom.service.external_port=8443",
             "--set",
-            "config.endpoints.objects.id_length=8",
+            "config.custom.objects.id.length=8",
         )
     )
-    assert config["endpoints"]["external_port"] == 8443
-    assert config["endpoints"]["external_host"] == HOST
-    assert config["endpoints"]["objects"] == {"id_length": 8}
+    assert config["custom"]["service"]["external_port"] == 8443
+    assert config["custom"]["service"]["external_host"] == HOST
+    assert config["custom"]["objects"] == {"id": {"length": 8}}
 
 
-def test_config_endpoints_null() -> None:
-    """`config.endpoints: null` keeps the generated public URL."""
-    config = overlay(render("--set-json", "config.endpoints=null"))
-    assert config["endpoints"]["external_host"] == HOST
+def test_config_custom_null() -> None:
+    """`config.custom: null` keeps the generated public URL."""
+    config = overlay(render("--set-json", "config.custom=null"))
+    assert config["custom"]["service"]["external_host"] == HOST
 
 
 def test_no_auth_settings() -> None:
@@ -527,6 +531,28 @@ def test_host_name_required() -> None:
 
 
 @pytest.mark.parametrize(
+    "host",
+    [
+        "https://drs.example.org",
+        "drs.example.org:443",
+        "drs.example.org/x",
+        "DRS.example.org",
+        "drs_filer.example.org",
+    ],
+)
+def test_host_name_invalid(host: str) -> None:
+    """Rendering fails for a `hostName` that isn't a lowercase DNS name.
+
+    Kubernetes requires lowercase DNS names (RFC 1123) as hosts, and the
+    app would refuse hosts with a scheme, port or path on startup.
+
+    Args:
+        host: Invalid host name.
+    """
+    assert "hostName" in render_error("--set", f"hostName={host}")
+
+
+@pytest.mark.parametrize(
     ("args", "message"),
     [
         (("--set", "host_name=drs.example.org"), "host_name was renamed to hostName"),
@@ -547,6 +573,28 @@ def test_legacy_values(args: tuple[str, ...], message: str) -> None:
     error = render_error(*args)
     assert message in error
     assert "From earlier charts" in error
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--set", "config.endpoints.external_port=8443"),
+        ("--set", "config.endpoints.service_info.name=My DRS"),
+        ("--set-json", "config.endpoints=null"),
+    ],
+)
+def test_config_endpoints_fails(args: tuple[str, ...]) -> None:
+    """The app's config section of earlier versions, `endpoints`, fails.
+
+    The app would fail to start with it; the error names the new sections.
+
+    Args:
+        args: Arguments that set `config.endpoints`.
+    """
+    error = render_error(*args)
+    assert "config.endpoints was replaced" in error
+    assert "config.custom.service" in error
+    assert "config.service_info.service" in error
 
 
 def test_legacy_values_before_host_name() -> None:

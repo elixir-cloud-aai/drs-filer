@@ -5,8 +5,8 @@ configuration (FOCA 0.22; see [FOCA's configuration
 reference](https://foca.readthedocs.io/en/latest/configuration/)):
 [`drs_filer/config.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/config.yaml),
 which is installed with the package and part of the image. The comments in
-the file describe each section; the section `endpoints` holds the settings
-of DRS-Filer itself.
+the file describe each section; the section `custom` holds the settings of
+DRS-Filer itself, and FOCA's section `service_info` the service info.
 
 ## Overlays
 
@@ -30,50 +30,75 @@ The settings that deployments usually change:
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `endpoints.url_prefix`, `endpoints.external_host`, `endpoints.external_port` | `http`, placeholder, `8080` | Public URL of the app, see [Public URL](#public-url) |
-| `endpoints.api_path` | `ga4gh/drs/v1` | Path of the API in the public URL |
-| `endpoints.service_info` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
-| `endpoints.objects`, `endpoints.access_methods` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
+| `custom.service.url_prefix`, `custom.service.external_host`, `custom.service.external_port` | `http`, `localhost`, `8080` | Public URL of the app, see [Public URL](#public-url) |
+| `custom.service.api_path` | `ga4gh/drs/v1` | Path of the API in the public URL |
+| `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
+| `custom.objects.id`, `custom.access_methods.id` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
 | `db.host`, `db.port` | `mongodb`, `27017` | MongoDB |
 | `server.debug` | `False` | Flask's debug mode, which allows executing arbitrary code: only for local development, see [Development](development.md#development-server) |
 | `log` | console, level `INFO` | Logging (Python's `logging.config` dictionary) |
 
+The app validates its settings on startup
+([`drs_filer/custom_config.py`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/custom_config.py)
+for `custom`, FOCA for the other sections): invalid values and unknown keys
+of `custom` (e.g., misspelled ones) fail the start, with an error that names
+the setting and the reason, but not the value. So does the section
+`endpoints` of earlier versions (see
+[Upgrading](upgrading.md#typed-configuration)). The service info is
+checked against the service info specification instead, which allows other
+fields (a misspelled field is served as an extra field), and its errors
+show the invalid value.
+
 ## Public URL
 
 A deployment's overlay sets at least its public URL, from which the app
-builds the `self_uri` and access URLs of objects, and its service info, as
-the base config has placeholders for both:
+builds the `self_uri` of objects
+(`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`), and its
+service info, as the base config has defaults for local development
+(`http://localhost:8080`) and placeholders for the service info:
 
 ```yaml
-endpoints:
-  url_prefix: https
-  external_host: drs.example.org
-  external_port: 443
+custom:
+  service:
+    url_prefix: https
+    external_host: drs.example.org
+    external_port: 443
 ```
+
+`url_prefix` is `http` or `https`; `external_host` a host name or IP
+address (IPv6 addresses in brackets), without scheme, port or path;
+`external_port` an integer from 1 to 65535; and `api_path` segments of
+letters, digits and `-._~`, separated by `/` (not `.` or `..`), without
+leading or trailing `/`. Integer settings (the port, the lengths of
+identifiers) take integers or strings of digits, so they can be set from
+environment variables (e.g., `external_port: ${PUBLIC_PORT}`).
 
 ## Service info
 
-The service info (`GET /service-info`) is served from
-`endpoints.service_info`. The config takes precedence: on each start, the
-app serves the service info of its config, and replaces any service info
-stored in the database with it, also service info with another `id`.
-Service info posted with `POST /service-info` is served until the app
-starts again: when a pod or container restarts, but also when Gunicorn
-starts a worker (each worker creates the app, e.g., after a worker timed
-out). To change the service info for good, set it in the deployment's
-overlay, not with `POST /service-info`. It is served as it is, so its URLs
-and timestamps must have the formats of the specification
-(`GET /service-info` fails with `500 Internal Server Error` otherwise):
+The service info (`GET /service-info`) is configured in FOCA's section
+`service_info`: the fields in `service_info.service`, and the package whose
+version is served as `version` (`service_info.package: drs-filer`, i.e., the
+version of the installed app, or of the image), unless
+`service_info.service.version` is set. FOCA validates it on startup against
+the service info specification, including the formats of URLs and
+timestamps, and warns of values in reserved example domains (e.g.,
+`example.org`), as the placeholders of the base config. Fields set to `null`
+in an overlay are removed (e.g., `createdAt: null`). The optional timestamps
+`createdAt` and `updatedAt` are served only if set.
+
+The config takes precedence: on each start, the app serves the service info
+of its config, and replaces any service info stored in the database with it,
+also service info with another `id`. Service info posted with `POST
+/service-info` is served until the app starts again: when a pod or container
+restarts, but also when Gunicorn starts a worker (each worker creates the
+app, e.g., after a worker timed out). To change the service info for good,
+set it in the deployment's overlay, not with `POST /service-info`:
 
 ```yaml
-endpoints:
-  service_info:
+service_info:
+  service:
     id: org.example.drs
     name: DRS-Filer of Example
-    type:
-      group: org.ga4gh
-      artifact: drs
-      version: 1.1.0
     description: Data Repository Service of Example
     organization:
       name: Example
@@ -81,27 +106,30 @@ endpoints:
     contactUrl: mailto:drs@example.org
     documentationUrl: https://drs-filer.readthedocs.io/
     createdAt: "2026-01-01T00:00:00Z"
-    updatedAt: "2026-01-01T00:00:00Z"
     environment: prod
-    version: 0.1.0
 ```
+
+The base config sets `type` (`org.ga4gh`, `drs`, `1.1.0`), which mappings
+in overlays are merged with.
 
 ## Identifiers
 
 Objects registered without an identifier (`POST /objects`) and their access
-methods get random identifiers of `id_length` characters (default 6), drawn
-from `id_charset` (default: letters, digits and `.-_~`), in
-`endpoints.objects` and `endpoints.access_methods`. `id_charset` lists the
+methods get random identifiers of `length` characters (default 6), drawn
+from `charset` (default: letters, digits and `.-_~`), in
+`custom.objects.id` and `custom.access_methods.id`. `charset` lists the
 characters themselves, which must be unreserved characters of URLs (letters,
 digits and `.-_~`); other characters and expressions such as
-`string.ascii_letters + string.digits` fail the start (see
+`string.ascii_letters + string.digits` fail the start, and so does a
+`length` that is not a positive integer (see
 [Upgrading](upgrading.md#identifier-character-sets)):
 
 ```yaml
-endpoints:
+custom:
   objects:
-    id_charset: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    id_length: 8
+    id:
+      charset: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+      length: 8
 ```
 
 ## Docker Compose
@@ -124,7 +152,7 @@ services:
 ## Helm chart
 
 The Helm chart writes its overlay to a ConfigMap: the public URL
-(`endpoints`, from the value `hostName`) and the MongoDB host, merged with
-the value `config`, which takes the settings of this page (e.g., the service
-info, `endpoints.service_info`; see [Configuration](deployment.md#configuration)
-in the deployment guide).
+(`custom.service`, from the value `hostName`) and the MongoDB host, merged
+with the value `config`, which takes the settings of this page (e.g., the
+service info, `service_info.service`; see
+[Configuration](deployment.md#configuration) in the deployment guide).

@@ -9,6 +9,10 @@ HTTP API, see [API](api.md) and the Swagger UI of a deployment.
 
 ::: drs_filer.gunicorn_config
 
+## Configuration
+
+::: drs_filer.custom_config
+
 ::: drs_filer.utils
 
 ## Controllers

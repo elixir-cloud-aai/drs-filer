@@ -11,6 +11,8 @@ import pytest
 import yaml
 
 from drs_filer import app as app_module
+from drs_filer.custom_config import CustomConfig
+from drs_filer.utils import get_custom_config
 
 PACKAGE_DIR = Path(app_module.__file__).resolve().parent
 
@@ -32,21 +34,40 @@ def _write(path: Path, content: dict[str, Any]) -> str:
 def test_create_app() -> None:
     """The app is created from the packaged config, with the service info.
 
-    The settings of generated identifiers are checked on startup.
+    FOCA validates the custom config against the app's model; sections of
+    earlier versions are checked on startup.
     """
     with (
         patch.object(app_module, "Foca") as foca,
         patch.object(app_module, "RegisterServiceInfo") as service_info,
-        patch.object(app_module, "check_id_settings") as check_id_settings,
+        patch.object(app_module, "check_removed_sections") as check_removed,
         # ast-grep-ignore: pydantic-v1-dict
         patch.dict(os.environ),
     ):
         os.environ.pop(app_module.OVERLAY_VARIABLE, None)
         app = app_module.create_app()
-    assert foca.call_args.kwargs["config_file"] == PACKAGE_DIR / "config.yaml"
+    assert foca.call_args.kwargs == {
+        "config_file": PACKAGE_DIR / "config.yaml",
+        "custom_config_model": "drs_filer.custom_config.CustomConfig",
+    }
     assert app is foca.return_value.create_app.return_value
     service_info.return_value.set_service_info_from_config.assert_called_once()
-    check_id_settings.assert_called_once_with()
+    check_removed.assert_called_once_with()
+
+
+def test_create_app_custom_config(
+    monkeypatch: pytest.MonkeyPatch, mongo_client: MongoClient[dict[str, Any]]
+) -> None:
+    """The custom config of the app is typed (`CustomConfig`).
+
+    Args:
+        monkeypatch: Fixture to unset the overlays with.
+        mongo_client: MongoDB client of the app.
+    """
+    monkeypatch.delenv(app_module.OVERLAY_VARIABLE, raising=False)
+    app = app_module.create_app()
+    with app.app.app_context():
+        assert isinstance(get_custom_config(), CustomConfig)
 
 
 def test_overlay_variable() -> None:
@@ -104,24 +125,26 @@ def test_create_app_overlays(
     first = _write(
         tmp_path / "first.yaml",
         {
-            "endpoints": {
-                "external_host": "first.example.org",
-                "external_port": 8443,
+            "custom": {
+                "service": {
+                    "external_host": "first.example.org",
+                    "external_port": 8443,
+                },
             },
         },
     )
     second = _write(
         tmp_path / "second.yaml",
-        {"endpoints": {"external_host": "localhost"}, "db": {"host": "db"}},
+        {"custom": {"service": {"external_host": "localhost"}}, "db": {"host": "db"}},
     )
     monkeypatch.setenv(app_module.OVERLAY_VARIABLE, f"{first}::{second}:")
     app = app_module.create_app()
     with app.app.app_context():
         config = get_config()
-    endpoints = (config.model_extra or {})["endpoints"]
-    assert endpoints["external_host"] == "localhost"
-    assert endpoints["external_port"] == 8443
-    assert endpoints["api_path"] == "ga4gh/drs/v1"
+        service = get_custom_config().service
+    assert service.external_host == "localhost"
+    assert service.external_port == 8443
+    assert service.api_path == "ga4gh/drs/v1"
     assert config.db is not None
     assert config.db.host == "db"
 

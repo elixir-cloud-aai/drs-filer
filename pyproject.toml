@@ -78,7 +78,7 @@ ignore_missing_imports = true
 
 # FOCA attaches its config to Flask's config at runtime (`app.config.foca`),
 # which the tests set up directly, also calling the undecorated controllers
-# (`__wrapped__`), and keeps the app's own section (`endpoints`) as an extra
+# (`__wrapped__`), and keeps the app's own section (`custom`) as an extra
 # field of its model, which the tests pass to `Config()`; the app code reads
 # them through `drs_filer.utils`
 [[tool.mypy.overrides]]

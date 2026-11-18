@@ -87,6 +87,23 @@ def body(response: TestResponse) -> Any:
     return data
 
 
+def error_messages(exc: BaseException) -> str:
+    """Get the messages of an exception and of the exceptions that caused it.
+
+    Args:
+        exc: Exception.
+
+    Returns:
+        The messages, one per line, from the exception to its first cause.
+    """
+    messages = []
+    current: BaseException | None = exc
+    while current is not None:
+        messages.append(str(current))
+        current = current.__cause__ or current.__context__
+    return "\n".join(messages)
+
+
 def validate_error(problem: Any) -> None:
     """Check that an error response body conforms to the specification.
 
