@@ -79,8 +79,8 @@ section](#usage). Docker Compose runs two services: `drs-filer`, published on
 with its data in the volume `mongodb-data`). Both have health checks.
 
 The image builds the app's wheel and installs it, with the dependencies
-locked in [`uv.lock`][uv-lock] (hash-checked), on the FOCA 0.13 image
-(Python 3.12), pinned by digest. It contains only the files listed in
+locked in [`uv.lock`][uv-lock] (hash-checked), on the image of FOCA 0.22
+(`elixircloud/foca:0.22.0-py3.12`, Python 3.12), pinned by digest. It contains only the files listed in
 [`.dockerignore`][dockerignore] (an allowlist); local secret files, such as
 `.env` files, are never copied into it. The image has no compilers and no
 pip; the app's files are owned by root and can't be changed by the app's
@@ -104,18 +104,26 @@ code execution for anyone who can reach an error page.
 The app's base config is [`drs_filer/config.yaml`][drs-filer-config], which
 is installed with the package. To override some values, write them to a
 config overlay file and list it in the environment variable
-`FOCA_CONFIG_OVERLAY` (several files separated by `:`); the app merges the
+`FOCA_CONFIG_OVERLAY` (several files separated by `:`); FOCA merges the
 overlays into the config on startup, in order. Mappings are merged
-recursively; all other values, including lists, replace those of the base
-config. Relative paths of API specifications are relative to the package.
-With overlays, the app writes the merged config to a temporary file (in
-`TMPDIR`, or `/tmp`) and removes it once parsed, so that directory must be
-writable (e.g., an `emptyDir` volume with a read-only root file system). A
-missing overlay fails the start.
+recursively; all other values, including lists and `null`, replace those of
+the base config. Relative paths of API specifications are relative to the
+package. A missing overlay fails the start, and so do keys that FOCA removed
+(see [Upgrading][upgrading]).
+
+Errors are answered with problem details (RFC 9457), as
+`application/problem+json`: `title`, `status` and `detail`, and, for
+invalid requests, the invalid fields in `errors` (the `Error` definition of
+the API specification). Requests and responses are validated against the
+API specification, including the formats of URLs (`uri`) and timestamps
+(`date-time`, RFC 3339, e.g., `2026-01-01T00:00:00Z`).
 
 A deployment's overlay sets at least its public URL, from which the app
 builds the `self_uri` and access URLs of objects, and its service info
-(`GET /service-info`), as the base config has placeholders for both:
+(`GET /service-info`), as the base config has placeholders for both. The
+service info is served as configured, so its URLs and timestamps must have
+the formats of the specification (`GET /service-info` fails with `500`
+otherwise):
 
 ```yaml
 endpoints:
@@ -204,10 +212,10 @@ FOCA_CONFIG_OVERLAY=config.local.yaml uv run python -m drs_filer.app
 ```
 
 The shipped config runs the development server without debug mode and
-reloader. For Flask's debugger and reloader, set `server.debug: True`,
-`server.environment: development` and `server.use_reloader: True` in a local
-overlay only (`config.local.yaml` is ignored by Git); never commit or deploy
-it.
+reloader. For Flask's debugger and reloader, set `server.debug: True` in a
+local overlay only (`config.local.yaml` is ignored by Git), with the
+server on a loopback host (`server.host: 127.0.0.1`; FOCA warns otherwise);
+never commit or deploy it.
 
 ### Tests
 
@@ -286,40 +294,10 @@ docker compose logs
 ### Upgrading
 
 Changes that need action when upgrading from earlier versions of the
-repository's default branch:
-
-- **Error responses:** `status_code` in error bodies is an integer (e.g.,
-  `404`), as the API specification defines; it was a string (`"404"`).
-- **Packaging:** `setup.py` and `requirements*.txt` are gone. Install with
-  `pip install .` (or `uv sync --locked --extra dev` for development); the
-  package's version comes from Git tags.
-- **Image:** the app is installed as a package (`drs_filer` in
-  `site-packages`); there is no `/app` directory, and no
-  `update-config-map.sh`, curl, jq, yq or pip in the image any more. Don't
-  mount a config at `/app/drs_filer/config.yaml`: mount an overlay instead
-  and set `FOCA_CONFIG_OVERLAY` (see [Configuration](#configuration)). The
-  development server runs with `python -m drs_filer.app`, from any directory.
-- **Docker Compose:** the app's service is `drs-filer` (was `drs`), published
-  on `127.0.0.1:8080` only, and MongoDB is 7.0 (was 3.6), not published on
-  the host, with its data in the volume `mongodb-data` (was the directory
-  `../data/drs/db`). MongoDB 7.0 can't read the data files of MongoDB 3.6.
-  To keep the data, migrate it without the app running, so that no write is
-  lost:
-  1. With the old checkout: `docker compose stop drs`, then
-     `docker compose exec mongodb mongodump --archive > drs.archive`, then
-     `docker compose down`.
-  2. With the new checkout: `docker compose up --detach --wait mongodb`
-     (MongoDB only), then `docker compose exec -T mongodb mongorestore
-     --archive < drs.archive`, and only then
-     `docker compose up --build --detach --wait`.
-
-  Restored objects keep the `self_uri` and access URLs they were registered
-  with (e.g., of an earlier public URL); `drs://` self URIs come with #97.
-- **Helm chart (3.0.0):** the Job that wrote the config into the ConfigMap
-  (with a service account bound to the `admin` cluster role) is replaced by
-  a ConfigMap with the chart's overlay; the value `apiServer` is gone, and
-  the ConfigMap is named `<appName>-config` (was `app-config`); `helm
-  upgrade` removes the old resources.
+repository's default branch are listed in
+[`docs/upgrading.md`][upgrading], newest first: the upgrade to FOCA 0.22
+changes error responses (problem details), validates the formats of URLs and
+timestamps, and removes some config keys.
 
 ## Citation
 
@@ -387,5 +365,6 @@ question etc.
 [res-semver]: <https://semver.org/>
 [res-swagger-ui]: <https://swagger.io/tools/swagger-ui/>
 [res-uv]: <https://docs.astral.sh/uv/>
+[upgrading]: docs/upgrading.md
 [uv-lock]: uv.lock
 [res-ga4gh-drs]: https://github.com/ga4gh/data-repository-service-schemas
