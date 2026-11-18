@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 import yaml
 
+from drs_filer.ga4gh.drs.endpoints.service_info import SERVICE_TYPE
 from tests.mock_data import (
     ADDITIONS_SPEC,
     API_DIR,
@@ -134,12 +135,13 @@ def test_drs_spec_version(drs_spec: dict[str, Any], additions: dict[str, Any]) -
     assert drs_spec["openapi"].startswith("3.")
     assert drs_spec["info"]["version"] == "1.5.0"
     assert "version" not in additions["info"]
-    service_type = load_yaml(CONFIG_FILE)["service_info"]["service"]["type"]
-    assert service_type == {
+    assert {
         "group": "org.ga4gh",
         "artifact": "drs",
-        "version": "1.5.0",
-    }
+        "version": drs_spec["info"]["version"],
+    } == SERVICE_TYPE
+    service_type = load_yaml(CONFIG_FILE)["service_info"]["service"]["type"]
+    assert service_type == SERVICE_TYPE
 
 
 def test_additions_keep_spec_operations(
@@ -221,13 +223,16 @@ def test_register_schema_follows_spec(
 
 
 def test_service_type_register_is_drs(additions: dict[str, Any]) -> None:
-    """Posted service info must be of type `drs`, as `GET` serves it.
+    """Posted service info must be of the type of the served API.
 
-    `GetServiceInfo` serves `DrsService`, whose `type.artifact` is `drs`.
+    `GetServiceInfo` serves `DrsService`, whose `type.artifact` is `drs`;
+    the group and version are those of the served specification.
     """
     schemas = additions["components"]["schemas"]
-    artifact = schemas["ServiceTypeRegister"]["properties"]["artifact"]
-    assert artifact["enum"] == ["drs"]
+    properties = schemas["ServiceTypeRegister"]["properties"]
+    assert {key: value["enum"] for key, value in properties.items()} == {
+        key: [value] for key, value in SERVICE_TYPE.items()
+    }
 
 
 def _foca_schemas() -> dict[str, Any]:
@@ -255,8 +260,12 @@ def test_error_responses_are_problems(
     """All error responses of the specification are problem details.
 
     The additions replace the `Error` schema (`msg`, `status_code`) of each
-    error response of the specification with `Problem`.
+    error response of the specification with `Problem`, and add the media
+    type that FOCA sends (`application/problem+json`); the specification's
+    `application/json` can't be removed (merged). The error responses that
+    only the additions define declare `application/problem+json` only.
     """
+    problem = {"schema": {"$ref": "#/components/schemas/Problem"}}
     errors = {
         name
         for name, response in drs_spec["components"]["responses"].items()
@@ -269,9 +278,19 @@ def test_error_responses_are_problems(
     assert errors
     replaced = additions["components"]["responses"]
     for name in errors:
-        assert replaced[name]["content"]["application/json"]["schema"] == {
-            "$ref": "#/components/schemas/Problem"
+        assert replaced[name]["content"] == {
+            "application/json": problem,
+            "application/problem+json": problem,
         }, name
+    for name in replaced.keys() - drs_spec["components"]["responses"].keys():
+        assert replaced[name]["content"] == {"application/problem+json": problem}, name
+    for path, operations in additions["paths"].items():
+        for method, operation in operations.items():
+            for code, response in operation.get("responses", {}).items():
+                if "content" in response and code.startswith(("4", "5")):
+                    assert response["content"] == {
+                        "application/problem+json": problem
+                    }, (path, method, code)
 
 
 def test_validate_error() -> None:

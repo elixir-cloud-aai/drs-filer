@@ -37,11 +37,12 @@ DRS-Filer serves the GA4GH DRS specification 1.5.0 (OpenAPI 3) instead of
   /objects/{object_id}` and `OPTIONS /objects`, for now. Before, they
   answered `405`.
 - **Service info:** the base config reports `type.version` `1.5.0` (was
-  `1.1.0`); remove `service_info.service.type` from your overlays, if set,
-  so that the version follows the app. `GET /service-info` also serves the
-  fields that DRS 1.5 requires (`maxBulkRequestLength` and `drs`, see
-  [Service info](api.md#service-info)). `POST /service-info` refuses these
-  fields and types other than `drs` (`400`).
+  `1.1.0`); remove `service_info.service.type` from your overlays, if set:
+  a type other than `org.ga4gh`, `drs`, `1.5.0` now fails the start. `GET
+  /service-info` also serves the fields that DRS 1.5 requires
+  (`maxBulkRequestLength` and `drs`, see [Service
+  info](api.md#service-info)). `POST /service-info` refuses these fields and
+  other types (`400`).
 - **Access methods** can be registered with the DRS 1.5 fields `cloud` and
   `available`; `authorizations` is refused (`400`), as DRS-Filer sets it.
 - **Errors** are problem details, as before; the served specification now

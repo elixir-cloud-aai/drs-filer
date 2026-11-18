@@ -9,6 +9,7 @@ from flask.testing import FlaskClient
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import PyMongoError
+import pytest
 import yaml
 
 from drs_filer.app import CONFIG_FILE, create_app
@@ -120,6 +121,28 @@ def test_post_service_info_invalid(client: FlaskClient) -> None:
     request_body = {key: value for key, value in SERVICE_INFO.items() if key != "id"}
     response = client.post(f"{API}/service-info", json=request_body)
     assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "service_type",
+    [
+        {"group": "org.ga4gh", "artifact": "trs", "version": "1.5.0"},
+        {"group": "org.ga4gh", "artifact": "drs", "version": "1.2.0"},
+        {"group": "org.example", "artifact": "drs", "version": "1.5.0"},
+    ],
+)
+def test_post_service_info_other_type(
+    client: FlaskClient, service_type: dict[str, str]
+) -> None:
+    """Service info of another type than DRS 1.5.0 is rejected.
+
+    It would describe another API than the one served.
+    """
+    response = client.post(
+        f"{API}/service-info", json={**SERVICE_INFO, "type": service_type}
+    )
+    assert response.status_code == 400
+    assert response.headers["Content-Type"] == "application/problem+json"
 
 
 def test_post_service_info_invalid_format(client: FlaskClient) -> None:

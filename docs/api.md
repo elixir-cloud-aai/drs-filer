@@ -23,8 +23,11 @@ merged by FOCA:
 
 Requests and responses are validated against the specification, including
 the formats of URLs (`uri`) and timestamps (`date-time`, RFC 3339, e.g.,
-`2026-01-01T00:00:00Z`); request bodies with fields that the specification
-doesn't define are rejected.
+`2026-01-01T00:00:00Z`). Request bodies of DRS-Filer's endpoints
+(registration, service info) with fields that the specification doesn't
+define are rejected; those of the [passport `POST`
+endpoints](#passport-post-endpoints) follow the DRS schemas, which allow
+other fields.
 
 !!! warning "No authentication yet"
     All endpoints, including those that change objects, are open to anyone
@@ -120,7 +123,8 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
   bulk reads (see [Passport POST endpoints](#passport-post-endpoints)).
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
-`type.artifact` `drs`; it can't set the computed fields.
+the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the
+computed fields.
 
 ## Passport POST endpoints
 
@@ -174,7 +178,8 @@ DRS-Filer serves the specification unchanged, but for these deviations
   answer `501`.
 - **Errors** are problem details (see [Errors](#errors)), not the `Error`
   schema of DRS (`msg`, `status_code`); the error responses of the served
-  specification refer to `Problem`.
+  specification refer to `Problem`, as `application/problem+json` (which
+  DRS-Filer sends) and `application/json` (which the specification declares).
 - **Authentication:** none yet
   ([#94](https://github.com/elixir-cloud-aai/drs-filer/issues/94)); the
   served specification declares no security requirements instead of

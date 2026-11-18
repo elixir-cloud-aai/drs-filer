@@ -13,7 +13,10 @@ from foca import Foca, get_config
 from foca.api.service_info import get_service_info as get_config_service_info
 from foca.config.config_parser import CONFIG_OVERLAY_ENV_VAR
 
-from drs_filer.ga4gh.drs.endpoints.service_info import RegisterServiceInfo
+from drs_filer.ga4gh.drs.endpoints.service_info import (
+    SERVICE_TYPE,
+    RegisterServiceInfo,
+)
 
 # The package, with the base config and the API specifications
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -52,21 +55,23 @@ def check_removed_sections() -> None:
 
 
 def check_service_type() -> None:
-    """Fail on service info of another type than DRS.
+    """Fail on service info of another type than the API that the app serves.
 
     `GET /service-info` serves `DrsService` (DRS 1.5.0), whose
     `type.artifact` is `drs`; FOCA validates the service info against the
-    GA4GH `Service` schema only, so that other types would fail every
-    response instead of the start.
+    GA4GH `Service` schema only, so that other artifacts would fail every
+    response instead of the start, and other groups or versions would
+    describe another API to clients and registries.
 
     Raises:
-        ValueError: `service_info.service.type.artifact` isn't `drs`.
+        ValueError: `service_info.service.type` isn't `SERVICE_TYPE`.
     """
-    artifact = get_config_service_info()["type"]["artifact"]
-    if artifact != "drs":
+    service_type = get_config_service_info()["type"]
+    if service_type != SERVICE_TYPE:
         raise ValueError(
-            "Invalid config: 'service_info.service.type.artifact' must be "
-            "'drs', the type of the API that DRS-Filer serves"
+            "Invalid config: 'service_info.service.type' must be "
+            f"{SERVICE_TYPE}, the type of the API that DRS-Filer serves, "
+            f"not {service_type}"
         )
 
 

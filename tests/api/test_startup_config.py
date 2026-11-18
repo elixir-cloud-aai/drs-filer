@@ -70,23 +70,34 @@ def test_no_service_info_fails_start(
         create_app()
 
 
+@pytest.mark.parametrize(
+    "service_type",
+    [
+        {"group": "org.ga4gh", "artifact": "trs", "version": "2.0.2"},
+        {"group": "org.ga4gh", "artifact": "drs", "version": "1.2.0"},
+        {"group": "org.example", "artifact": "drs", "version": "1.5.0"},
+    ],
+)
 def test_service_info_not_drs_fails_start(
-    mongo_client: MongoClient[dict[str, Any]], overlay: Path
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    service_type: dict[str, str],
 ) -> None:
-    """Service info of another type than DRS fails the start.
+    """Service info of another type than DRS 1.5.0 fails the start.
 
-    `GET /service-info` serves `DrsService`, of type `drs`, so that it would
-    fail every response instead.
+    `GET /service-info` serves `DrsService`, of type `drs`, so that another
+    artifact would fail every response instead, and another group or
+    version would describe another API.
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
+        service_type: Service type of the config.
     """
-    service_type = {"group": "org.ga4gh", "artifact": "trs", "version": "2.0.2"}
     overlay.write_text(
         yaml.safe_dump({"service_info": {"service": {"type": service_type}}})
     )
-    with pytest.raises(ValueError, match=r"type\.artifact"):
+    with pytest.raises(ValueError, match=r"service\.type"):
         create_app()
 
 

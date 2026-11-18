@@ -40,7 +40,7 @@ paths:
         "404":
           description: No service info is set.
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
     post:
@@ -225,7 +225,7 @@ paths:
             Refusing to delete the last remaining access method, i.e., the
             object has no access method with another identifier.
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
         "500":
@@ -241,11 +241,15 @@ paths:
 components:
   # Errors are FOCA's problem details (RFC 9457, sent as
   # `application/problem+json`) instead of the `Error` schema of the
-  # specification (`msg`, `status_code`)
+  # specification (`msg`, `status_code`); the specification's
+  # `application/json` can't be removed (merged), so both are `Problem`
   responses:
     400BadRequest:
       content:
         application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
     401Unauthorized:
@@ -253,9 +257,15 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     403Forbidden:
       content:
         application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
     404NotFoundDrsObject:
@@ -263,9 +273,15 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     404NotFoundAccess:
       content:
         application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
     413RequestTooLarge:
@@ -273,9 +289,15 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Problem"
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     500InternalServerError:
       content:
         application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
     501NotImplemented:
@@ -283,7 +305,7 @@ components:
         DRS-Filer doesn't implement the operation; `detail` says why and
         links to the documentation.
       content:
-        application/json:
+        application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
@@ -452,8 +474,9 @@ components:
       properties:
         group:
           type: string
+          enum:
+            - org.ga4gh
           description: Namespace in reverse domain name format.
-          example: org.ga4gh
         artifact:
           type: string
           enum:
@@ -461,8 +484,9 @@ components:
           description: Name of the API or GA4GH specification implemented.
         version:
           type: string
+          enum:
+            - "1.5.0"
           description: Version of the API or specification.
-          example: 1.5.0
     DrsObjectRegister:
       description: >-
         Metadata of a data object to register (`DrsObject` without the

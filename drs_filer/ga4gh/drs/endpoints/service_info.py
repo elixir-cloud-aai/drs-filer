@@ -28,6 +28,9 @@ CURRENT_ID = "current"
 # implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
 # is the least that the specification allows
 MAX_BULK_REQUEST_LENGTH = 1
+# The service type of the API that the app serves (DRS 1.5.0); the service
+# info must have it (config and `POST /service-info`)
+SERVICE_TYPE = {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
 
 
 def drs_service_fields() -> dict[str, Any]:
