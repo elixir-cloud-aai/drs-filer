@@ -96,18 +96,15 @@ def GetAccessURL(object_id: str, access_id: str) -> dict[str, Any]:
         app context.
     """
     obj = _get_object(object_id)
-    try:
-        access_methods = obj["access_methods"]
-        # Access methods stored before #121 may lack `access_id`; they can't
-        # be addressed, but don't break the lookup of the others
-        access_urls = [
-            d["access_url"] for d in access_methods if d.get("access_id") == access_id
-        ]
-    # Every object needs access methods, and an addressed one needs an
-    # `access_url`
-    except KeyError as err:
-        raise InternalServerError from err
-    if not access_urls:
+    # Access methods are optional (e.g., for bundles), and so are their
+    # `access_url`s; access methods stored before #121 may lack `access_id`
+    # (they can't be addressed, but don't break the lookup of the others)
+    access_urls = [
+        d.get("access_url")
+        for d in obj.get("access_methods", [])
+        if d.get("access_id") == access_id
+    ]
+    if not access_urls or access_urls == [None]:
         raise URLNotFound
     elif len(access_urls) == 1:
         return access_urls[0]

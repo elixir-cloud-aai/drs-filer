@@ -11,7 +11,9 @@ access method gets a unique identifier now; methods stored without one stay
 as they are. They can't be addressed by
 `GET /objects/{object_id}/access/{access_id}`, but no longer break it for
 the other access methods of the object (#123), which failed with
-`500 Internal Server Error`.
+`500 Internal Server Error`. Objects without access methods (e.g.,
+bundles) and access methods registered without `access_url` have no access
+URL: requests for them get `404 Not Found` (was `500`).
 
 - List the affected objects in the app's container, e.g., in the Compose
   stack (with the Helm chart: `kubectl exec deploy/drs-filer -- python -c

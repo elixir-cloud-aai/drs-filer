@@ -123,11 +123,24 @@ def test_reregister_access_method_without_id(
 def test_get_access_url_no_access_methods(
     client: FlaskClient, objects: Collection[dict[str, Any]]
 ) -> None:
-    """An object stored without access methods is a server error."""
+    """An object without access methods (e.g., a bundle) has no access URL."""
     object_id, access_ids = _register(client, access_methods=1)
     objects.update_one({"id": object_id}, {"$unset": {"access_methods": ""}})
     response = client.get(f"{API}/objects/{object_id}/access/{access_ids[0]}")
-    assert response.status_code == 500
+    assert response.status_code == 404
+    assert body(response)["detail"] == "The requested access URL wasn't found."
+
+
+def test_get_access_url_method_without_url(client: FlaskClient) -> None:
+    """An access method registered without `access_url` has no access URL."""
+    request_body = drs_object(1)
+    del request_body["access_methods"][0]["access_url"]
+    object_id = body(client.post(f"{API}/objects", json=request_body))
+    obj = body(client.get(f"{API}/objects/{object_id}"))
+    access_id = obj["access_methods"][0]["access_id"]
+    response = client.get(f"{API}/objects/{object_id}/access/{access_id}")
+    assert response.status_code == 404
+    assert body(response)["detail"] == "The requested access URL wasn't found."
 
 
 def test_delete_access_method(client: FlaskClient) -> None:
