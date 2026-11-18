@@ -5,9 +5,8 @@ description: >-
   by ELIXIR On-Cloud, with a MongoDB database
 icon: https://avatars.githubusercontent.com/u/60704687?s=48&v=4
 type: application
-# Placeholders: releases will set `version` and `appVersion` from the tag
-# (`vX.Y.Z`; the release workflow is yet to come). Replaces the version
-# 3.0.0 of the chart before foca-common, which was never released
+# Placeholders: the release workflow (yet to come) is to set `version` and
+# `appVersion` from the tag (`vX.Y.Z`)
 version: 0.0.0
 # `appVersion` is the default image tag, so the chart in the repository
 # deploys the `dev` image unless `drsFiler.tag` is set

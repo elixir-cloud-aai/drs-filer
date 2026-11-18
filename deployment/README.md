@@ -87,8 +87,9 @@ drsFiler:
 
 `drsFiler.image` may also include a tag or digest (e.g.,
 `docker.io/elixircloud/drs-filer:dev`, as in earlier charts); then
-`drsFiler.tag` must be empty. DRS-Filer has no releases yet; charts attached
-to releases will deploy the image of their release.
+`drsFiler.tag` must be empty. Charts packaged for releases set the release
+version as `version` and `appVersion`, so they deploy the image of their
+release.
 
 The image is pulled on every start of a pod (`drsFiler.imagePullPolicy:
 Always`), so that moving tags such as `dev` deploy the latest image; set
