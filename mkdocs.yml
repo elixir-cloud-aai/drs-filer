@@ -87,6 +87,8 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
+# Pages missing here fail the build; release notes
+# (`docs/releases/<version>.md`) go under "Changelog", newest first
 nav:
   - Home: index.md
   - Getting started: getting-started.md

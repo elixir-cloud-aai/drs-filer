@@ -13,8 +13,8 @@
 # `paths:` filters, so that the gate always reports; skip jobs with `if:`
 # instead (and allow the skip in the gate). Runs also when a pull request is
 # edited, so that the title check follows the title; all jobs run then, as a
-# run that skipped the tests would report "CI passed" for the commit. As in
-# trs-filer (`ci.yml`), without its chart jobs (#86). Releases are
+# run that skipped the tests would report "CI passed" for the commit. The
+# chart jobs follow with the library chart (#86). Releases are
 # published by `release.yml`, which requires a successful run of this
 # workflow for the push of the release commit
 

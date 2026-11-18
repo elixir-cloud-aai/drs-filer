@@ -29,6 +29,11 @@ annotations on standard error, if:
   requires (the values schema is that version's), so that no other version
   is released by accident, also not in pre-releases.
 
+The chart checks find nothing to check until the chart depends on the
+library chart (#86): the chart has no dependencies, `Chart.lock` or values
+schema yet. They are kept, as in the other FOCA apps, so that they apply as
+soon as it does.
+
 Usage: `python scripts/check_release_pins.py [<repository root>]`.
 
 Only the stdlib is used, so the workflow runs it without installing the app.

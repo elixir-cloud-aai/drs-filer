@@ -173,7 +173,7 @@ jobs:
       # is the release image. The chart's move to the library chart
       # foca-common (#86) changes the image values (`drsFiler.image` and
       # `drsFiler.tag`, with `appVersion` as the default tag) and adds the
-      # checks of `Chart.lock`, as in trs-filer
+      # checks of the locked library chart here
       - name: Package chart
         id: chart
         env:

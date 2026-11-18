@@ -169,9 +169,9 @@ condition and action pins. Its jobs, and how to run them locally:
 | `test` | Test (mongomock), Test (MongoDB 7.0) | `uv run coverage run -m pytest && uv run coverage report`, and against MongoDB as in [Tests](#tests) |
 | `smoke` | Smoke test | `docker compose up --build --detach --wait`, then the smoke test as in [Tests](#tests) |
 | `readiness` | Release readiness | The checks of pins and release notes in [Versioning and releases](#versioning-and-releases), for the version in `CITATION.cff` while it has no tag |
-| `push` | Push image | Pushes to `dev` in this repository only |
+| `push` | Push image | Pushes the image by digest, untagged (pushes to `dev` in this repository only) |
 | `scan` | Scan image | `docker build -t drs-filer:scan .`, then `trivy image --ignorefile .trivyignore.yaml drs-filer:scan` ([Trivy](https://trivy.dev/); CI fails on fixable critical and high findings only) |
-| `publish` | Publish image | Pushes to `dev` in this repository only |
+| `publish` | Publish image | Attests, signs and tags the scanned digest (pushes to `dev` in this repository only) |
 | `passed` | CI passed | Passes if all other jobs passed or were skipped as intended |
 
 `CI passed` is the only required check. Add every new job to its `needs`.
