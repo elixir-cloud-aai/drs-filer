@@ -265,9 +265,7 @@ def test_self_uri_of_stored_objects(
     expected = f"{SELF_URI_BASE}/legacy"
     obj = body(client.get(f"{API}/objects/legacy"))
     assert obj["self_uri"] == expected
-    assert [obj["self_uri"] for obj in body(client.get(f"{API}/objects"))] == [
-        expected
-    ]
+    assert [obj["self_uri"] for obj in body(client.get(f"{API}/objects"))] == [expected]
 
 
 @pytest.mark.parametrize(

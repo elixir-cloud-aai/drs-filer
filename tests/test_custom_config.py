@@ -17,7 +17,6 @@ from drs_filer.custom_config import (
     IdConfig,
 )
 
-
 # The required settings, which have no defaults
 REQUIRED: dict[str, Any] = {"drs": {"hostname": "drs.example.org"}}
 
@@ -37,7 +36,7 @@ def test_defaults() -> None:
 def test_hostname_required() -> None:
     """Without the DRS host name, the config is refused."""
     with pytest.raises(ValidationError, match="drs"):
-        CustomConfig()
+        CustomConfig.model_validate({})
 
 
 def test_service_section_removed() -> None:
@@ -47,7 +46,9 @@ def test_service_section_removed() -> None:
     URI of `custom.drs.hostname`.
     """
     with pytest.raises(ValidationError, match=r"custom\.drs\.hostname"):
-        CustomConfig(service={"external_host": "drs.example.org"}, **REQUIRED)
+        CustomConfig.model_validate(
+            {"service": {"external_host": "drs.example.org"}, **REQUIRED}
+        )
 
 
 def test_default_charset() -> None:

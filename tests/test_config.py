@@ -56,8 +56,8 @@ def test_dev_overlay() -> None:
     It sets the host name for the `self_uri` of objects
     (`drs://localhost/<id>`), trusts a fictitious issuer, as the app refuses
     to start without one, accepts tokens for any audience and starts without
-    admins; it changes nothing else, so that it keeps Flask's debug mode off and authentication
-    on.
+    admins; it changes nothing else, so that it keeps Flask's debug mode off
+    and authentication on.
     """
     overlay = yaml.safe_load(DEV_OVERLAY_PATH.read_text())
     assert overlay == {
