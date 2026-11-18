@@ -13,6 +13,7 @@ import yaml
 from drs_filer import app as app_module
 from drs_filer.custom_config import DEFAULT_ID_CHARSET, CustomConfig
 from drs_filer.utils import get_custom_config
+from tests.conftest import CONFIG_OVERLAY
 
 PACKAGE_DIR = Path(app_module.__file__).resolve().parent
 
@@ -29,18 +30,6 @@ def _write(path: Path, content: dict[str, Any]) -> str:
     """
     path.write_text(yaml.safe_dump(content))
     return str(path)
-
-
-def _hostname_only(path: Path) -> str:
-    """Write an overlay with the only required setting, the DRS host name.
-
-    Args:
-        path: Path of the overlay.
-
-    Returns:
-        The path, as a string.
-    """
-    return _write(path, {"custom": {"drs": {"hostname": "drs.example.org"}}})
 
 
 def test_create_app() -> None:
@@ -68,21 +57,16 @@ def test_create_app() -> None:
 
 
 def test_create_app_custom_config(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    mongo_client: MongoClient[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch, mongo_client: MongoClient[dict[str, Any]]
 ) -> None:
     """The custom config of the app is typed (`CustomConfig`).
 
-    The base config with the DRS host name only, which has no default.
-
     Args:
-        monkeypatch: Fixture to set the overlays with.
-        tmp_path: Directory of the overlay.
+        monkeypatch: Fixture to set the test overlay with (the settings
+            each deployment must make).
         mongo_client: MongoDB client of the app.
     """
-    overlay = _hostname_only(tmp_path / "overlay.yaml")
-    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, overlay)
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(CONFIG_OVERLAY))
     app = app_module.create_app()
     with app.app.app_context():
         assert isinstance(get_custom_config(), CustomConfig)
@@ -102,16 +86,14 @@ def test_create_app_any_working_directory(
 
     Their paths in the config are relative to the package, which FOCA
     resolves them against, so that the installed package (e.g., in the
-    image) works without a particular working directory. The base config
-    with the DRS host name only, which has no default.
+    image) works without a particular working directory.
 
     Args:
         monkeypatch: Fixture to change the working directory with.
         tmp_path: Working directory without the specifications.
         mongo_client: MongoDB client of the app.
     """
-    overlay = _hostname_only(tmp_path / "overlay.yaml")
-    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, overlay)
+    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, str(CONFIG_OVERLAY))
     monkeypatch.chdir(tmp_path)
     app = app_module.create_app()
     with app.app.app_context():
@@ -155,7 +137,9 @@ def test_create_app_overlays(
         tmp_path / "second.yaml",
         {"custom": {"drs": {"hostname": "localhost"}}, "db": {"host": "db"}},
     )
-    monkeypatch.setenv(app_module.OVERLAY_VARIABLE, f"{first}::{second}:")
+    monkeypatch.setenv(
+        app_module.OVERLAY_VARIABLE, f"{CONFIG_OVERLAY}:{first}::{second}:"
+    )
     app = app_module.create_app()
     with app.app.app_context():
         config = get_config()

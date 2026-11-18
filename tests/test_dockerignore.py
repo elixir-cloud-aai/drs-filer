@@ -117,6 +117,7 @@ def test_excluded(path: str) -> None:
         "drs_filer/config.yaml",
         "drs_filer/api/20250324.fe25c39.openapi.yaml",
         "drs_filer/api/additions.openapi.yaml",
+        "drs_filer/access_control/model.conf",
         "pyproject.toml",
         "uv.lock",
         "scripts/image_requirements.py",

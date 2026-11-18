@@ -7,6 +7,73 @@ server:
     debug: False
     testing: False
 
+# Authentication and access control, as in TRS-Filer and Cloud Registry:
+# reads are public; writes (registering, replacing and deleting objects and
+# access methods, posting the service info) require an access token (the
+# `security` of these operations in `api/additions.openapi.yaml`) and, until
+# objects have owners (#95), the role `admin`. See `docs/access-control.md`
+# Cf. https://foca.readthedocs.io/en/latest/configuration/auth/ and
+# https://foca.readthedocs.io/en/latest/configuration/access-control/
+security:
+    auth:
+        add_key_to_claims: True
+        algorithms:
+          - RS256
+        allow_expired: False
+        # Only access tokens as per RFC 9068 (`typ` header `at+jwt`); other
+        # tokens of the issuers, such as ID tokens, are rejected
+        verify_token_type: True
+        # The identity providers, their claims and the groups mapped to roles
+        # are deployment configuration, without defaults (see "Deployment
+        # configuration" in `docs/configuration.md`). Deployments must set:
+        # - `issuers`: the trusted token issuers (`iss` claim); tokens of
+        #   other issuers are rejected, and the app refuses to start without
+        #   any;
+        # - `audience`: the audiences of the apps calling DRS-Filer (`aud`
+        #   claim, usually the client IDs of portals, gateways or scripts);
+        #   FOCA refuses to start without it, unless `verify_audience` is
+        #   false.
+        # E.g.:
+        # issuers:
+        #   - https://login.example.org/oidc/
+        # audience:
+        #   - drs-portal
+        issuers: []
+        # Claims that the identity provider releases via user info only, not
+        # in access tokens, e.g., the group claim (`claim_groups`, needed for
+        # the admin role); none by default. E.g.:
+        # userinfo_claims:
+        #   - groups
+    # Access control: only admins may write, until objects have owners (#95);
+    # admins may do everything (the model's matcher), and no rule allows
+    # writes to other users. Policies are enforced on the operations that
+    # require a token (the writes)
+    # Cf. https://foca.readthedocs.io/en/latest/access-control/
+    access_control:
+        enabled: True
+        enforce: True
+        # Refuse to start if `enforce` is false, which would let any valid
+        # token of a trusted issuer write, not only admins (FOCA)
+        require_enforced: True
+        model: access_control/model.conf
+        db_name: drsStore
+        collection_name: policy_rules
+        # Deployments set the claim with the groups of users (`claim_groups`)
+        # and map their admin groups (values of that claim) to the role
+        # `admin` (`group_mapping`); the app refuses to start without them,
+        # unless `require_admin` is false. E.g.:
+        # claim_groups: groups
+        # group_mapping:
+        #   drs-admins: admin
+        # Refuse to start without admins, i.e., unless a group is mapped to
+        # the role `admin` (`group_mapping`) or a rule of `policies` grants
+        # it (FOCA; false: start with a warning)
+        require_admin: True
+        # Managed on startup (removed rules are deleted); cannot be changed
+        # via the permissions API. Named, so that overlays can add, change
+        # or remove single rules by name (`null` removes a rule); none yet
+        policies: {}
+
 db:
     host: mongodb
     port: 27017
@@ -47,6 +114,15 @@ api:
             # package
             add_operation_fields:
                 x-openapi-router-controller: drs_filer.ga4gh.drs.server
+            # FOCA's token validation, for the operations that require a
+            # token (`security` of `BearerAuth`: the writes)
+            add_security_fields:
+                x-bearerInfoFunc: foca.security.auth.validate_token
+            # `True` removes the security requirements: all operations,
+            # writes too, are public. For local development only (overlay
+            # `config.noauth.yaml`, see "Running without authentication" in
+            # `docs/development.md`), never for deployments
+            disable_auth: False
             connexion:
                 strict_validation: True
                 validate_responses: True

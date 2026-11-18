@@ -15,6 +15,7 @@ import yaml
 
 from drs_filer.app import CONFIG_FILE, create_app
 from drs_filer.ga4gh.drs.endpoints import service_info as service_info_module
+from tests.conftest import admin_client
 from tests.mock_data import API, DRS_SERVICE_FIELDS, SERVICE_INFO, body
 
 
@@ -65,14 +66,14 @@ def test_get_service_info_after_restart(
 
     Posted service info (here with another `id`) is served until then.
     """
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 201
     assert body(client.get(f"{API}/service-info")) == {
         **SERVICE_INFO,
         **DRS_SERVICE_FIELDS,
     }
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.get(f"{API}/service-info")
     assert response.status_code == 200
     assert body(response) == _config_service_info()
@@ -94,7 +95,7 @@ def test_get_service_info_from_config_with_stored_records(
     service_info.insert_one(
         {**SERVICE_INFO, "id": "org.example.other", "documentationUrl": "docs/abc"}
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.get(f"{API}/service-info")
     assert response.status_code == 200
     assert body(response) == config_info
@@ -113,7 +114,7 @@ def test_post_service_info_with_stored_records(
     The unique index on `id` doesn't get in the way of a record stored by an
     earlier version with the posted `id`.
     """
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     service_info.insert_one({**SERVICE_INFO, "name": "Old name"})
     response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 201

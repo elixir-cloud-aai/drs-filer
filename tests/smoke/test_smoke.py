@@ -3,7 +3,11 @@
 Skipped unless `DRS_FILER_URL` is set to the base URL of the API, e.g.,
 `http://localhost:8080/ga4gh/drs/v1`; network access is allowed for these
 tests (see `tests/smoke/conftest.py`). Each test registers the objects it
-needs and deletes them again.
+needs and deletes them again. Writes need an access token of an admin, set
+in `DRS_FILER_TOKEN`, unless authentication is disabled (as in CI, with
+`config.noauth.yaml` or `config.api.specs.drs.disable_auth` of the chart;
+see "Running without authentication" in `docs/development.md`); reads and
+the passport operations are sent without a token.
 """
 
 from collections.abc import Iterator
@@ -17,6 +21,10 @@ from tests.mock_data import DRS_SERVICE_FIELDS, SERVICE_INFO, drs_object
 
 DRS_FILER_URL = os.environ.get("DRS_FILER_URL", "")
 TIMEOUT = 30  # seconds per request
+# Session of the writes, with the token of `DRS_FILER_TOKEN`, if set
+WRITER = requests.Session()
+if token := os.environ.get("DRS_FILER_TOKEN", ""):
+    WRITER.headers["Authorization"] = f"Bearer {token}"
 
 pytestmark = pytest.mark.skipif(not DRS_FILER_URL, reason="DRS_FILER_URL not set")
 
@@ -52,13 +60,13 @@ def object_id() -> Iterator[str]:
     Yields:
         Identifier of the object.
     """
-    response = requests.post(
+    response = WRITER.post(
         _url("/objects/register"), json=drs_object(2), timeout=TIMEOUT
     )
     assert response.status_code == 200, response.text
     object_id: str = response.json()
     yield object_id
-    requests.delete(_url(f"/objects/{object_id}"), timeout=TIMEOUT)
+    WRITER.delete(_url(f"/objects/{object_id}"), timeout=TIMEOUT)
 
 
 @pytest.fixture
@@ -111,7 +119,7 @@ def test_put_object(object_id: str) -> None:
     """An object is replaced."""
     body = drs_object(2)
     body["name"] = "replaced.bam"
-    response = requests.put(_url(f"/objects/{object_id}"), json=body, timeout=TIMEOUT)
+    response = WRITER.put(_url(f"/objects/{object_id}"), json=body, timeout=TIMEOUT)
     assert response.status_code == 200
     assert _get_object(object_id).json()["name"] == "replaced.bam"
 
@@ -119,24 +127,24 @@ def test_put_object(object_id: str) -> None:
 def test_delete_access_method(object_id: str, access_ids: list[str]) -> None:
     """An access method is deleted, but not the last one."""
     url = _url(f"/objects/{object_id}/access/{access_ids[0]}")
-    response = requests.delete(url, timeout=TIMEOUT)
+    response = WRITER.delete(url, timeout=TIMEOUT)
     assert response.status_code == 200
     methods = _get_object(object_id).json()["access_methods"]
     assert [method["access_id"] for method in methods] == access_ids[1:]
     url = _url(f"/objects/{object_id}/access/{access_ids[1]}")
-    assert requests.delete(url, timeout=TIMEOUT).status_code == 409
+    assert WRITER.delete(url, timeout=TIMEOUT).status_code == 409
 
 
 def test_delete_object(object_id: str) -> None:
     """A deleted object is gone."""
-    response = requests.delete(_url(f"/objects/{object_id}"), timeout=TIMEOUT)
+    response = WRITER.delete(_url(f"/objects/{object_id}"), timeout=TIMEOUT)
     assert response.status_code == 200
     assert _get_object(object_id).status_code == 404
 
 
 def test_service_info() -> None:
     """Service info is set and returned."""
-    response = requests.post(_url("/service-info"), json=SERVICE_INFO, timeout=TIMEOUT)
+    response = WRITER.post(_url("/service-info"), json=SERVICE_INFO, timeout=TIMEOUT)
     assert response.status_code == 201
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)
     assert response.status_code == 200

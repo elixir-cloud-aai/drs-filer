@@ -14,6 +14,7 @@ import pytest
 import yaml
 
 from drs_filer.app import OVERLAY_VARIABLE, create_app
+from tests.conftest import CONFIG_OVERLAY, admin_client
 from tests.mock_data import API, body, drs_object, error_messages
 
 
@@ -147,14 +148,14 @@ def test_hostname_from_custom_config(
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
     """
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
     overlay.write_text(
         yaml.safe_dump({"custom": {"drs": {"hostname": "drs.example.net"}}})
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     for host in ("localhost", "drs.example.org", "attacker.example.com"):
         obj = body(
             client.get(
@@ -172,13 +173,16 @@ def test_no_hostname_fails_start(
 ) -> None:
     """Without `custom.drs.hostname`, which has no default, the start fails.
 
-    Only the base config (`config.yaml`), without the test overlay.
+    The test overlay without its `custom` section only.
 
     Args:
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
         monkeypatch: Fixture to set the overlays with.
     """
+    settings = yaml.safe_load(Path(CONFIG_OVERLAY).read_text())
+    del settings["custom"]
+    overlay.write_text(yaml.safe_dump(settings))
     monkeypatch.setenv(OVERLAY_VARIABLE, str(overlay))
     with pytest.raises(ValueError, match="custom configuration") as info:
         create_app()
@@ -194,14 +198,14 @@ def test_service_info_version_from_package(
         mongo_client: MongoDB client of the app.
         overlay: Config overlay of the test.
     """
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     info = body(client.get(f"{API}/service-info"))
     assert info["version"] == version("drs-filer")
     assert info["type"] == {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
     overlay.write_text(
         yaml.safe_dump({"service_info": {"service": {"version": "1.2.3"}}})
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     assert body(client.get(f"{API}/service-info"))["version"] == "1.2.3"
 
 
@@ -262,7 +266,7 @@ def test_integers_from_environment(
         "    id:\n"
         "      length: ${DRS_TEST_ID_LENGTH}\n"
     )
-    client = create_app().app.test_client()
+    client = admin_client(create_app())
     response = client.post(f"{API}/objects/register", json=drs_object(1))
     assert response.status_code == 200, body(response)
     object_id = body(response)
