@@ -52,6 +52,7 @@ def test_literal_charsets(
     assert len(object_id) == 12
     assert set(object_id) <= set("ab")
     obj = body(client.get(f"{API}/objects/{object_id}"))
+    assert len(obj["access_methods"]) == 2
     for method in obj["access_methods"]:
         assert len(method["access_id"]) == 40
         assert set(method["access_id"]) <= set("xyz")
