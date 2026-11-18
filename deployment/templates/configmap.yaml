@@ -1,0 +1,2 @@
+{{- include "drs-filer.checkUpgrade" . -}}
+{{- include "foca-common.configMap" (dict "root" . "settings" (include "drs-filer.settings" . | fromYaml)) }}

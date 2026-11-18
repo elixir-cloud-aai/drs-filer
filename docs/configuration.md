@@ -123,6 +123,8 @@ services:
 
 ## Helm chart
 
-The Helm chart writes its overlay (public URL and MongoDB host) to a
-ConfigMap, from the value `host_name`; it doesn't set the service info (see
-[Deployment](deployment.md)).
+The Helm chart writes its overlay to a ConfigMap: the public URL
+(`endpoints`, from the value `hostName`) and the MongoDB host, merged with
+the value `config`, which takes the settings of this page (e.g., the service
+info, `endpoints.service_info`; see [Configuration](deployment.md#configuration)
+in the deployment guide).
