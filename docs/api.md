@@ -38,7 +38,7 @@ doesn't define are rejected.
 | `PUT /objects/{object_id}` | DRS-Filer | Register an object with the given identifier, or replace the object of that identifier |
 | `DELETE /objects/{object_id}` | DRS-Filer | Delete an object |
 | `DELETE /objects/{object_id}/access/{access_id}` | DRS-Filer | Delete one of an object's access methods |
-| `POST /service-info` | DRS-Filer | Set the service info |
+| `POST /service-info` | DRS-Filer | Replace the service info until the next start, see [Service info](configuration.md#service-info) |
 
 `GET /objects` returns all objects at once, without pagination
 ([#59](https://github.com/elixir-cloud-aai/drs-filer/issues/59)).

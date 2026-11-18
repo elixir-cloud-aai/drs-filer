@@ -54,13 +54,16 @@ endpoints:
 ## Service info
 
 The service info (`GET /service-info`) is served from
-`endpoints.service_info`, which the app stores in the database on startup;
-`POST /service-info` replaces it, but only until the app (or a Gunicorn
-worker) starts again, which stores the configured service info again if the
-stored one differs. Set the service info of a deployment in its overlay,
-not with `POST /service-info`. It is served as it is, so its URLs and
-timestamps must have the formats of the specification (`GET /service-info`
-fails with `500 Internal Server Error` otherwise):
+`endpoints.service_info`. The config takes precedence: on each start, the
+app serves the service info of its config, and replaces any service info
+stored in the database with it, also service info with another `id`.
+Service info posted with `POST /service-info` is served until the app
+starts again: when a pod or container restarts, but also when Gunicorn
+starts a worker (each worker creates the app, e.g., after a worker timed
+out). To change the service info for good, set it in the deployment's
+overlay, not with `POST /service-info`. It is served as it is, so its URLs
+and timestamps must have the formats of the specification
+(`GET /service-info` fails with `500 Internal Server Error` otherwise):
 
 ```yaml
 endpoints:
