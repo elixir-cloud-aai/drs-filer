@@ -66,6 +66,17 @@ service_info:
   config.
 - Code that read the config with `drs_filer.utils.get_endpoints_config()`
   or `get_id_settings()` uses `drs_filer.utils.get_custom_config()`.
+- Upgrade the image and the config together, and don't register objects
+  while the upgrade rolls out: an app of an earlier version that starts (or
+  starts a Gunicorn worker) with the new config ignores `custom` and
+  `service_info`, so it builds the `self_uri` of objects it registers from
+  its default host and serves its placeholder service info until an app of
+  the new version starts. With the Helm chart, both change in one
+  `helm upgrade`; pods of the earlier version still read the updated
+  ConfigMap until they are replaced. Objects registered meanwhile with
+  another host in `self_uri` can be registered again (`PUT
+  /objects/{object_id}`, see [Access methods without
+  identifiers](#access-methods-without-identifiers)).
 
 ## Helm chart on foca-common
 

@@ -531,12 +531,20 @@ def test_host_name_required() -> None:
 
 
 @pytest.mark.parametrize(
-    "host", ["https://drs.example.org", "drs.example.org:443", "drs.example.org/x"]
+    "host",
+    [
+        "https://drs.example.org",
+        "drs.example.org:443",
+        "drs.example.org/x",
+        "DRS.example.org",
+        "drs_filer.example.org",
+    ],
 )
 def test_host_name_invalid(host: str) -> None:
-    """Rendering fails for a `hostName` that isn't a host name.
+    """Rendering fails for a `hostName` that isn't a lowercase DNS name.
 
-    The app would refuse it as its public host on startup.
+    Kubernetes requires lowercase DNS names (RFC 1123) as hosts, and the
+    app would refuse hosts with a scheme, port or path on startup.
 
     Args:
         host: Invalid host name.

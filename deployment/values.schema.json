@@ -13,8 +13,8 @@
     },
     "hostName": {
       "type": "string",
-      "pattern": "^$|^[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?(\\.[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*$",
-      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route), without scheme, port or path; also sets its public URL (custom.service of the app config), which the app checks the same way on startup; required"
+      "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$",
+      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route): a lowercase DNS name (RFC 1123, as Kubernetes requires for hosts), without scheme, port or path; also sets its public URL (custom.service of the app config); required"
     },
     "config": {
       "type": [
