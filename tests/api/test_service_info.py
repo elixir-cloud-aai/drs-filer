@@ -4,6 +4,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+from urllib.parse import urljoin
 
 from flask.testing import FlaskClient
 from pymongo import MongoClient
@@ -42,10 +43,17 @@ def test_get_service_info_from_config(client: FlaskClient) -> None:
 
 
 def test_post_service_info(client: FlaskClient) -> None:
-    """Posted service info replaces that of the config."""
+    """Posted service info replaces that of the config.
+
+    Its `Location` is a reference relative to the URL it was posted to (the
+    same as that of `GET /service-info`), so it needs no public URL in the
+    config and holds behind proxies with other hosts, ports or paths.
+    """
+    url = f"https://drs.example.org:8443/prefix{API}/service-info"
     response = client.post(f"{API}/service-info", json=SERVICE_INFO)
     assert response.status_code == 201
     assert response.headers["Content-Type"] == "application/json"
+    assert urljoin(url, response.headers["Location"]) == url
     response = client.get(f"{API}/service-info")
     assert response.status_code == 200
     assert body(response) == {**SERVICE_INFO, **DRS_SERVICE_FIELDS}

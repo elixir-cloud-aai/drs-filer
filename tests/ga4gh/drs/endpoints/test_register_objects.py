@@ -29,17 +29,12 @@ MONGO_CONFIG: dict[str, Any] = {
         "drsStore": DB_CONFIG,
     },
 }
-# The app's own config: identifiers of digits, and the public URL
+# The app's own config: identifiers of digits, and the public host name
 CUSTOM_CONFIG = CustomConfig.model_validate(
     {
         "objects": {"id": {"charset": "0123456789", "length": 6}},
         "access_methods": {"id": {"charset": "0123456789", "length": 6}},
-        "service": {
-            "url_prefix": "http",
-            "external_host": "1.2.3.4",
-            "external_port": 8080,
-            "api_path": "ga4gh/drs/v1",
-        },
+        "drs": {"hostname": "drs.example.org"},
     }
 )
 
@@ -67,7 +62,7 @@ def test_register_object_invalid_config() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        custom={"service": {"url_prefix": "http"}},
+        custom={"drs": {"hostname": "drs.example.org"}},
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "objects"

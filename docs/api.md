@@ -30,10 +30,15 @@ endpoints](#passport-post-endpoints) follow the DRS schemas, which allow
 other fields.
 
 Reads (the `GET` endpoints), the service info, the API specification and
-the Swagger UI are public. The endpoints of DRS-Filer that change objects
-and the service info (`POST /objects/register`, `PUT` and `DELETE` of
-objects, `DELETE` of access methods, `POST /service-info`) need an access
-token of an admin, sent as a bearer token (`Authorization: Bearer
+the Swagger UI are public, except access URLs (`GET
+/objects/{object_id}/access/{access_id}`), which need an access token of
+any user by default; while they do, objects are served without the
+`access_url` of their access methods (see [Requiring login for
+reads](access-control.md#requiring-login-for-reads), also to make them
+public, or to require login for all reads). The endpoints of DRS-Filer that
+change objects and the service info (`POST /objects/register`, `PUT` and
+`DELETE` of objects, `DELETE` of access methods, `POST /service-info`) need
+an access token of an admin, sent as a bearer token (`Authorization: Bearer
 <token>`); see [Access control](access-control.md).
 
 ## Endpoints
@@ -99,18 +104,27 @@ DRS-Filer sets the fields that the server owns:
   the configuration sets (see
   [Identifiers](configuration.md#identifiers)); for `PUT`, the identifier of
   the path.
-- `self_uri`: built from the public URL of the configuration and the
-  identifier (see [Public URL](configuration.md#public-url)).
+- `self_uri`: the DRS URI of the object, `drs://<hostname>/<id>`, of the
+  configured host name, with the identifier percent-encoded (see [Host
+  name](configuration.md#host-name)). It is computed when the object is
+  served, not stored, and replaces the `self_uri` that earlier versions
+  stored.
 - `access_id` of each access method: a random identifier, of the characters
   and length that the configuration sets for access methods. Clients use it
   to get the access URL (`GET /objects/{object_id}/access/{access_id}`) or to
-  delete the access method.
+  delete the access method. While access URLs need login (the default),
+  objects are served without their `access_url`, so the `access_id` is the
+  way to get it.
 - `authorizations` of access methods: how to authorize requests for the
   access URL, which only DRS-Filer knows; requests that set it are
   rejected. DRS-Filer doesn't serve it yet.
 
 `PUT` replaces the whole object of that identifier, if there is one, and
-gives its access methods new access identifiers. DRS-Filer stores the
+gives its access methods new access identifiers. While access URLs need
+login, objects are served without them, so don't send an object as `GET`
+returns it back with `PUT`: its access methods would lose their access URLs
+(see [Objects without access
+URLs](access-control.md#objects-without-access-urls)). DRS-Filer stores the
 metadata only: it doesn't check that access URLs work or that the checksums
 match the data.
 
@@ -129,7 +143,9 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
 the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the
-computed fields.
+computed fields. It answers `201` with the `Location` `service-info`, a
+relative reference to the URL it was posted to (that of `GET
+/service-info`).
 
 ## Passport POST endpoints
 
@@ -187,12 +203,16 @@ DRS-Filer serves the specification unchanged, but for these deviations
   DRS-Filer sends) and `application/json` (which the specification declares).
 - **Authentication:** reads take no credentials: the served specification
   declares no security requirements for them, instead of optional basic and
-  bearer authentication. DRS-Filer's write endpoints require bearer
-  authentication (`BearerAuth`, see [Access control](access-control.md)).
+  bearer authentication; except access URLs, and other reads that a
+  deployment requires login for, which require bearer authentication
+  (`BearerAuth`), as do DRS-Filer's write endpoints (see [Access
+  control](access-control.md)).
+- **Access URLs in objects:** while access URLs need login (the default),
+  objects are served without the `access_url` of their access methods,
+  which keep their `access_id` (DRS requires one of them); see [Objects
+  without access URLs](access-control.md#objects-without-access-urls).
 - **Bundles** are served as registered: `expand` of `GET
   /objects/{object_id}` is accepted, but ignored.
-- **`self_uri`** is the URL of the object, not a `drs://` URI yet
-  ([#97](https://github.com/elixir-cloud-aai/drs-filer/issues/97)).
 - **Service info:** `GET /service-info` can answer `404` before service info
   is set.
 - **CORS preflight requests** (`OPTIONS` with `Origin` and

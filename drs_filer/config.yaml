@@ -8,6 +8,8 @@ server:
     testing: False
 
 # Authentication and access control, as in TRS-Filer and Cloud Registry:
+# access URLs require an access token of any user (the patch
+# `api/patches/login-for-access-urls.yaml` of `api.specs.drs.patches`), other
 # reads are public; writes (registering, replacing and deleting objects and
 # access methods, posting the service info) require an access token (the
 # `security` of these operations in `api/additions.openapi.yaml`) and, until
@@ -47,7 +49,8 @@ security:
     # Access control: only admins may write, until objects have owners (#95);
     # admins may do everything (the model's matcher), and no rule allows
     # writes to other users. Policies are enforced on the operations that
-    # require a token (the writes)
+    # require a token (the writes, the access URLs and the reads that
+    # deployments require login for)
     # Cf. https://foca.readthedocs.io/en/latest/access-control/
     access_control:
         enabled: True
@@ -71,8 +74,17 @@ security:
         require_admin: True
         # Managed on startup (removed rules are deleted); cannot be changed
         # via the permissions API. Named, so that overlays can add, change
-        # or remove single rules by name (`null` removes a rule); none yet
-        policies: {}
+        # or remove single rules by name (`null` removes a rule)
+        policies:
+            # Any authenticated user may read: get access URLs, list objects
+            # and get an object. Only evaluated for the reads that require
+            # login: access URLs by default, the other reads if a deployment
+            # requires login for them (see "Requiring login for reads" in
+            # `docs/access-control.md`). `HEAD` too, which Flask serves from
+            # the `GET` operations and access control checks as `HEAD`
+            get-access-urls: [p, "*", "/ga4gh/drs/v1/objects/:object_id/access/:access_id", "GET|HEAD"]
+            list-objects: [p, "*", /ga4gh/drs/v1/objects, "GET|HEAD"]
+            get-objects: [p, "*", "/ga4gh/drs/v1/objects/:object_id", "GET|HEAD"]
 
 db:
     host: mongodb
@@ -114,8 +126,18 @@ api:
             # package
             add_operation_fields:
                 x-openapi-router-controller: drs_filer.ga4gh.drs.server
+            # Patches of the specification (FOCA), relative to this
+            # directory: access URLs require login. Overlays replace the
+            # list (lists aren't merged): leave a patch out to drop it (e.g.,
+            # `patches: []` makes access URLs public), and list the patches
+            # of the base config together with their own; e.g., add
+            # `api/patches/login-for-reads.yaml` to require login for all
+            # reads (see "Requiring login for reads" in
+            # `docs/access-control.md`)
+            patches:
+                - api/patches/login-for-access-urls.yaml
             # FOCA's token validation, for the operations that require a
-            # token (`security` of `BearerAuth`: the writes)
+            # token (`security` of `BearerAuth`: the writes and access URLs)
             add_security_fields:
                 x-bearerInfoFunc: foca.security.auth.validate_token
             # `True` removes the security requirements: all operations,
@@ -183,15 +205,13 @@ service_info:
 # Custom app configuration, validated on startup
 # (`drs_filer.custom_config.CustomConfig`): unknown keys fail the start
 custom:
-    # Public URL of the app, for the `self_uri` of objects and the `Location`
-    # of posted service info
-    # (`<url_prefix>://<external_host>:<external_port>/<api_path>/...`);
-    # deployments set their own
-    service:
-        url_prefix: http
-        external_host: localhost
-        external_port: 8080
-        api_path: ga4gh/drs/v1
+    # Public host name of the app, without scheme, port or path; required,
+    # without default: each deployment sets its own (the start fails
+    # without). The `self_uri` of each object is its DRS URI
+    # (`drs://<hostname>/<id>`), which DRS clients resolve to
+    # `https://<hostname>/ga4gh/drs/v1/objects/<id>` (port 443), e.g.:
+    # drs:
+    #     hostname: drs.example.org
     # Generated identifiers: `length` characters drawn from those listed in
     # `charset` (the characters themselves, not an expression, which fails
     # the start), by default all unreserved characters of URLs, the only

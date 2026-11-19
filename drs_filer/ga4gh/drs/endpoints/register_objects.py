@@ -19,6 +19,9 @@ def register_object(
 ) -> str:
     """Register data object.
 
+    The object is stored without `self_uri`, which is computed when it is
+    served (cf. `drs_filer.ga4gh.drs.server.self_uri()`).
+
     Args:
         data: Request object of type `DrsObjectRegister`.
         object_id: DRS object identifier. Auto-generated if not provided.
@@ -32,7 +35,6 @@ def register_object(
     # Set parameters
     custom = get_custom_config()
     db_collection = get_collection("objects")
-    service = custom.service
     id_config = custom.objects.id
 
     # Set flags and parameters for POST/PUT routes
@@ -55,12 +57,6 @@ def register_object(
                 charset=id_config.charset,
                 length=id_config.length,
             )
-        )
-
-        # Generate DRS URL
-        data["self_uri"] = (
-            f"{service.url_prefix}://{service.external_host}:"
-            f"{service.external_port}/{service.api_path}/{data['id']}"
         )
 
         # Replace or insert object, then return (PUT)

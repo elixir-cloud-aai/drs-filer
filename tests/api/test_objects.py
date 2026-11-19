@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from flask.testing import FlaskClient
 from pymongo.collection import Collection
+import pytest
 
 from drs_filer.ga4gh.drs.endpoints import register_objects
 from tests.mock_data import API, SELF_URI_BASE, body, drs_object, validate_error
@@ -218,3 +219,80 @@ def test_delete_object_invalid_parameter(client: FlaskClient) -> None:
     """Unknown query parameters are rejected (strict validation)."""
     response = client.delete(f"{API}/objects/unknown?unknown=1")
     assert response.status_code == 400
+
+
+def test_self_uri_not_stored(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """The `self_uri` is computed when serving, not stored (#97).
+
+    So it follows the configured host name, also for objects registered
+    before it changed.
+    """
+    posted = _register(client)
+    client.put(f"{API}/objects/my-object", json=drs_object())
+    for object_id in (posted, "my-object"):
+        stored = objects.find_one({"id": object_id})
+        assert stored is not None
+        assert "self_uri" not in stored
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        {},
+        {"self_uri": "http://193.166.24.114:8080/ga4gh/drs/v1/legacy"},
+    ],
+    ids=["without-self-uri", "http-self-uri"],
+)
+def test_self_uri_of_stored_objects(
+    client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    stored: dict[str, Any],
+) -> None:
+    """Stored objects get the DRS URI of the host, whatever they stored.
+
+    Earlier versions stored an HTTP URL of the configured host as
+    `self_uri`; objects stored without one are served with one too (#97).
+
+    Args:
+        client: Test client.
+        objects: Collection of the objects.
+        stored: Stored `self_uri`, if any.
+    """
+    request_body = drs_object()
+    objects.insert_one({**request_body, "id": "legacy", **stored})
+    expected = f"{SELF_URI_BASE}/legacy"
+    obj = body(client.get(f"{API}/objects/legacy"))
+    assert obj["self_uri"] == expected
+    assert [obj["self_uri"] for obj in body(client.get(f"{API}/objects"))] == [expected]
+
+
+@pytest.mark.parametrize(
+    ("object_id", "path", "encoded"),
+    [
+        ("a b", "a%20b", "a%20b"),
+        ("x:y", "x:y", "x%3Ay"),
+        ("ä~.-_", "%C3%A4~.-_", "%C3%A4~.-_"),
+    ],
+    ids=["space", "colon", "non-ascii"],
+)
+def test_self_uri_percent_encoded(
+    client: FlaskClient, object_id: str, path: str, encoded: str
+) -> None:
+    """The identifier in `self_uri` is percent-encoded, as DRS requires.
+
+    In hostname-based DRS URIs, the identifier is always percent-encoded
+    (so `:` can't occur in them); the unreserved characters of URLs stay.
+
+    Args:
+        client: Test client.
+        object_id: Identifier of the object.
+        path: Identifier in the request path.
+        encoded: Identifier in the `self_uri`.
+    """
+    response = client.put(f"{API}/objects/{path}", json=drs_object())
+    assert response.status_code == 200, body(response)
+    assert body(response) == object_id
+    obj = body(client.get(f"{API}/objects/{path}"))
+    assert obj["self_uri"] == f"{SELF_URI_BASE}/{encoded}"

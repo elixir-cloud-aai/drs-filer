@@ -9,7 +9,7 @@
 - [Getting started](getting-started.md): run DRS-Filer with Docker Compose
   and send the first requests.
 - [Configuration](configuration.md): the app configuration, overlays,
-  environment variables, the public URL, identifiers and the service info.
+  environment variables, the host name, identifiers and the service info.
 - [API](api.md): the endpoints, registering objects, and errors.
 - [Access control](access-control.md): authentication and authorization.
 - [Deployment](deployment.md): the Helm chart for Kubernetes and OpenShift.

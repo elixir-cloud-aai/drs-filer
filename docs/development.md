@@ -57,7 +57,7 @@ from any directory, with a MongoDB instance reachable at the host and port
 set in `db` of the config, e.g., MongoDB published on the host (`ports:
 ["127.0.0.1:27017:27017"]` for `mongodb` in a `docker-compose.override.yaml`,
 then `docker compose up --detach mongodb`) and an overlay with
-`db.host: localhost` and the `custom.service` of `config.dev.yaml`:
+`db.host: localhost` and the `custom.drs` of `config.dev.yaml`:
 
 ```bash
 FOCA_CONFIG_OVERLAY=config.local.yaml uv run python -m drs_filer.app
@@ -95,6 +95,8 @@ Run `docker compose up --wait` without the variable to enable it again. Only
 use this on your machine (Docker Compose publishes the app on the loopback
 interface only), never for deployments. The smoke test (see
 [Tests](#tests)) needs it, or an admin's access token in `DRS_FILER_TOKEN`.
+Access URLs need a token too, unless authentication is disabled (see
+[Requiring login for reads](access-control.md#requiring-login-for-reads)).
 
 ## Tests
 
@@ -125,8 +127,9 @@ same targets for Codecov in `codecov.yml`):
 
 - **Smoke test** (`tests/smoke/`): the API of a running app, e.g., of the
   Compose stack (see [Getting started](getting-started.md)); skipped unless
-  `DRS_FILER_URL` is set. It registers objects and service info, so it
-  needs an admin's access token in `DRS_FILER_TOKEN`, or an app without
+  `DRS_FILER_URL` is set. It registers objects and service info, and reads
+  access URLs, so it needs an admin's access token in `DRS_FILER_TOKEN`
+  (sent with writes and access URLs), or an app without
   authentication (see [Running without
   authentication](#running-without-authentication)), as in CI:
 

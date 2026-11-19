@@ -48,19 +48,13 @@ SERVICE_INFO_CONFIG: dict[str, Any] = {
     "updatedAt": "2019-06-04T12:58:19Z",
     "version": "1.0.0",
 }
-SERVICE_CONFIG: dict[str, Any] = {
-    "url_prefix": "http",
-    "external_host": "1.2.3.4",
-    "external_port": 8080,
-    "api_path": "ga4gh/drs/v1",
-}
+DRS_CONFIG: dict[str, Any] = {"hostname": "drs.example.org"}
+# The `Location` of posted service info: a relative reference, resolved
+# against the URL that the service info was posted to (`POST
+# /service-info`), so that it holds whatever the host, port and path prefix
 HEADERS_SERVICE_INFO = {
     "Content-type": "application/json",
-    "Location": (
-        f"{SERVICE_CONFIG['url_prefix']}://{SERVICE_CONFIG['external_host']}:"
-        f"{SERVICE_CONFIG['external_port']}/{SERVICE_CONFIG['api_path']}/"
-        "service-info"
-    ),
+    "Location": "service-info",
 }
 
 
@@ -68,11 +62,11 @@ def _sections() -> dict[str, Any]:
     """Get the sections of the config of the tests besides the database.
 
     Returns:
-        The custom config (public URL `SERVICE_CONFIG`) and the service info
+        The custom config (host name `DRS_CONFIG`) and the service info
         (`SERVICE_INFO_CONFIG`).
     """
     return {
-        "custom": CustomConfig.model_validate({"service": SERVICE_CONFIG}),
+        "custom": CustomConfig.model_validate({"drs": DRS_CONFIG}),
         "service_info": {"service": deepcopy(SERVICE_INFO_CONFIG)},
     }
 
@@ -133,7 +127,7 @@ def test_set_service_info_from_config_missing() -> None:
     app = Flask(__name__)
     app.config.foca = Config(
         db=MongoConfig(**MONGO_CONFIG),
-        custom=CustomConfig(),
+        custom=CustomConfig.model_validate({"drs": DRS_CONFIG}),
     )
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"

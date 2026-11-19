@@ -9,11 +9,11 @@ instead of requests. The service info is configured in FOCA's section
 import ipaddress
 import re
 import string
-from typing import Annotated, Literal
+from typing import Annotated, Any
 
 from foca.models.config import FOCABaseConfig
 from foca.models.config import IdConfig as FocaIdConfig
-from pydantic import BeforeValidator, Field, field_validator
+from pydantic import BeforeValidator, Field, field_validator, model_validator
 
 # Characters allowed in generated identifiers: the unreserved characters of
 # URLs (RFC 3986, section 2.3), which need no encoding in paths
@@ -22,16 +22,17 @@ UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
 # URLs, as the expression of earlier versions
 # (`string.ascii_letters + string.digits + ".-_~"`)
 DEFAULT_ID_CHARSET = string.ascii_letters + string.digits + ".-_~"
-# Public host names and IPv4 addresses: labels of letters, digits, `-` and
-# `_` (not at either end), separated by `.`; IPv6 addresses are in brackets
+# Host names (RFC 1123), in lowercase (as DNS names compare, and as the Helm
+# chart requires): labels of at most 63 lowercase letters, digits and `-`
+# (not at either end), separated by `.`, at most 253 characters in all; the
+# last label (top-level domain) not of digits only, which leaves numbers
+# (e.g., ports) and dotted digits for IPv4 addresses (`IPV4_PATTERN`)
 HOST_NAME_PATTERN = re.compile(
-    r"[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?(\.[A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*"
+    r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*"
+    r"(?![0-9]+$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
 )
-# API paths: segments of unreserved characters of URLs, separated by `/`, but
-# not the dot segments `.` and `..`, which clients resolve
-API_PATH_PATTERN = re.compile(
-    r"(?!\.\.?(/|$))[A-Za-z0-9._~-]+(/(?!\.\.?(/|$))[A-Za-z0-9._~-]+)*"
-)
+# IPv4 addresses, in dotted decimal notation, checked by `ipaddress` too
+IPV4_PATTERN = re.compile(r"[0-9]{1,3}(\.[0-9]{1,3}){3}")
 # Integers in strings: digits only
 INTEGER_PATTERN = re.compile(r"[0-9]+")
 
@@ -61,101 +62,65 @@ def _integer(value: object) -> object:
 
 # Positive integer, also as a string of digits (e.g., from `${VAR}`)
 PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
-# Port number, also as a string of digits (e.g., from `${VAR}`)
-Port = Annotated[int, BeforeValidator(_integer), Field(ge=1, le=65535)]
 
 
-class ServiceConfig(FOCABaseConfig):
-    """Model for the public URL of the app.
+class DrsConfig(FOCABaseConfig):
+    """Model for the DRS host of the app.
 
-    The URL, `<url_prefix>://<external_host>:<external_port>/<api_path>`, is
-    used for the `self_uri` of objects and the `Location` of posted service
-    info.
+    The `self_uri` of each object is the hostname-based DRS URI of the host,
+    `drs://<hostname>/<id>` (with the identifier percent-encoded), computed
+    when the object is served. DRS clients resolve it to
+    `https://<hostname>/ga4gh/drs/v1/objects/<id>`, always on port 443.
 
     Args:
-        url_prefix: URL scheme: `http` or `https`.
-        external_host: Public host name or IP address of the app (IPv6
-            addresses in brackets), without scheme, port or path.
-        external_port: Public port of the app.
-        api_path: Path of the API: segments of unreserved characters of URLs
-            (letters, digits and `-._~`), separated by `/`, without leading
-            or trailing `/`.
+        hostname: Public host name of the app, without scheme, port or path;
+            required.
 
     Attributes:
-        url_prefix: URL scheme.
-        external_host: Public host name or IP address of the app.
-        external_port: Public port of the app.
-        api_path: Path of the API.
+        hostname: Public host name of the app.
 
     Raises:
-        pydantic.ValidationError: The scheme is neither `http` nor `https`,
-            the host is not a host name or IP address, the port is not an
-            integer from 1 to 65535, or the API path is not a path of
-            unreserved characters of URLs.
+        pydantic.ValidationError: The host name is missing, or is not a host
+            name.
 
     Example:
-        >>> ServiceConfig(url_prefix="https", external_host="drs.example.org").api_path
-        'ga4gh/drs/v1'
+        >>> DrsConfig(hostname="drs.example.org").hostname
+        'drs.example.org'
     """
 
-    url_prefix: Literal["http", "https"] = "http"
-    external_host: str = "localhost"
-    external_port: Port = 8080
-    api_path: str = "ga4gh/drs/v1"
+    hostname: str
 
-    @field_validator("external_host")
+    @field_validator("hostname")
     @classmethod
-    def check_external_host(cls, value: str) -> str:
-        """Check that the host is a host name or IP address.
+    def check_hostname(cls, value: str) -> str:
+        """Check that the host name is a host name only.
 
         Args:
-            value: Host.
+            value: Host name.
 
         Returns:
-            The host.
+            The host name.
 
         Raises:
-            ValueError: The host is empty, or has a scheme, port, path or
-                other characters (e.g., an IPv6 address without brackets).
+            ValueError: The host name is empty, has a scheme, port, path,
+                uppercase letters or other characters (e.g., an IPv6
+                address, which DRS URIs can't have), is a number (e.g., a
+                port), or an invalid IPv4 address.
         """
-        if value.startswith("[") and value.endswith("]"):
+        if HOST_NAME_PATTERN.fullmatch(value):
+            return value
+        if IPV4_PATTERN.fullmatch(value):
             try:
-                ipaddress.IPv6Address(value[1:-1])
+                ipaddress.IPv4Address(value)
             except ValueError:
                 pass
             else:
                 return value
-        elif HOST_NAME_PATTERN.fullmatch(value):
-            return value
         raise ValueError(
-            "The host must be a host name or IP address (IPv6 addresses in "
-            "brackets), without scheme, port or path"
+            "The host name must be a lowercase host name (letters, digits and "
+            "'-', in labels separated by '.', not a number) or an IPv4 "
+            "address, without scheme, port or path"
         )
-
-    @field_validator("api_path")
-    @classmethod
-    def check_api_path(cls, value: str) -> str:
-        """Check that the API path has unreserved characters of URLs only.
-
-        The URL inserts a `/` before and after it.
-
-        Args:
-            value: API path.
-
-        Returns:
-            The API path.
-
-        Raises:
-            ValueError: The API path is empty, starts or ends with `/`, has
-                empty or dot segments (`.`, `..`), or other characters.
-        """
-        if not API_PATH_PATTERN.fullmatch(value):
-            raise ValueError(
-                "The API path must consist of letters, digits and '-._~', in "
-                "segments separated by '/' (not '.' or '..'), without leading or "
-                "trailing '/'"
-            )
-        return value
 
 
 class IdConfig(FocaIdConfig):
@@ -246,23 +211,46 @@ class AccessMethodsConfig(FOCABaseConfig):
 class CustomConfig(FOCABaseConfig):
     """Model for the app's own configuration (`custom`).
 
-    Unknown keys are refused, e.g., misspelled ones, and the service info,
-    which is configured in FOCA's section `service_info`.
+    Unknown keys are refused, e.g., misspelled ones, the service info, which
+    is configured in FOCA's section `service_info`, and the public URL of
+    earlier versions (`service`), with a hint to its replacement.
 
     Args:
-        service: Public URL of the app.
+        drs: DRS host of the app; required.
         objects: Settings of objects.
         access_methods: Settings of access methods.
 
     Attributes:
-        service: Public URL of the app.
+        drs: DRS host of the app.
         objects: Settings of objects.
         access_methods: Settings of access methods.
 
     Raises:
-        pydantic.ValidationError: A setting is invalid or unknown.
+        pydantic.ValidationError: A setting is missing, invalid or unknown.
     """
 
-    service: ServiceConfig = Field(default_factory=ServiceConfig)
+    drs: DrsConfig
     objects: ObjectsConfig = Field(default_factory=ObjectsConfig)
     access_methods: AccessMethodsConfig = Field(default_factory=AccessMethodsConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_removed(cls, data: Any) -> Any:
+        """Refuse the public URL of earlier versions, naming its replacement.
+
+        Args:
+            data: Settings.
+
+        Returns:
+            The settings.
+
+        Raises:
+            ValueError: The settings have the section `service`.
+        """
+        if isinstance(data, dict) and "service" in data:
+            raise ValueError(
+                "'custom.service' was removed: the 'self_uri' of objects is a "
+                "DRS URI of the host name in 'custom.drs.hostname' (see "
+                "'Upgrading' in the documentation)"
+            )
+        return data

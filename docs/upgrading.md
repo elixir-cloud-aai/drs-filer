@@ -3,6 +3,131 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Login for access URLs
+
+!!! warning "Breaking changes"
+    Access URLs need an access token by default, and objects are served
+    without them.
+
+`GET /objects/{object_id}/access/{access_id}` needs an access token of any
+user of a trusted issuer (#96; see [Requiring login for
+reads](access-control.md#requiring-login-for-reads)): without a valid one,
+it gets `401 Unauthorized`. While access URLs need login, `GET /objects` and
+`GET /objects/{object_id}` serve objects without the `access_url` of their
+access methods (see [Objects without access
+URLs](access-control.md#objects-without-access-urls)); the stored objects
+are unchanged. The other reads stay public. Before upgrading:
+
+- If objects have access methods without `access_id` (stored before #121),
+  register them again first, as described in [Access methods without
+  identifiers](#access-methods-without-identifiers): while access URLs need
+  login, these methods are served without their access URL, and can't be
+  addressed by `access_id` either, so their access URLs can't be read at
+  all.
+- Don't reuse objects as `GET` serves them as bodies of `PUT
+  /objects/{object_id}` (e.g., in scripts or portals that edit objects):
+  without their access URLs, the `PUT` would delete them. Build the body
+  from the object as registered.
+- Expect `401` responses, which FOCA logs as errors with a traceback, from
+  clients that still read access URLs without a token.
+- During a rolling update, pods of the earlier version still serve access
+  URLs without a token until they are replaced. To close that window,
+  stop them before the new ones start, e.g., scale the app's Deployment to
+  `0` before `helm upgrade`, as described in [Access tokens for
+  writes](#access-tokens-for-writes).
+
+Then, either:
+
+- let the clients that read access URLs send a token, and get access URLs
+  by their `access_id` instead of from the objects:
+
+    ```bash
+    curl "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>/access/<access_id>" \
+      -H "Authorization: Bearer <token>"
+    ```
+
+- or keep access URLs public, with an overlay that leaves the patch out
+  (`api.specs.drs.patches: []`, see [Public access
+  URLs](access-control.md#public-access-urls)). Overlays that already set
+  `api.specs.drs.patches` replace the patch of the base config: list
+  `api/patches/login-for-access-urls.yaml` in them, unless access URLs are
+  to be public.
+
+The app logs on startup whether access URLs need login. The default
+policies let any authenticated user read access URLs (`get-access-urls`);
+overlays that give `security.access_control.policies` as a list replace
+them, and must add the rules of [Requiring login for
+reads](access-control.md#requiring-login-for-reads) to let users other
+than admins read access URLs.
+
+## DRS URIs
+
+!!! warning "Breaking changes"
+    The `self_uri` of objects is a DRS URI, and the public URL
+    (`custom.service`) is replaced by the host name
+    (`custom.drs.hostname`), which is required.
+
+The `self_uri` of objects is the hostname-based DRS URI
+`drs://<hostname>/<id>` (#97), as DRS requires, instead of an HTTP URL
+(`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`). The app
+computes it when serving an object, from the configured host name, and no
+longer stores it: objects registered by earlier versions are served with
+the new `self_uri` (the stored value is ignored), and a changed host name
+applies to all objects. See [Host name](configuration.md#host-name).
+
+| Removed | Replacement |
+| --- | --- |
+| `custom.service.external_host` | `custom.drs.hostname` (required, no default) |
+| `custom.service.url_prefix`, `custom.service.external_port`, `custom.service.api_path` | none: DRS clients resolve `drs://<hostname>/<id>` to `https://<hostname>/ga4gh/drs/v1/objects/<id>`, always on port 443 |
+
+Before upgrading:
+
+1. Replace `custom.service` in your overlay with the host name, e.g.:
+
+    ```yaml
+    custom:
+      drs:
+        hostname: drs.example.org
+    ```
+
+    The app refuses to start with `custom.service`, or without
+    `custom.drs.hostname`. The host name has no scheme, port or path, and
+    is a lowercase RFC 1123 host name or an IPv4 address: unlike
+    `external_host`, it can't have `_` (e.g., of Docker Compose service
+    names), uppercase letters or IPv6 addresses. With
+    the Helm chart, `hostName` sets it; remove `config.custom.service` from
+    your values file, if set (the chart refuses to render with it).
+2. Serve the app via HTTPS on port 443 of that host (e.g., behind an
+   ingress that terminates TLS), where DRS clients resolve the URIs to.
+3. Update clients that took `self_uri` for a URL to fetch: they resolve
+   the DRS URI as above, or build the URL from the identifier.
+
+The `Location` of posted service info (`POST /service-info`) is the
+relative reference `service-info`, which resolves to the URL it was posted
+to, instead of a URL of the public URL of the config.
+
+Objects that the new version registers or replaces (`POST
+/objects/register`, `PUT /objects/{object_id}`) are stored without
+`self_uri`, which earlier versions require in their responses: they answer
+`500` for these objects, and for `GET /objects` as soon as there is one.
+This affects pods of the earlier version during a rolling update (stop
+them before the new ones start, e.g., scale the app's Deployment to `0`
+before `helm upgrade`, as described in [Access tokens for
+writes](#access-tokens-for-writes), or don't write until the upgrade is
+done), and rollbacks. Before rolling back (e.g., `helm rollback`), restore
+the backup of the database from before the upgrade, or set the `self_uri`
+of the objects without one to the earlier form,
+`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>` of your
+earlier `custom.service` (identifiers aren't percent-encoded there), e.g.,
+with `mongosh`:
+
+```javascript
+db.getSiblingDB("drsStore").objects.updateMany(
+  { self_uri: { $exists: false } },
+  [{ $set: { self_uri: { $concat: ["https://drs.example.org:443/ga4gh/drs/v1/", "$id"] } } }]
+)
+```
+
 ## Access tokens for writes
 
 !!! warning "Breaking changes"
@@ -15,7 +140,8 @@ posting the service info (`POST /objects/register`, `PUT` and `DELETE
 `POST /service-info`), need an access token (#94; see [Access
 control](access-control.md)). Without a valid one, they get `401
 Unauthorized`; with the token of a user who isn't an admin, `403
-Forbidden`. Reads stay public. Before upgrading:
+Forbidden`. Reads stay public (except access URLs, see [Login for access
+URLs](#login-for-access-urls)). Before upgrading:
 
 1. Choose the identity provider, register a client for the apps or
    scripts that write (e.g., a portal or a client for scripts), and create
@@ -236,25 +362,32 @@ them (was `500`, #127).
 
   ```bash
   docker compose exec drs-filer python -c '
+  import json
+
   from drs_filer.app import create_app
   from drs_filer.utils import get_collection
 
   with create_app().app.app_context():
       query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
-      for obj in get_collection("objects").find(query, {"_id": 0, "id": 1}):
-          print(obj["id"])
+      for obj in get_collection("objects").find(query, {"_id": 0}):
+          object_id = obj.pop("id")
+          obj.pop("self_uri", None)
+          for method in obj.get("access_methods", []):
+              method.pop("access_id", None)
+          print(object_id, json.dumps(obj))
   ' 2>/dev/null
   ```
 
-  It prints the identifier of each such object. Like any start of the app,
-  it serves the service info of the config again (see
-  [Service info](#service-info)).
+  It prints the identifier of each such object, and the object as stored,
+  without `id`, `self_uri` and the `access_id` of each access method, which
+  registrations don't accept. Like any start of the app, it serves the
+  service info of the config again (see [Service info](#service-info)).
 - To make their access methods addressable, register them again
-  (`PUT /objects/{object_id}`, with the object as `GET /objects/{object_id}`
-  returns it, without `id`, `self_uri` and the `access_id` of each access
-  method, which registrations don't accept): this generates new
-  identifiers for all access methods of the object, so clients that stored
-  the earlier ones look them up again. `PUT` replaces the whole object:
+  (`PUT /objects/{object_id}`, with the object as the script prints it; not
+  as `GET /objects/{object_id}` returns it, which is without access URLs
+  while these need login, see [Login for access URLs](#login-for-access-urls)):
+  this generates new identifiers for all access methods of the object, so
+  clients that stored the earlier ones look them up again. `PUT` replaces the whole object:
   changes to it between the `GET` and the `PUT` are lost, so don't change
   the affected objects in the meantime (e.g., pause the clients that
   register objects).
@@ -459,8 +592,9 @@ deployments.
      --archive < drs.archive`, and only then
      `docker compose up --build --detach --wait`.
 
-  Restored objects keep the `self_uri` and access URLs they were registered
-  with (e.g., of an earlier public URL); `drs://` self URIs come with #97.
+  Restored objects keep the access URLs they were registered with; their
+  `self_uri` is the DRS URI of the configured host since #97 (see [DRS
+  URIs](#drs-uris)).
 - **Helm chart (3.0.0):** the Job that wrote the config into the ConfigMap
   (with a service account bound to the `admin` cluster role) is replaced by
   a ConfigMap with the chart's overlay; the value `apiServer` is gone, and

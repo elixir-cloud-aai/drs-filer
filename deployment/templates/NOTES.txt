@@ -14,9 +14,10 @@ the cluster.
 DRS-Filer is being deployed as release {{ .Release.Name }}
 in namespace {{ .Release.Namespace }}!
 
-Reads are public; writes (POST, PUT and DELETE) need an access token of an
-admin of the identity provider in `config` (see deployment/README.md,
-Configuration).
+Reads are public, except access URLs, which need an access token by
+default; writes (POST, PUT and DELETE) need an access token of an admin of
+the identity provider in `config` (see deployment/README.md, Configuration
+and Access).
 {{- /* `config.api.specs.drs.disable_auth`, level by level, as levels may be
 null or not maps; parsed as the app parses booleans */}}
 {{- $noAuth := .Values.config | default dict }}
