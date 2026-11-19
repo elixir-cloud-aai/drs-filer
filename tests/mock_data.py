@@ -73,13 +73,36 @@ SERVICE_INFO: dict[str, Any] = {
     "version": "1.0.0",
 }
 
-# Fields of the service info that the app computes (`DrsService` of DRS
-# 1.5.0): bulk requests aren't implemented, so the bulk maximum is the least
-# allowed one
-DRS_SERVICE_FIELDS: dict[str, Any] = {
-    "maxBulkRequestLength": 1,
-    "drs": {"maxBulkRequestLength": 1},
-}
+
+def drs_service_fields(
+    object_count: int = 0, total_object_size: int = 0
+) -> dict[str, Any]:
+    """Get the fields of the service info that the app computes.
+
+    The fields of `DrsService` (DRS 1.5.0): bulk requests aren't
+    implemented, so the bulk maximum is the least allowed one; the stats
+    are those of the registered objects.
+
+    Args:
+        object_count: Number of registered objects (`drs.objectCount`).
+        total_object_size: Total size of the registered blobs, in bytes
+            (`drs.totalObjectSize`).
+
+    Returns:
+        The computed fields, a new copy on each call.
+    """
+    return {
+        "maxBulkRequestLength": 1,
+        "drs": {
+            "maxBulkRequestLength": 1,
+            "objectCount": object_count,
+            "totalObjectSize": total_object_size,
+        },
+    }
+
+
+# Fields of the service info that the app computes, without objects
+DRS_SERVICE_FIELDS: dict[str, Any] = drs_service_fields()
 
 
 def body(response: TestResponse) -> Any:

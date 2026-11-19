@@ -70,7 +70,10 @@ of an object (`DrsObjectRegister`): `size`, `created_time` and at least one
 checksum are required; `name`, `updated_time`, `version`, `mime_type`,
 `contents` (for bundles), `description` and `aliases` are optional. Access
 methods (`AccessMethodRegister`) need a `type`, and can have an
-`access_url`, `cloud`, `region` and `available` (DRS 1.5). The DRS
+`access_url`, `cloud`, `region` and `available` (DRS 1.5: the cloud
+provider and region of the copy, and whether it can be read at once, i.e.,
+`false` for copies in cold or archival storage that need to be restored
+first); DRS-Filer serves these three as registered. The DRS
 specification requires at least one access method (`access_methods`) for
 single blobs (objects without `contents`); register blobs with one, as
 DRS-Filer doesn't check this yet and can't serve access URLs of objects
@@ -140,6 +143,21 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
 - `maxBulkRequestLength` and `drs.maxBulkRequestLength`: `1`, the least
   value that the specification allows, as DRS-Filer doesn't implement the
   bulk reads (see [Passport POST endpoints](#passport-post-endpoints)).
+- `drs.objectCount`: the number of registered objects, blobs and bundles.
+- `drs.totalObjectSize`: the total `size` of the registered blobs (objects
+  without `contents`), in bytes. Bundles aren't added, as their size is
+  that of their contents, and each blob is counted once, however many
+  access methods (e.g., cloud mirrors) it has, as the specification
+  recommends. Blobs registered more than once, under different
+  identifiers, are counted each time: DRS-Filer doesn't compare checksums.
+
+The stats are computed from the database on each request, so they follow
+registrations, replacements and deletions at once; they are never stored.
+They are under `drs`, as the `DrsService` schema of DRS 1.5.0 defines them,
+not under `drs.stats`, as the example in the specification's description
+of the service info shows. Like the rest of the service info, they are
+public, also where a deployment requires login for all other reads (see
+[Requiring login for reads](access-control.md#requiring-login-for-reads)).
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
 the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the

@@ -18,10 +18,7 @@ from drs_filer.errors.exceptions import (
     ObjectNotFound,
     URLNotFound,
 )
-from drs_filer.ga4gh.drs.endpoints.service_info import (
-    CURRENT_ID,
-    drs_service_fields,
-)
+from drs_filer.ga4gh.drs.endpoints.service_info import CURRENT_ID
 from drs_filer.ga4gh.drs.server import (
     DeleteAccessMethod,
     DeleteObject,
@@ -33,6 +30,7 @@ from drs_filer.ga4gh.drs.server import (
     RegisterObject,
     self_uri,
 )
+from tests.mock_data import DRS_SERVICE_FIELDS, drs_service_fields
 
 MOCK_ID_NA = "unavailable"
 
@@ -510,10 +508,15 @@ def test_GetServiceInfo() -> None:
     app.config.foca.db.dbs["drsStore"].collections["service_info"].client.insert_one(
         mock_resp
     )
+    objects: Collection[dict[str, Any]] = mongomock.MongoClient().db.objects
+    app.config.foca.db.dbs["drsStore"].collections["objects"].client = objects
+    objects.insert_many(
+        [{"id": "blob", "size": 5}, {"id": "bundle", "size": 5, "contents": []}]
+    )
 
     with app.app_context():
         res = GetServiceInfo.__wrapped__()
-        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields()}
+        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields(2, 5)}
 
 
 # POST /service-info
@@ -527,11 +530,14 @@ def test_PostServiceInfo() -> None:
     app.config.foca.db.dbs["drsStore"].collections[
         "service_info"
     ].client = mongomock.MongoClient().db.collection
+    app.config.foca.db.dbs["drsStore"].collections[
+        "objects"
+    ].client = mongomock.MongoClient().db.objects
 
     with app.test_request_context(json=deepcopy(SERVICE_INFO_CONFIG)):
         body, status, _ = PostServiceInfo.__wrapped__()
         res = GetServiceInfo.__wrapped__()
-        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields()}
+        assert res == {**SERVICE_INFO_CONFIG, **DRS_SERVICE_FIELDS}
     assert body is None
     # An integer, not the string "201", so that Flask sets the status code
     assert status == 201

@@ -16,7 +16,14 @@ import yaml
 from drs_filer.app import CONFIG_FILE, create_app
 from drs_filer.ga4gh.drs.endpoints import service_info as service_info_module
 from tests.conftest import admin_client
-from tests.mock_data import API, DRS_SERVICE_FIELDS, SERVICE_INFO, body
+from tests.mock_data import (
+    API,
+    DRS_SERVICE_FIELDS,
+    SERVICE_INFO,
+    body,
+    drs_object,
+    drs_service_fields,
+)
 
 
 def _config_service_info() -> dict[str, Any]:
@@ -222,3 +229,89 @@ def test_get_service_info_drs_fields_computed(
     stored = service_info.find_one({}, {"_id": False})
     assert stored is not None
     assert not DRS_SERVICE_FIELDS.keys() & stored.keys()
+
+
+def _register(client: FlaskClient, request_body: dict[str, Any]) -> str:
+    """Register an object.
+
+    Args:
+        client: Test client.
+        request_body: Metadata of the object.
+
+    Returns:
+        The identifier of the object.
+    """
+    response = client.post(f"{API}/objects/register", json=request_body)
+    assert response.status_code == 200, body(response)
+    object_id: str = body(response)
+    return object_id
+
+
+def _stats(client: FlaskClient) -> dict[str, Any]:
+    """Get the stats of the service info.
+
+    Args:
+        client: Test client.
+
+    Returns:
+        The `drs` section of the service info.
+    """
+    response = client.get(f"{API}/service-info")
+    assert response.status_code == 200, body(response)
+    drs: dict[str, Any] = body(response)["drs"]
+    return drs
+
+
+def test_get_service_info_stats(client: FlaskClient) -> None:
+    """The stats of the service info follow the registered objects.
+
+    `drs.objectCount` counts all objects, blobs and bundles;
+    `drs.totalObjectSize` adds up the sizes of blobs only: a bundle's size is
+    that of its contents, and an object's access methods (mirrors) are
+    copies of the same bytes, so neither is counted twice. Replacing and
+    deleting objects updates them.
+    """
+    assert _stats(client) == DRS_SERVICE_FIELDS["drs"]
+    first = _register(client, {**drs_object(), "size": 1024})
+    second = _register(client, {**drs_object(access_methods=2), "size": 2048})
+    bundle = {**drs_object(), "size": 3072}
+    del bundle["access_methods"]
+    bundle["contents"] = [
+        {"name": "first", "id": first},
+        {"name": "second", "id": second},
+    ]
+    _register(client, bundle)
+    assert _stats(client) == drs_service_fields(3, 3072)["drs"]
+    response = client.put(f"{API}/objects/{first}", json={**drs_object(), "size": 1})
+    assert response.status_code == 200, body(response)
+    assert _stats(client) == drs_service_fields(3, 2049)["drs"]
+    response = client.delete(f"{API}/objects/{second}")
+    assert response.status_code == 200, body(response)
+    assert _stats(client) == drs_service_fields(2, 1)["drs"]
+
+
+def test_get_service_info_stats_large(client: FlaskClient) -> None:
+    """Sizes beyond 32 bits are added up exactly (`int64`)."""
+    size = 2**40 + 1
+    for _ in range(3):
+        _register(client, {**drs_object(), "size": size})
+    assert _stats(client) == drs_service_fields(3, 3 * size)["drs"]
+
+
+def test_get_service_info_stats_anonymous(
+    client: FlaskClient, anonymous_client: FlaskClient
+) -> None:
+    """The stats are served with the service info, which is public."""
+    _register(client, drs_object())
+    assert _stats(anonymous_client) == drs_service_fields(1, 1024)["drs"]
+
+
+def test_get_service_info_stats_database_error(client: FlaskClient) -> None:
+    """A failing database is a server error, also for the stats."""
+    collection = MagicMock()
+    collection.find_one.return_value = dict(SERVICE_INFO)
+    collection.aggregate.side_effect = PyMongoError("down")
+    with patch.object(service_info_module, "get_collection", return_value=collection):
+        response = client.get(f"{API}/service-info")
+    assert response.status_code == 500
+    assert body(response)["status"] == 500

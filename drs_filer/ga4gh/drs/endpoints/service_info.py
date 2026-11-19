@@ -2,7 +2,8 @@
 
 The service info is stored as a single record, with `_id` `CURRENT_ID`,
 which `GET /service-info` serves, with the DRS fields that the app computes
-(`drs_service_fields()`). On startup, the service info of the config
+(`drs_service_fields()`, with the stats of the objects of `object_stats()`).
+On startup, the service info of the config
 (FOCA's section `service_info`, with the version of the package unless
 `service_info.service.version` is set) replaces it, if it differs; `POST
 /service-info` replaces it until the next startup. Both remove the records
@@ -32,6 +33,35 @@ MAX_BULK_REQUEST_LENGTH = 1
 SERVICE_TYPE = {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
 
 
+def object_stats() -> dict[str, int]:
+    """Get the stats of the registered objects, from the database.
+
+    They are computed on each request: a count of the objects, and an
+    aggregate over the sizes of the blobs.
+
+    Returns:
+        The stats of `DrsService` (DRS 1.5.0): `objectCount`, the number of
+        objects, blobs and bundles; `totalObjectSize`, the total size of the
+        blobs (objects without `contents`), in bytes. Bundles aren't added,
+        as their size is that of their contents, nor are the access methods
+        of an object, which are copies of the same bytes (as the
+        specification recommends: "file bytes are counted for each unique
+        file and not cloud mirrors or other redundant copies").
+    """
+    objects = get_collection("objects")
+    count = objects.count_documents({})
+    totals = list(
+        objects.aggregate(
+            [
+                {"$match": {"contents": {"$exists": False}}},
+                {"$group": {"_id": None, "size": {"$sum": "$size"}}},
+            ]
+        )
+    )
+    size = int(totals[0]["size"]) if totals else 0
+    return {"objectCount": count, "totalObjectSize": size}
+
+
 def drs_service_fields() -> dict[str, Any]:
     """Get the DRS fields of the service info, which the app computes.
 
@@ -40,11 +70,12 @@ def drs_service_fields() -> dict[str, Any]:
 
     Returns:
         The fields of `DrsService` (DRS 1.5.0): `maxBulkRequestLength`
-        (deprecated) and `drs`.
+        (deprecated) and `drs`, with the bulk maximum and the stats of the
+        objects (`object_stats()`).
     """
     return {
         "maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH,
-        "drs": {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH},
+        "drs": {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH, **object_stats()},
     }
 
 
