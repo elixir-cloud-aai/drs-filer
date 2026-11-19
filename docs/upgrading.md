@@ -274,10 +274,10 @@ them (was `500`, #127).
 
   ```bash
   docker compose exec drs-filer python -c '
+  import json
+
   from drs_filer.app import create_app
   from drs_filer.utils import get_collection
-
-  import json
 
   with create_app().app.app_context():
       query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}

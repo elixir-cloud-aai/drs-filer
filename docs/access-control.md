@@ -3,8 +3,9 @@
 Objects and the service info can be read by anyone; access URLs need an
 access token of any user, by default (see [Requiring login for
 reads](#requiring-login-for-reads), also for how to make them public, or
-to require login for all reads). Writing, i.e., registering, replacing and deleting objects and access
-methods, and posting the service info (see [API](api.md#endpoints)),
+to require login for all reads). Writing, i.e., registering, replacing and
+deleting objects and access methods, and posting the service info (see
+[API](api.md#endpoints)),
 requires an access token of an OpenID Connect provider that the deployment
 trusts (see [Authentication](#authentication)), and, for now, the role
 `admin` (see [Admins](#admins)). The identity provider, its claims and the
@@ -198,6 +199,11 @@ clients get its access URL, with a token:
 curl "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>/access/<access_id>" \
   -H "Authorization: Bearer <token>"
 ```
+
+So, while access URLs require login, an object as `GET` serves it is no
+body for `PUT /objects/{object_id}`: it would replace the object with one
+whose access methods have no access URLs. Build the body from the object as
+registered instead.
 
 With public access URLs, objects are served with them, as registered.
 DRS-Filer reads whether access URLs require login from the specification as

@@ -10,6 +10,7 @@ authenticated user may read, by named rules that overlays can replace.
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from flask.testing import FlaskClient
 from pymongo import MongoClient
@@ -18,6 +19,7 @@ from werkzeug.test import TestResponse
 import yaml
 
 from drs_filer.app import create_app
+from drs_filer.ga4gh.drs import access_urls
 from drs_filer.ga4gh.drs.access_urls import CONFIG_KEY
 from tests.conftest import ADMIN, READER, USER, admin_client, make_headers
 from tests.mock_data import API, CONFIG_FILE, body, drs_object
@@ -371,6 +373,11 @@ def test_access_urls_need_login_flag(
 ) -> None:
     """The app knows whether access URLs need login, from the patched spec.
 
+    As the specification that it serves says (`openapi.json`, as FOCA
+    merged and patched it); logged once on startup, with the messages that
+    the docs quote (FOCA's logging config replaces the handlers of `caplog`,
+    so the logger is mocked).
+
     Args:
         mongo_client: MongoDB client.
         overlay: Config overlay.
@@ -378,4 +385,37 @@ def test_access_urls_need_login_flag(
         need_login: Whether access URLs need login with these patches.
     """
     _patches(overlay, patches)
-    assert create_app().app.config[CONFIG_KEY] is need_login
+    with patch.object(access_urls, "logger") as logger:
+        app = create_app()
+        client = app.app.test_client()
+        assert app.app.config[CONFIG_KEY] is need_login
+        spec = body(client.get(f"{API}/openapi.json"))
+        operation = spec["paths"][ACCESS_URL]["get"]
+        security = operation.get("security", spec.get("security"))
+        assert (security == [{"BearerAuth": []}]) is need_login
+        client.get(f"{API}/objects")
+    expected = "Access URLs need login" if need_login else "Access URLs are public"
+    logger.info.assert_called_once()
+    message, *args = logger.info.call_args.args
+    assert (message % tuple(args)).startswith(expected)
+
+
+def test_readers_with_default_patches(
+    mongo_client: MongoClient[dict[str, Any]], overlay: Path
+) -> None:
+    """With the default patches, the readers' rules restrict access URLs only.
+
+    Objects stay public, as the docs say.
+
+    Args:
+        mongo_client: MongoDB client.
+        overlay: Config overlay.
+    """
+    overlay.write_text(yaml.safe_dump(_docs_example("readers.yaml")))
+    client = create_app().app.test_client()
+    ids = _register(client)
+    url = _url(ACCESS_URL, ids)
+    assert client.get(url, headers=make_headers(USER)).status_code == 403
+    assert client.get(url, headers=make_headers(READER)).status_code == 200
+    for path in OBJECT_READS:
+        assert client.get(_url(path, ids)).status_code == 200, path

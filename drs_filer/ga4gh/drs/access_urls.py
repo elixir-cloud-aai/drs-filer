@@ -32,6 +32,11 @@ CONFIG_KEY = "DRS_FILER_ACCESS_URLS_NEED_LOGIN"
 OPERATION_ID = "GetAccessURL"
 
 
+# `_load_patch()` and `_merged_spec()` follow how FOCA assembles a
+# specification in `foca.api.register_openapi.register_openapi()` (and its
+# `_load_patch()`), which FOCA doesn't expose; keep them in sync when FOCA
+# is upgraded. `tests/api/test_login_for_reads.py` compares the result with
+# the specification that the app serves (`openapi.json`)
 def _load_patch(patch: Path | dict[str, Any]) -> dict[str, Any]:
     """Load a patch of a specification, as FOCA does.
 
