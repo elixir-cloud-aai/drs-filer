@@ -15,6 +15,7 @@ from drs_filer.custom_config import (
     CustomConfig,
     DrsConfig,
     IdConfig,
+    ListConfig,
     StatsConfig,
 )
 
@@ -240,3 +241,41 @@ def test_stats_config_defaults() -> None:
     assert config.enabled is True
     assert config.cache_seconds == 60
     assert StatsConfig.model_validate({"enabled": "false"}).enabled is False
+
+
+def test_list_config_defaults() -> None:
+    """Pages of `GET /objects` have 50 objects by default, at most 200."""
+    config = CustomConfig(**REQUIRED).objects.list
+    assert config.default_page_size == 50
+    assert config.max_page_size == 200
+    assert ListConfig.model_validate(
+        {"default_page_size": "10", "max_page_size": "10"}
+    ) == ListConfig(default_page_size=10, max_page_size=10)
+    assert ListConfig(max_page_size=10000).max_page_size == 10000
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"default_page_size": 0},
+        {"max_page_size": 0},
+        {"max_page_size": -1},
+        {"max_page_size": "1.5"},
+        {"max_page_size": True},
+        {"default_page_size": 201},
+        {"default_page_size": 20, "max_page_size": 10},
+        {"max_page_size": 10001},
+        {"max_page_size": 2**63},
+        {"page_size": 10},
+    ],
+)
+def test_list_config_invalid(settings: dict[str, Any]) -> None:
+    """Invalid or unknown settings of the pages are refused.
+
+    The default page size can't be larger than the maximum.
+
+    Args:
+        settings: Invalid settings of `custom.objects.list`.
+    """
+    with pytest.raises(ValidationError):
+        ListConfig.model_validate(settings)

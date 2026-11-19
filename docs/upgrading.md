@@ -3,6 +3,43 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Pages of the object list
+
+!!! warning "Breaking change"
+    `GET /objects` returns a page of objects instead of an array of all
+    objects.
+
+`GET /objects` lists the objects one page at a time (#59; see [Listing
+objects](api.md#listing-objects)): the response is an object with the
+`objects` of the page, newest registered first, and a `nextPageToken`
+unless it is the last page, instead of an array. A page has at most 50
+objects unless the request sets `pageSize` (at most 200). Before
+upgrading:
+
+- Update clients that list objects (scripts, portals) to read `objects`
+  of the response, and to request the next pages with `pageToken`, until
+  a page has no `nextPageToken`.
+- During a rolling update, pods of the earlier version still return
+  arrays until they are replaced, so clients may get either shape. To
+  avoid that, stop them before the new ones start, e.g., scale the app's
+  Deployment to `0` before `helm upgrade`, as described in [Access tokens
+  for writes](#access-tokens-for-writes).
+- To change the page sizes, set `custom.objects.list.default_page_size`
+  and `max_page_size` (see [Settings](configuration.md#settings)); the
+  default can't be larger than the maximum, or the app doesn't start.
+  The maximum can be at most 10000.
+- Pages are ordered by the database identifiers (`_id`) of the objects,
+  which DRS-Filer sets as MongoDB `ObjectId`s. Objects inserted into the
+  database by other means (e.g., `mongoimport` or `mongorestore` of data
+  of another tool) with other types of `_id` aren't listed (they can still
+  be read by their `id`). Check with `db.objects.countDocuments({_id:
+  {$not: {$type: "objectId"}}})` in `mongosh` (database `drsStore`); if it
+  isn't `0`, export these objects first (e.g., `mongoexport --db drsStore
+  --collection objects --query '{"_id": {"$not": {"$type":
+  "objectId"}}}'`), then delete them and register them again through the
+  API (`PUT /objects/{object_id}`, see [Registering
+  objects](api.md#registering-objects)).
+
 ## Authorization info
 
 `OPTIONS /objects/{object_id}` and `OPTIONS /objects` serve the
@@ -514,7 +551,7 @@ service info) and timestamps (`date-time`, RFC 3339, e.g.,
   [Configuration](configuration.md)).
 - Objects stored before the upgrade with other values fail the validation
   of responses, too (`500 Internal Server Error`); one
-  such object also fails `GET /objects`, which lists all objects. Once the
+  such object also fails the page of `GET /objects` that has it. Once the
   upgrade has rolled out (no old instance left that could still store such
   values), list the objects whose timestamps FOCA refuses, with FOCA's own
   check (which also refuses dates and times that don't exist, e.g.,

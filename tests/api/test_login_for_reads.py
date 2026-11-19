@@ -131,7 +131,7 @@ def _served_objects(client: FlaskClient, ids: tuple[str, str]) -> list[Any]:
     """
     headers = make_headers(USER)
     obj = body(client.get(_url("/objects/{object_id}", ids), headers=headers))
-    return [obj, *body(client.get(f"{API}/objects", headers=headers))]
+    return [obj, *body(client.get(f"{API}/objects", headers=headers))["objects"]]
 
 
 def test_access_urls_need_login_by_default(app: Any) -> None:
@@ -173,7 +173,7 @@ def test_objects_without_access_urls_by_default(app: Any) -> None:
     ids = _register(client)
     for headers in ({}, make_headers(USER), make_headers(ADMIN)):
         obj = body(client.get(_url("/objects/{object_id}", ids), headers=headers))
-        objects = body(client.get(f"{API}/objects", headers=headers))
+        objects = body(client.get(f"{API}/objects", headers=headers))["objects"]
         methods = _access_methods([obj, *objects])
         assert len(methods) == 4
         for method in methods:

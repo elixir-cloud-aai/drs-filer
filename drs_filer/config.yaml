@@ -220,6 +220,13 @@ custom:
         id:
             charset: &id_charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
             length: 6
+        # Pages of the object list (`GET /objects`): `default_page_size`
+        # objects unless the request sets `pageSize`, at most `max_page_size`
+        # (itself at most 10000; larger `pageSize`s are reduced to it); the
+        # default can't be larger than the maximum
+        list:
+            default_page_size: 50
+            max_page_size: 200
     access_methods:
         id:
             charset: *id_charset

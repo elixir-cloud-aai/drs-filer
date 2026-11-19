@@ -64,6 +64,9 @@ def _integer(value: object) -> object:
 PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
 # Non-negative integer, also as a string of digits (e.g., from `${VAR}`)
 NonNegativeInteger = Annotated[int, BeforeValidator(_integer), Field(ge=0)]
+# Largest maximum size of the pages of the object list
+# (`custom.objects.list.max_page_size`), which bounds the cost of a request
+MAX_PAGE_SIZE = 10000
 
 
 class DrsConfig(FOCABaseConfig):
@@ -184,17 +187,64 @@ class IdConfig(FocaIdConfig):
         return value
 
 
+class ListConfig(FOCABaseConfig):
+    """Model for the pages of the object list (`GET /objects`).
+
+    Args:
+        default_page_size: Number of objects of a page if the request has no
+            `pageSize`; at most `max_page_size`.
+        max_page_size: Largest number of objects of a page, at most
+            `MAX_PAGE_SIZE`; larger `pageSize`s are reduced to it.
+
+    Attributes:
+        default_page_size: Number of objects of a page if the request has no
+            `pageSize`.
+        max_page_size: Largest number of objects of a page.
+
+    Raises:
+        pydantic.ValidationError: A setting is not a positive integer, the
+            maximum is larger than `MAX_PAGE_SIZE`, or the default page size
+            is larger than the maximum.
+
+    Example:
+        >>> ListConfig(default_page_size="10").default_page_size
+        10
+    """
+
+    default_page_size: PositiveInteger = 50
+    max_page_size: Annotated[PositiveInteger, Field(le=MAX_PAGE_SIZE)] = 200
+
+    @model_validator(mode="after")
+    def check_default_page_size(self) -> "ListConfig":
+        """Refuse a default page size larger than the maximum.
+
+        Returns:
+            The settings.
+
+        Raises:
+            ValueError: The default page size is larger than the maximum.
+        """
+        if self.default_page_size > self.max_page_size:
+            raise ValueError(
+                "'default_page_size' must not be larger than 'max_page_size'"
+            )
+        return self
+
+
 class ObjectsConfig(FOCABaseConfig):
     """Model for the settings of objects.
 
     Args:
         id: Generated identifiers of objects.
+        list: Pages of the object list (`GET /objects`).
 
     Attributes:
         id: Generated identifiers of objects.
+        list: Pages of the object list.
     """
 
     id: IdConfig = Field(default_factory=IdConfig)
+    list: ListConfig = Field(default_factory=ListConfig)
 
 
 class AccessMethodsConfig(FOCABaseConfig):

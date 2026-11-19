@@ -28,20 +28,17 @@ def _register(client: FlaskClient, access_methods: int = 1) -> str:
     return object_id
 
 
-def test_list_objects_empty(client: FlaskClient) -> None:
-    """Without objects, the list is empty."""
-    response = client.get(f"{API}/objects")
-    assert response.status_code == 200
-    assert body(response) == []
-
-
 def test_list_objects(client: FlaskClient) -> None:
-    """Registered objects are listed, without database fields."""
+    """Registered objects are listed, without database fields.
+
+    The pages of the list are tested in `tests/api/test_list_objects.py`.
+    """
     ids = {_register(client), _register(client)}
     response = client.get(f"{API}/objects")
     assert response.status_code == 200
-    assert {obj["id"] for obj in body(response)} == ids
-    assert all("_id" not in obj for obj in body(response))
+    listed = body(response)["objects"]
+    assert {obj["id"] for obj in listed} == ids
+    assert all("_id" not in obj for obj in listed)
 
 
 def test_post_object(client: FlaskClient, objects: Collection[dict[str, Any]]) -> None:
@@ -153,7 +150,7 @@ def test_put_object_replace(client: FlaskClient) -> None:
     assert response.status_code == 200
     assert body(response) == object_id
     assert body(client.get(f"{API}/objects/{object_id}"))["name"] == "replaced.bam"
-    assert len(body(client.get(f"{API}/objects"))) == 1
+    assert len(body(client.get(f"{API}/objects"))["objects"]) == 1
 
 
 def test_put_object_invalid(client: FlaskClient) -> None:
@@ -265,7 +262,8 @@ def test_self_uri_of_stored_objects(
     expected = f"{SELF_URI_BASE}/legacy"
     obj = body(client.get(f"{API}/objects/legacy"))
     assert obj["self_uri"] == expected
-    assert [obj["self_uri"] for obj in body(client.get(f"{API}/objects"))] == [expected]
+    listed = body(client.get(f"{API}/objects"))["objects"]
+    assert [obj["self_uri"] for obj in listed] == [expected]
 
 
 @pytest.mark.parametrize(

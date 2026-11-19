@@ -1,10 +1,13 @@
 """Controllers for DRS endpoints."""
 
 import logging
+import re
 from typing import Any, NoReturn, cast
 from urllib.parse import quote
 
+from bson import ObjectId
 from flask import request
+from foca.errors import FieldError, InvalidFieldsProblem
 from foca.utils.logging import log_traffic
 
 from drs_filer.errors.exceptions import (
@@ -32,6 +35,11 @@ from drs_filer.ga4gh.drs.endpoints.service_info import (
 from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
+
+# Page tokens of the object list (`ListDrsObjects()`): the database
+# identifier (`_id`) of an object, as 24 hexadecimal digits, as the pattern of
+# `pageToken` in the specification
+PAGE_TOKEN = re.compile(r"[0-9a-f]{24}")
 
 
 def _request_body() -> dict[str, Any]:
@@ -106,16 +114,69 @@ def _read(obj: dict[str, Any]) -> dict[str, Any]:
 
 
 @log_traffic
-def ListDrsObjects() -> list[dict[str, Any]]:
-    """Get all DRS objects.
+def ListDrsObjects(
+    pageSize: int | None = None,
+    pageToken: str | None = None,
+) -> dict[str, Any]:
+    """Get a page of the DRS objects.
 
-    As the object reads serve them (`_read()`).
+    Objects are listed by their database identifier (`_id`), descending, and
+    served as the object reads serve them (`_read()`). `_id`s are unique, so
+    no object is skipped or listed twice; they start with the time of
+    registration (in seconds), so the list is newest first, to the second
+    (in the same second, and across the app instances and the database
+    server, which generates the `_id`s of objects created by `PUT`, with
+    clock skew, the order is arbitrary, but fixed). Objects whose `_id` isn't
+    an `ObjectId` (not stored by DRS-Filer) aren't listed. Replacing an
+    object (`PUT`) keeps
+    its `_id`, so its place in the list. The page token is the `_id` of the
+    last object of the previous page, as 24 hexadecimal digits
+    (`PAGE_TOKEN`). Connexion checks it against the pattern of the
+    specification, which Python's regular expressions also match with a
+    newline at the end (`$`), so it is checked again here.
+
+    Args:
+        pageSize: Maximum number of objects of the page; by default
+            `custom.objects.list.default_page_size`, and at most
+            `max_page_size`, to which larger values are reduced.
+        pageToken: `nextPageToken` of the previous page.
 
     Returns:
-        List of DRS objects as dictionaries, JSONified if returned in app context.
+        The page (`DrsObjectPage`): its objects, and `nextPageToken` unless it
+        is the last page.
+
+    Raises:
+        foca.errors.InvalidFieldsProblem: The page token is malformed; the
+            problem details don't quote it.
     """
-    db_collection = get_collection("objects")
-    return [_read(_served(obj)) for obj in db_collection.find()]
+    if pageToken is not None and not PAGE_TOKEN.fullmatch(pageToken):
+        raise InvalidFieldsProblem(
+            [
+                FieldError(
+                    detail="Must be the 'nextPageToken' of a page.",
+                    code="pattern-mismatch",
+                    parameter="pageToken",
+                )
+            ]
+        )
+    settings = get_custom_config().objects.list
+    size = min(
+        settings.default_page_size if pageSize is None else pageSize,
+        settings.max_page_size,
+    )
+    # Only objects with `ObjectId`s, as DRS-Filer stores them: others (e.g.,
+    # imported with other `_id`s) sort outside of them and would give tokens
+    # that aren't `PAGE_TOKEN`s (see `docs/upgrading.md`)
+    condition: dict[str, Any] = {"$type": "objectId"}
+    if pageToken is not None:
+        condition["$lt"] = ObjectId(pageToken)
+    query = {"_id": condition}
+    # One more than the page, to learn whether there is a next page
+    found = list(get_collection("objects").find(query).sort("_id", -1).limit(size + 1))
+    page: dict[str, Any] = {"objects": [_read(_served(obj)) for obj in found[:size]]}
+    if len(found) > size:
+        page["nextPageToken"] = str(found[size - 1]["_id"])
+    return page
 
 
 @log_traffic
