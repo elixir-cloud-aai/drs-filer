@@ -15,6 +15,7 @@ from drs_filer.custom_config import (
     CustomConfig,
     DrsConfig,
     IdConfig,
+    StatsConfig,
 )
 
 # The required settings, which have no defaults
@@ -214,3 +215,28 @@ def test_integers_in_strings() -> None:
     FOCA interpolates variables into strings.
     """
     assert IdConfig.model_validate({"length": "12"}).length == 12
+    assert StatsConfig.model_validate({"cache_seconds": "0"}).cache_seconds == 0
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"cache_seconds": -1},
+        {"cache_seconds": "1.5"},
+        {"cache_seconds": True},
+        {"enabled": "maybe"},
+        {"ttl": 60},
+    ],
+)
+def test_stats_config_invalid(settings: dict[str, Any]) -> None:
+    """Invalid or unknown settings of the stats are refused."""
+    with pytest.raises(ValidationError):
+        StatsConfig.model_validate(settings)
+
+
+def test_stats_config_defaults() -> None:
+    """The stats are served, and kept for 60 s."""
+    config = CustomConfig(**REQUIRED).stats
+    assert config.enabled is True
+    assert config.cache_seconds == 60
+    assert StatsConfig.model_validate({"enabled": "false"}).enabled is False

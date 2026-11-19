@@ -62,6 +62,8 @@ def _integer(value: object) -> object:
 
 # Positive integer, also as a string of digits (e.g., from `${VAR}`)
 PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
+# Non-negative integer, also as a string of digits (e.g., from `${VAR}`)
+NonNegativeInteger = Annotated[int, BeforeValidator(_integer), Field(ge=0)]
 
 
 class DrsConfig(FOCABaseConfig):
@@ -208,6 +210,39 @@ class AccessMethodsConfig(FOCABaseConfig):
     id: IdConfig = Field(default_factory=IdConfig)
 
 
+class StatsConfig(FOCABaseConfig):
+    """Model for the stats of the objects in the service info.
+
+    `GET /service-info` serves `drs.objectCount` and `drs.totalObjectSize`
+    (DRS 1.5.0), computed from the database and kept for `cache_seconds` in
+    each app process (each Gunicorn worker), so that frequent requests to
+    the public endpoint don't read all objects each time. Writes through the
+    same process recompute them at once; other processes serve them up to
+    `cache_seconds` late.
+
+    Args:
+        enabled: Whether the service info has the stats; `False` leaves them
+            out (they are optional), e.g., where reads require login and the
+            number of objects shouldn't show either.
+        cache_seconds: How long the stats are kept, in seconds; `0` computes
+            them for each request.
+
+    Attributes:
+        enabled: Whether the service info has the stats.
+        cache_seconds: How long the stats are kept, in seconds.
+
+    Raises:
+        pydantic.ValidationError: A setting is invalid.
+
+    Example:
+        >>> StatsConfig(cache_seconds="0").cache_seconds
+        0
+    """
+
+    enabled: bool = True
+    cache_seconds: NonNegativeInteger = 60
+
+
 class CustomConfig(FOCABaseConfig):
     """Model for the app's own configuration (`custom`).
 
@@ -219,11 +254,13 @@ class CustomConfig(FOCABaseConfig):
         drs: DRS host of the app; required.
         objects: Settings of objects.
         access_methods: Settings of access methods.
+        stats: Stats of the objects in the service info.
 
     Attributes:
         drs: DRS host of the app.
         objects: Settings of objects.
         access_methods: Settings of access methods.
+        stats: Stats of the objects in the service info.
 
     Raises:
         pydantic.ValidationError: A setting is missing, invalid or unknown.
@@ -232,6 +269,7 @@ class CustomConfig(FOCABaseConfig):
     drs: DrsConfig
     objects: ObjectsConfig = Field(default_factory=ObjectsConfig)
     access_methods: AccessMethodsConfig = Field(default_factory=AccessMethodsConfig)
+    stats: StatsConfig = Field(default_factory=StatsConfig)
 
     @model_validator(mode="before")
     @classmethod

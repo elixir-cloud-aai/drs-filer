@@ -148,14 +148,21 @@ def test_service_info(object_id: str) -> None:
     """Service info is set and returned, with the stats of the objects.
 
     The stats are those of the listed objects: their number, and the total
-    size of the blobs (objects without `contents`).
+    size of the blobs (objects without `contents`). The object of the
+    fixture `object_id` makes sure that there is one, so that the stats
+    aren't trivially zero; other tests' objects may be there too. Exact for
+    a single Gunicorn worker (as in CI): other workers keep their stats for
+    `custom.stats.cache_seconds` after writes. Objects are listed with the
+    writer's token, in case reads require login.
     """
     response = WRITER.post(_url("/service-info"), json=SERVICE_INFO, timeout=TIMEOUT)
     assert response.status_code == 201
-    response = requests.get(_url("/objects"), timeout=TIMEOUT)
+    response = WRITER.get(_url("/objects"), timeout=TIMEOUT)
     assert response.status_code == 200
     objects = response.json()
+    assert object_id in [obj["id"] for obj in objects]
     blobs = [obj["size"] for obj in objects if "contents" not in obj]
+    assert sum(blobs) >= drs_object()["size"]
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)
     assert response.status_code == 200
     assert response.json() == {

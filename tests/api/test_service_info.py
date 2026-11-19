@@ -271,7 +271,7 @@ def test_get_service_info_stats(client: FlaskClient) -> None:
     copies of the same bytes, so neither is counted twice. Replacing and
     deleting objects updates them.
     """
-    assert _stats(client) == DRS_SERVICE_FIELDS["drs"]
+    assert _stats(client) == drs_service_fields(0, 0)["drs"]
     first = _register(client, {**drs_object(), "size": 1024})
     second = _register(client, {**drs_object(access_methods=2), "size": 2048})
     bundle = {**drs_object(), "size": 3072}
@@ -306,12 +306,102 @@ def test_get_service_info_stats_anonymous(
     assert _stats(anonymous_client) == drs_service_fields(1, 1024)["drs"]
 
 
-def test_get_service_info_stats_database_error(client: FlaskClient) -> None:
-    """A failing database is a server error, also for the stats."""
+@pytest.mark.parametrize("failing", ["count_documents", "aggregate"])
+def test_get_service_info_stats_database_error(
+    client: FlaskClient, failing: str
+) -> None:
+    """A failing database is a server error, also for each query of the stats.
+
+    The other queries succeed: the service info is found, and the other
+    query of the stats has a result.
+    """
     collection = MagicMock()
     collection.find_one.return_value = dict(SERVICE_INFO)
-    collection.aggregate.side_effect = PyMongoError("down")
+    collection.count_documents.return_value = 0
+    collection.aggregate.return_value = iter([])
+    getattr(collection, failing).side_effect = PyMongoError("down")
     with patch.object(service_info_module, "get_collection", return_value=collection):
         response = client.get(f"{API}/service-info")
     assert response.status_code == 500
     assert body(response)["status"] == 500
+
+
+class _Clock:
+    """Clock of the kept stats (`time.monotonic()`), set by the tests.
+
+    Attributes:
+        now: The time, in seconds.
+    """
+
+    def __init__(self) -> None:
+        """Start at 1000 s."""
+        self.now = 1000.0
+
+    def monotonic(self) -> float:
+        """Get the time.
+
+        Returns:
+            The time, in seconds.
+        """
+        return self.now
+
+
+def _stats_client(overlay: Path, stats: dict[str, Any]) -> FlaskClient:
+    """Create an app with stats settings, and get its test client.
+
+    Args:
+        overlay: Config overlay of the test.
+        stats: Settings of the stats (`custom.stats`).
+
+    Returns:
+        Test client, with an admin's access token.
+    """
+    overlay.write_text(yaml.safe_dump({"custom": {"stats": stats}}))
+    return admin_client(create_app())
+
+
+def test_get_service_info_stats_kept(
+    client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The stats are kept for `cache_seconds` (by default 60 s), per process.
+
+    Objects written by another process (here, straight into the database)
+    show once they expire; writes through the app show at once
+    (`test_get_service_info_stats`).
+    """
+    clock = _Clock()
+    monkeypatch.setattr(service_info_module, "time", clock)
+    assert _stats(client) == drs_service_fields(0, 0)["drs"]
+    objects.insert_one({"id": "other", "size": 7})
+    clock.now += 59
+    assert _stats(client) == drs_service_fields(0, 0)["drs"]
+    clock.now += 1
+    assert _stats(client) == drs_service_fields(1, 7)["drs"]
+
+
+def test_get_service_info_stats_not_kept(
+    mongo_client: MongoClient[dict[str, Any]],
+    overlay: Path,
+    objects: Collection[dict[str, Any]],
+) -> None:
+    """With `cache_seconds: 0`, the stats are computed for each request."""
+    client = _stats_client(overlay, {"cache_seconds": 0})
+    assert _stats(client) == drs_service_fields(0, 0)["drs"]
+    objects.insert_one({"id": "other", "size": 7})
+    assert _stats(client) == drs_service_fields(1, 7)["drs"]
+
+
+def test_get_service_info_stats_disabled(
+    mongo_client: MongoClient[dict[str, Any]], overlay: Path
+) -> None:
+    """With `enabled: false`, the service info has no stats (they're optional).
+
+    The database isn't read for them.
+    """
+    client = _stats_client(overlay, {"enabled": False})
+    _register(client, drs_object())
+    with patch.object(service_info_module, "_compute_object_stats") as compute:
+        assert _stats(client) == {"maxBulkRequestLength": 1}
+    compute.assert_not_called()

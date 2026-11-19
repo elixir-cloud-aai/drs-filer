@@ -151,13 +151,18 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
   recommends. Blobs registered more than once, under different
   identifiers, are counted each time: DRS-Filer doesn't compare checksums.
 
-The stats are computed from the database on each request, so they follow
-registrations, replacements and deletions at once; they are never stored.
-They are under `drs`, as the `DrsService` schema of DRS 1.5.0 defines them,
-not under `drs.stats`, as the example in the specification's description
-of the service info shows. Like the rest of the service info, they are
-public, also where a deployment requires login for all other reads (see
-[Requiring login for reads](access-control.md#requiring-login-for-reads)).
+The stats are computed from the database, never stored, and kept by each
+process for 60 seconds by default; writes through a process recompute its
+stats at once, other processes (Gunicorn workers, replicas) serve theirs up
+to that long (see [Service info](configuration.md#service-info) in the
+configuration, also to leave them out). They are under `drs`, as the
+`DrsService` schema of DRS 1.5.0 defines them, not under `drs.stats`, as
+the example in the specification's description of the service info shows.
+Like the rest of the service info, they are public, also where a deployment
+requires login for all other reads (see [Requiring login for
+reads](access-control.md#requiring-login-for-reads)). Totals beyond the
+64-bit range (8 EiB) lose precision, as MongoDB adds them up as
+floating-point numbers then.
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
 the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the

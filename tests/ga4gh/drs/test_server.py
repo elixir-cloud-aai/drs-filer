@@ -30,7 +30,7 @@ from drs_filer.ga4gh.drs.server import (
     RegisterObject,
     self_uri,
 )
-from tests.mock_data import DRS_SERVICE_FIELDS, drs_service_fields
+from tests.mock_data import drs_service_fields
 
 MOCK_ID_NA = "unavailable"
 
@@ -537,7 +537,7 @@ def test_PostServiceInfo() -> None:
     with app.test_request_context(json=deepcopy(SERVICE_INFO_CONFIG)):
         body, status, _ = PostServiceInfo.__wrapped__()
         res = GetServiceInfo.__wrapped__()
-        assert res == {**SERVICE_INFO_CONFIG, **DRS_SERVICE_FIELDS}
+        assert res == {**SERVICE_INFO_CONFIG, **drs_service_fields(0, 0)}
     assert body is None
     # An integer, not the string "201", so that Flask sets the status code
     assert status == 201

@@ -3,26 +3,31 @@
 The service info is stored as a single record, with `_id` `CURRENT_ID`,
 which `GET /service-info` serves, with the DRS fields that the app computes
 (`drs_service_fields()`, with the stats of the objects of `object_stats()`).
-On startup, the service info of the config
-(FOCA's section `service_info`, with the version of the package unless
-`service_info.service.version` is set) replaces it, if it differs; `POST
-/service-info` replaces it until the next startup. Both remove the records
-that earlier versions stored (one per service info `id`).
+On startup, the service info of the config (FOCA's section `service_info`,
+with the version of the package unless `service_info.service.version` is
+set) replaces it, if it differs; `POST /service-info` replaces it until the
+next startup. Both remove the records that earlier versions stored (one per
+service info `id`).
 """
 
 import logging
+import time
 from typing import Any
 
+from flask import current_app
 from foca.api.service_info import get_service_info as get_config_service_info
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import NotFound
-from drs_filer.utils import get_collection
+from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
 
 # `_id` of the record of the service info that is served
 CURRENT_ID = "current"
+# Key of the kept stats of the objects in the app's `extensions`: the time
+# they were computed (`time.monotonic()`) and the stats
+STATS_CACHE = "drs_filer.object_stats"
 # The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
 # of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
 # implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
@@ -34,19 +39,50 @@ SERVICE_TYPE = {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
 
 
 def object_stats() -> dict[str, int]:
-    """Get the stats of the registered objects, from the database.
+    """Get the stats of the registered objects.
 
-    They are computed on each request: a count of the objects, and an
-    aggregate over the sizes of the blobs.
+    They are kept in the app (`current_app.extensions[STATS_CACHE]`, so per
+    process) for `custom.stats.cache_seconds`, as computing them reads each
+    object; writes of the process remove them (`invalidate_object_stats()`).
+
+    Returns:
+        The stats of `DrsService` (DRS 1.5.0), see `_compute_object_stats()`.
+    """
+    cache_seconds = get_custom_config().stats.cache_seconds
+    now = time.monotonic()
+    cached: tuple[float, dict[str, int]] | None = current_app.extensions.get(
+        STATS_CACHE
+    )
+    if cached is not None and now - cached[0] < cache_seconds:
+        return dict(cached[1])
+    stats = _compute_object_stats()
+    if cache_seconds:
+        current_app.extensions[STATS_CACHE] = (now, stats)
+    return dict(stats)
+
+
+def invalidate_object_stats() -> None:
+    """Remove the kept stats of the objects, after writes of objects.
+
+    The next request of the service info computes them again. Other
+    processes keep theirs until they expire.
+    """
+    current_app.extensions.pop(STATS_CACHE, None)
+
+
+def _compute_object_stats() -> dict[str, int]:
+    """Compute the stats of the registered objects, from the database.
+
+    A count of the objects, and an aggregate over the sizes of the blobs,
+    which reads each object (see "Service info" in `docs/api.md`, which
+    explains what is counted). Two queries, as mongomock lacks the `$type`
+    expression that a single aggregate would need, so a write in between
+    can make them disagree by that write until they are computed again.
 
     Returns:
         The stats of `DrsService` (DRS 1.5.0): `objectCount`, the number of
         objects, blobs and bundles; `totalObjectSize`, the total size of the
-        blobs (objects without `contents`), in bytes. Bundles aren't added,
-        as their size is that of their contents, nor are the access methods
-        of an object, which are copies of the same bytes (as the
-        specification recommends: "file bytes are counted for each unique
-        file and not cloud mirrors or other redundant copies").
+        blobs (objects without `contents`), in bytes.
     """
     objects = get_collection("objects")
     count = objects.count_documents({})
@@ -70,13 +106,14 @@ def drs_service_fields() -> dict[str, Any]:
 
     Returns:
         The fields of `DrsService` (DRS 1.5.0): `maxBulkRequestLength`
-        (deprecated) and `drs`, with the bulk maximum and the stats of the
-        objects (`object_stats()`).
+        (deprecated) and `drs`, with the bulk maximum and, unless
+        `custom.stats.enabled` is false, the stats of the objects
+        (`object_stats()`).
     """
-    return {
-        "maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH,
-        "drs": {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH, **object_stats()},
-    }
+    drs: dict[str, Any] = {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH}
+    if get_custom_config().stats.enabled:
+        drs.update(object_stats())
+    return {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH, "drs": drs}
 
 
 class RegisterServiceInfo:
