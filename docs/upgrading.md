@@ -58,9 +58,11 @@ them before the new ones start, e.g., scale the app's Deployment to `0`
 before `helm upgrade`, as described in [Access tokens for
 writes](#access-tokens-for-writes), or don't write until the upgrade is
 done), and rollbacks. Before rolling back (e.g., `helm rollback`), restore
-the backup of the database from before the upgrade, or give the objects
-without `self_uri` one of the earlier form, of your earlier public URL,
-e.g., with `mongosh`:
+the backup of the database from before the upgrade, or set the `self_uri`
+of the objects without one to the earlier form,
+`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>` of your
+earlier `custom.service` (identifiers aren't percent-encoded there), e.g.,
+with `mongosh`:
 
 ```javascript
 db.getSiblingDB("drsStore").objects.updateMany(

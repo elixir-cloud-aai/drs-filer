@@ -147,8 +147,8 @@ those registered before.
 
 `hostname` is a lowercase host name (RFC 1123: labels of letters, digits
 and `-`, separated by `.`, without `_`; not a number) or an IPv4 address,
-without scheme, port or path; DRS URIs can't
-have ports or IPv6 addresses. It can be set from an environment variable
+without scheme, port or path; DRS URIs can't have ports or IPv6
+addresses. It can be set from an environment variable
 (e.g., `hostname: ${PUBLIC_HOST}`). Integer settings (the lengths of
 identifiers) take integers or strings of digits, so they can be set from
 environment variables too.
