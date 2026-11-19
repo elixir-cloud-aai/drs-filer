@@ -30,6 +30,11 @@ are unchanged. The other reads stay public. Before upgrading:
   from the object as registered.
 - Expect `401` responses, which FOCA logs as errors with a traceback, from
   clients that still read access URLs without a token.
+- During a rolling update, pods of the earlier version still serve access
+  URLs without a token until they are replaced. To close that window,
+  stop them before the new ones start, e.g., scale the app's Deployment to
+  `0` before `helm upgrade`, as described in [Access tokens for
+  writes](#access-tokens-for-writes).
 
 Then, either:
 

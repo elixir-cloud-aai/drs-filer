@@ -10,6 +10,7 @@ import yaml
 
 from drs_filer.ga4gh.drs.access_urls import (
     CONFIG_KEY,
+    OPERATION_ID,
     access_urls_need_login,
     requires_login,
     served_object,
@@ -19,6 +20,7 @@ from tests.mock_data import ADDITIONS_SPEC, API_DIR, DRS_SPEC
 
 ACCESS_URLS_PATCH = API_DIR / "patches" / "login-for-access-urls.yaml"
 BEARER: list[dict[str, list[str]]] = [{"BearerAuth": []}]
+ACCESS_URL_PATH = "/objects/{object_id}/access/{access_id}"
 
 
 def _spec(**kwargs: Any) -> SpecConfig:
@@ -97,7 +99,7 @@ def test_requires_login_empty_patch_file(tmp_path: Path) -> None:
 
 
 def test_requires_login_without_operation(tmp_path: Path) -> None:
-    """Specifications without `GetAccessURL` don't say (`None`).
+    """Specifications without operations for access URLs don't say (`None`).
 
     Args:
         tmp_path: Temporary directory.
@@ -121,6 +123,45 @@ def test_requires_login_without_operation(tmp_path: Path) -> None:
     assert specs_require_login(
         [SpecConfig(path=spec), _spec(patches=[ACCESS_URLS_PATCH])]
     )
+
+
+@pytest.mark.parametrize(
+    ("paths", "expected"),
+    [
+        # Renamed operation at the path of access URLs
+        (
+            {"/objects/{object_id}/access/{access_id}": {"get": {"security": BEARER}}},
+            True,
+        ),
+        # `GetAccessURL` at another path
+        (
+            {"/access": {"get": {"operationId": "GetAccessURL", "security": BEARER}}},
+            True,
+        ),
+        # Both, one public
+        (
+            {
+                ACCESS_URL_PATH: {"get": {"security": []}},
+                "/access": {"get": {"operationId": OPERATION_ID, "security": BEARER}},
+            },
+            True,
+        ),
+        ({ACCESS_URL_PATH: {"get": {"security": []}}}, False),
+    ],
+)
+def test_requires_login_by_path_or_id(
+    tmp_path: Path, paths: dict[str, Any], expected: bool
+) -> None:
+    """Operations for access URLs are found by their path or their ID.
+
+    Args:
+        tmp_path: Temporary directory.
+        paths: Paths of the specification.
+        expected: Whether access URLs need a token.
+    """
+    spec = tmp_path / "spec.yaml"
+    spec.write_text(yaml.safe_dump({"openapi": "3.0.3", "paths": paths}))
+    assert requires_login(SpecConfig(path=spec)) is expected
 
 
 def _app(specs: list[SpecConfig]) -> Flask:

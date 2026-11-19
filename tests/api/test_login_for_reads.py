@@ -392,7 +392,9 @@ def test_access_urls_need_login_flag(
         spec = body(client.get(f"{API}/openapi.json"))
         operation = spec["paths"][ACCESS_URL]["get"]
         security = operation.get("security", spec.get("security"))
-        assert (security == [{"BearerAuth": []}]) is need_login
+        # Public: no requirements (or an anonymous alternative, which the
+        # shipped specification doesn't have)
+        assert security == ([{"BearerAuth": []}] if need_login else [])
         client.get(f"{API}/objects")
     expected = "Access URLs need login" if need_login else "Access URLs are public"
     logger.info.assert_called_once()

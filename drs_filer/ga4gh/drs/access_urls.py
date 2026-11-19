@@ -28,8 +28,9 @@ logger = logging.getLogger(__name__)
 
 # Key of the Flask config that caches whether access URLs need login
 CONFIG_KEY = "DRS_FILER_ACCESS_URLS_NEED_LOGIN"
-# The operation that serves access URLs
+# The operation that serves access URLs, and its path
 OPERATION_ID = "GetAccessURL"
+ACCESS_URL_PATH = "/objects/{object_id}/access/{access_id}"
 # HTTP methods of the Path Item Objects of OpenAPI 3, whose values are the
 # operations (other fields, e.g., `parameters`, are not)
 METHODS = frozenset(
@@ -87,26 +88,38 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
 def requires_login(spec: SpecConfig) -> bool | None:
     """Check whether a specification requires a token for access URLs.
 
-    An operation requires a token if its security requirements (or, if it
-    sets none, those of the specification) are not empty and have no empty
-    alternative (`{}`, anonymous), and authentication isn't disabled
+    The operations for access URLs are `GET` of their path
+    (`ACCESS_URL_PATH`) and any `GET` operation `GetAccessURL`, so that
+    neither a changed `operationId` nor a moved path makes them look
+    public. An operation requires a token if its security requirements (or,
+    if it sets none, those of the specification) are not empty and have no
+    empty alternative (`{}`, anonymous), and authentication isn't disabled
     (`disable_auth`, which removes them).
 
     Args:
         spec: Config of the specification.
 
     Returns:
-        Whether the operation `GetAccessURL` requires a token; `None` if the
-        specification has no such operation.
+        Whether an operation for access URLs requires a token; `None` if the
+        specification has none.
     """
     merged = _merged_spec(spec)
-    for path_item in (merged.get("paths") or {}).values():
-        operation = (path_item or {}).get("get") or {}
-        if operation.get("operationId") != OPERATION_ID:
-            continue
-        security = operation.get("security", merged.get("security")) or []
-        return not spec.disable_auth and bool(security) and {} not in security
-    return None
+    paths = merged.get("paths") or {}
+    operations = [
+        operation
+        for path, path_item in paths.items()
+        if isinstance(operation := (path_item or {}).get("get"), dict)
+        and (path == ACCESS_URL_PATH or operation.get("operationId") == OPERATION_ID)
+    ]
+    if not operations:
+        return None
+    return not spec.disable_auth and any(
+        bool(security) and {} not in security
+        for security in (
+            operation.get("security", merged.get("security")) or []
+            for operation in operations
+        )
+    )
 
 
 def specs_require_login(specs: Iterable[SpecConfig]) -> bool:
@@ -116,7 +129,7 @@ def specs_require_login(specs: Iterable[SpecConfig]) -> bool:
         specs: Configs of the specifications.
 
     Returns:
-        Whether a specification has the operation `GetAccessURL` and requires
+        Whether a specification has an operation for access URLs and requires
         a token for it; `False` if none has it (as then access URLs are only
         served with objects).
     """
