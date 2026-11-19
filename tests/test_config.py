@@ -52,12 +52,13 @@ def test_operations_routed_to_package() -> None:
 
 
 def test_dev_overlay() -> None:
-    """The Compose overlay builds URLs of the host it publishes the app on.
+    """The Compose overlay sets the host it publishes the app on.
 
-    It trusts a fictitious issuer, as the app refuses to start without one,
-    accepts tokens for any audience and starts without admins; it changes
-    nothing else, so that it keeps Flask's debug mode off and authentication
-    on.
+    It sets the host name for the `self_uri` of objects
+    (`drs://localhost/<id>`), trusts a fictitious issuer, as the app refuses
+    to start without one, accepts tokens for any audience and starts without
+    admins; it changes nothing else, so that it keeps Flask's debug mode off
+    and authentication on.
     """
     overlay = yaml.safe_load(DEV_OVERLAY_PATH.read_text())
     assert overlay == {
@@ -68,13 +69,7 @@ def test_dev_overlay() -> None:
             },
             "access_control": {"require_admin": False, "claim_groups": "groups"},
         },
-        "custom": {
-            "service": {
-                "url_prefix": "http",
-                "external_host": "localhost",
-                "external_port": 8080,
-            },
-        },
+        "custom": {"drs": {"hostname": "localhost"}},
     }
 
 

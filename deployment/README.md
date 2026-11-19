@@ -21,11 +21,12 @@ The chart renders a config overlay into the `<app>-config` ConfigMap (see
 [Names and labels](#names-and-labels)), which FOCA merges into the base
 config on startup (via `FOCA_CONFIG_OVERLAY`):
 
-- `custom.service` (`url_prefix`, `external_host` and `external_port`) is
-  set to the public URL of the app, `https://<hostName>` on port 443,
-  which the app puts into the `self_uri` of objects; `hostName` is
-  **required** (rendering fails without it). Serve the app over HTTPS for
-  it (see [Exposing the app](#exposing-the-app)).
+- `custom.drs.hostname` is set to `hostName`, the public host name of the
+  app, of which the `self_uri` of objects is a DRS URI
+  (`drs://<hostName>/<id>`); `hostName` is **required** (rendering fails
+  without it). DRS clients resolve these URIs to
+  `https://<hostName>/ga4gh/drs/v1/objects/<id>`, so serve the app over
+  HTTPS on port 443 (see [Exposing the app](#exposing-the-app)).
 - `db.host` is set to the release's MongoDB Service (`<app>-mongodb`),
   unless MongoDB is external (see [External MongoDB](#external-mongodb)).
 - `config` overrides keys of the base config; it takes precedence over the
@@ -230,8 +231,9 @@ Gateway API, OpenShift and cloud load balancers):
   configure it: the chart then creates the Route.
 
 All of them route all paths (`/`) to the app. The app advertises
-`https://<hostName>` URLs (the `self_uri` of objects), so serve it over
-HTTPS only: by default, the Ingress has no TLS (`https.enabled: false`) and
+`drs://<hostName>/<id>` URIs (the `self_uri` of objects), which DRS clients
+resolve to `https://<hostName>` URLs on port 443, so serve it over HTTPS
+only: by default, the Ingress has no TLS (`https.enabled: false`) and
 serves plain HTTP, so TLS must be terminated in front of the cluster (e.g.,
 by a load balancer); Helm's notes after installing say so.
 

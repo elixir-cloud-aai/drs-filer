@@ -112,7 +112,10 @@ def test_reregister_access_method_without_id(
     stored = list(objects.find(query, {"_id": 0}))
     assert [obj["id"] for obj in stored] == [object_id]
     obj = stored[0]
-    del obj["id"], obj["self_uri"]
+    # As the script of the upgrade notes: objects stored by earlier
+    # versions have a `self_uri`
+    del obj["id"]
+    obj.pop("self_uri", None)
     for method in obj["access_methods"]:
         method.pop("access_id", None)
     response = client.put(f"{API}/objects/{object_id}", json=obj)

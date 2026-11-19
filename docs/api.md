@@ -104,8 +104,11 @@ DRS-Filer sets the fields that the server owns:
   the configuration sets (see
   [Identifiers](configuration.md#identifiers)); for `PUT`, the identifier of
   the path.
-- `self_uri`: built from the public URL of the configuration and the
-  identifier (see [Public URL](configuration.md#public-url)).
+- `self_uri`: the DRS URI of the object, `drs://<hostname>/<id>`, of the
+  configured host name, with the identifier percent-encoded (see [Host
+  name](configuration.md#host-name)). It is computed when the object is
+  served, not stored, and replaces the `self_uri` that earlier versions
+  stored.
 - `access_id` of each access method: a random identifier, of the characters
   and length that the configuration sets for access methods. Clients use it
   to get the access URL (`GET /objects/{object_id}/access/{access_id}`) or to
@@ -140,7 +143,9 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
 the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the
-computed fields.
+computed fields. It answers `201` with the `Location` `service-info`, a
+relative reference to the URL it was posted to (that of `GET
+/service-info`).
 
 ## Passport POST endpoints
 
@@ -208,8 +213,6 @@ DRS-Filer serves the specification unchanged, but for these deviations
   without access URLs](access-control.md#objects-without-access-urls).
 - **Bundles** are served as registered: `expand` of `GET
   /objects/{object_id}` is accepted, but ignored.
-- **`self_uri`** is the URL of the object, not a `drs://` URI yet
-  ([#97](https://github.com/elixir-cloud-aai/drs-filer/issues/97)).
 - **Service info:** `GET /service-info` can answer `404` before service info
   is set.
 - **CORS preflight requests** (`OPTIONS` with `Origin` and

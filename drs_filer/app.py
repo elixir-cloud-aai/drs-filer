@@ -29,8 +29,8 @@ CUSTOM_CONFIG_MODEL = "drs_filer.custom_config.CustomConfig"
 # Sections of earlier versions, which would be ignored, and what replaced them
 REMOVED_SECTIONS = {
     "endpoints": (
-        "the config section 'endpoints' was replaced: set the public URL in "
-        "'custom.service', identifiers in 'custom.objects.id' and "
+        "the config section 'endpoints' was replaced: set the public host "
+        "name in 'custom.drs.hostname', identifiers in 'custom.objects.id' and "
         "'custom.access_methods.id' ('charset' and 'length'), and the service "
         "info in 'service_info.service' (see 'Upgrading' in the documentation)"
     ),
@@ -42,7 +42,7 @@ def check_removed_sections() -> None:
 
     FOCA keeps sections that it doesn't know as untyped extra fields, so a
     config overlay of an earlier version would silently leave the defaults
-    in place (e.g., the public URL and the placeholder service info).
+    in place (e.g., the placeholder service info).
 
     Raises:
         ValueError: The config has a section of an earlier version (cf.

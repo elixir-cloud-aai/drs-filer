@@ -23,8 +23,8 @@ describe the settings.
 
 The app uses the configuration overlay
 [`config.dev.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/config.dev.yaml),
-which sets its public URL to `http://localhost:8080` (for the `self_uri` of
-objects); see [Configuration](configuration.md#docker-compose) to use your
+which sets its host name to `localhost` (for the `self_uri` of objects,
+`drs://localhost/<id>`); see [Configuration](configuration.md#docker-compose) to use your
 own overlays.
 
 The image reports version `0.0.0.dev0` unless you set

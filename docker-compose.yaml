@@ -28,7 +28,7 @@ services:
       - "127.0.0.1:8080:8080"
     # Development settings (`config.dev.yaml`): a fictitious token issuer,
     # an example group claim, tokens for any audience, no admin groups
-    # required, the public URL as published here. The host's
+    # required, the host name as published here. The host's
     # `DRS_FILER_CONFIG_OVERLAY` replaces the overlays, e.g., to add
     # `config.noauth.yaml`, which disables authentication (see "Running
     # without authentication" in `docs/development.md`). The image's command

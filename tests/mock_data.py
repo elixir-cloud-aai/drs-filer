@@ -18,9 +18,9 @@ DRS_SPEC = API_DIR / "20250324.fe25c39.openapi.yaml"
 ADDITIONS_SPEC = API_DIR / "additions.openapi.yaml"
 # Base URL of the API in the test client
 API = "/ga4gh/drs/v1"
-# Base of the `self_uri` of objects, from the test overlay
-# (`tests/config_overlay.yaml`)
-SELF_URI_BASE = "https://drs.example.org:443/ga4gh/drs/v1"
+# Base of the `self_uri` of objects: DRS URIs of the host name of the test
+# overlay (`tests/config_overlay.yaml`)
+SELF_URI_BASE = "drs://drs.example.org"
 
 _ACCESS_METHOD: dict[str, Any] = {"region": "us-east-1", "type": "https"}
 _OBJECT: dict[str, Any] = {

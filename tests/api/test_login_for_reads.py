@@ -355,9 +355,9 @@ def test_patches_cover_reads() -> None:
     assert set(access["paths"]) == {ACCESS_URL}
     assert not set(access["paths"]) & set(other["paths"])
     assert set(access["paths"]) | set(other["paths"]) == reads - {"/service-info"}
-    for patch in (access, other):
-        assert set(patch) == {"paths"}
-        for item in patch["paths"].values():
+    for content in (access, other):
+        assert set(content) == {"paths"}
+        for item in content["paths"].values():
             assert item == {"get": {"security": [{"BearerAuth": []}]}}
 
 
