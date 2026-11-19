@@ -83,9 +83,9 @@ def answer_cors_preflight() -> Response | None:
     DRS defines `OPTIONS` operations (the authorization info of objects),
     which would get the preflight requests of browsers too (and fail for
     `OPTIONS /objects`, whose preflight has no body). These get Flask's
-    default answer,
-    with the CORS headers that FOCA adds (if CORS is enabled), as for paths
-    without `OPTIONS` operations. Registered with `before_request`.
+    default answer, with the CORS headers that FOCA adds (if CORS is
+    enabled), as for paths without `OPTIONS` operations. Registered with
+    `before_request`.
 
     Returns:
         Flask's default response to `OPTIONS` (`200`, with `Allow`) for

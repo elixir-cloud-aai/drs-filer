@@ -20,14 +20,12 @@ can't find out which objects exist; otherwise, unknown objects get `404`
 import logging
 from typing import Any
 
-from flask import current_app
-
 from drs_filer.errors.exceptions import (
     BulkObjectIdsMissing,
     BulkRequestTooLarge,
     ObjectNotFound,
 )
-from drs_filer.ga4gh.drs.access_urls import access_urls_need_login, specs_require_login
+from drs_filer.ga4gh.drs.access_urls import access_urls_need_login, read_needs_login
 from drs_filer.utils import get_collection, get_custom_config, get_foca_config
 
 logger = logging.getLogger(__name__)
@@ -43,24 +41,20 @@ OBJECT_PATH = "/objects/{object_id}"
 def object_reads_need_login() -> bool:
     """Check whether object reads (`GetObject`) need login in the current app.
 
-    Read from the app's specifications once, as for access URLs
-    (`drs_filer.ga4gh.drs.access_urls.access_urls_need_login()`), then
-    cached in the app's config (`CONFIG_KEY`).
+    Read from the app's specifications once, as for access URLs, then
+    cached in the app's config (`CONFIG_KEY`, cf.
+    `drs_filer.ga4gh.drs.access_urls.read_needs_login()`).
 
     Returns:
         Whether object reads need login.
     """
-    need_login = current_app.config.get(CONFIG_KEY)
-    if need_login is None:
-        need_login = specs_require_login(
-            get_foca_config().api.specs, OBJECT_PATH, OPERATION_ID
-        )
-        current_app.config[CONFIG_KEY] = need_login
-        logger.info(
-            "Object reads %s",
-            "need login" if need_login else "are public",
-        )
-    return bool(need_login)
+    return read_needs_login(
+        CONFIG_KEY,
+        OBJECT_PATH,
+        OPERATION_ID,
+        ("Object reads need login", "Object reads are public"),
+        logger,
+    )
 
 
 def supported_authorizations(need_login: bool) -> dict[str, Any]:
@@ -72,9 +66,9 @@ def supported_authorizations(need_login: bool) -> dict[str, Any]:
     Returns:
         `Authorizations` of DRS, without `drs_object_id`: bearer tokens
         (`BearerAuth`) of the trusted issuers if the read needs login
-        (without `bearer_auth_issuers` if none are configured, which only
-        apps without authentication can be), otherwise no authorization
-        (`None`).
+        (without `bearer_auth_issuers` if none are configured; the base
+        config refuses to start without issuers, see `security.auth` of
+        `config.yaml`), otherwise no authorization (`None`).
     """
     if not need_login:
         return {"supported_types": ["None"]}

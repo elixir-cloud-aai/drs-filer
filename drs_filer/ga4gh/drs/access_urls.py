@@ -150,26 +150,56 @@ def specs_require_login(
     return any(requires_login(spec, path, operation_id) for spec in specs)
 
 
+def read_needs_login(
+    config_key: str,
+    path: str,
+    operation_id: str,
+    messages: tuple[str, str],
+    log: logging.Logger | None = None,
+) -> bool:
+    """Check whether a read needs login in the current app.
+
+    Read from the app's specifications once (`specs_require_login()`),
+    then cached in the app's config, and logged.
+
+    Args:
+        config_key: Key of the Flask config that caches the result.
+        path: Path of the read.
+        operation_id: `operationId` of the read.
+        messages: Log messages if the read needs login, and if it is public.
+        log: Logger of the message; by default, that of this module.
+
+    Returns:
+        Whether the read needs login.
+    """
+    need_login = current_app.config.get(config_key)
+    if need_login is None:
+        need_login = specs_require_login(
+            get_foca_config().api.specs, path, operation_id
+        )
+        current_app.config[config_key] = need_login
+        (log or logger).info(messages[0] if need_login else messages[1])
+    return bool(need_login)
+
+
 def access_urls_need_login() -> bool:
     """Check whether access URLs need login in the current app.
 
     Read from the app's specifications once, then cached in the app's
-    config (`CONFIG_KEY`).
+    config (`CONFIG_KEY`, cf. `read_needs_login()`).
 
     Returns:
         Whether access URLs need login.
     """
-    need_login = current_app.config.get(CONFIG_KEY)
-    if need_login is None:
-        need_login = specs_require_login(get_foca_config().api.specs)
-        current_app.config[CONFIG_KEY] = need_login
-        logger.info(
-            "Access URLs %s",
-            "need login; objects are served without them"
-            if need_login
-            else "are public, and served with objects",
-        )
-    return bool(need_login)
+    return read_needs_login(
+        CONFIG_KEY,
+        ACCESS_URL_PATH,
+        OPERATION_ID,
+        (
+            "Access URLs need login; objects are served without them",
+            "Access URLs are public, and served with objects",
+        ),
+    )
 
 
 def served_object(obj: dict[str, Any]) -> dict[str, Any]:

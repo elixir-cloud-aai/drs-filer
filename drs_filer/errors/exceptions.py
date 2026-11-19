@@ -188,11 +188,6 @@ exceptions = {
         ),
         "status": 400,
     },
-    PayloadTooLarge: {
-        "title": "Payload too large",
-        "detail": "The request is too large.",
-        "status": 413,
-    },
     BulkRequestTooLarge: {
         "title": "Payload too large",
         "detail": (

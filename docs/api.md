@@ -258,7 +258,10 @@ DRS-Filer serves the specification unchanged, but for these deviations
 - **Object identifiers `register` and `access`** can be used with `GET`,
   `PUT` and `DELETE`, but `POST /objects/register` and `POST /objects/access`
   are the registration and the bulk read of access URLs, not the passport
-  reads of these objects.
+  reads of these objects; `OPTIONS /objects/register` and `OPTIONS
+  /objects/access` get Flask's answer (`200` with `Allow`, no body), not
+  the authorization info of these objects, which is that of any object
+  (see [Authorization info](access-control.md#authorization-info)).
 
 ## Errors
 

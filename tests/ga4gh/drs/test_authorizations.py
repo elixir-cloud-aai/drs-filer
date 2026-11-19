@@ -87,7 +87,7 @@ def test_object_reads_need_login_cached() -> None:
         assert app.config[CONFIG_KEY] is True
         app.config[CONFIG_KEY] = False
         assert object_reads_need_login() is False
-    logger.info.assert_called_once_with("Object reads %s", "need login")
+    logger.info.assert_called_once_with("Object reads need login")
 
 
 def test_supported_authorizations() -> None:

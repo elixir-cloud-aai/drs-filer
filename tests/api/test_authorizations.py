@@ -264,16 +264,39 @@ def test_options_bulk_empty(
     }
 
 
+def test_options_bulk_without_ids(
+    mongo_client: MongoClient[dict[str, Any]], overlay: Path
+) -> None:
+    """Bulk requests without `bulk_object_ids` get `400`, naming the field.
+
+    The specification doesn't require the field, so the app checks it.
+
+    Args:
+        mongo_client: MongoDB client.
+        overlay: Config overlay.
+    """
+    client = _client(overlay, [ACCESS_URLS_PATCH])
+    response = client.options(f"{API}/objects", json={})
+    assert response.status_code == 400, body(response)
+    problem = body(response)
+    validate_error(problem)
+    assert problem["status"] == 400
+    assert "`bulk_object_ids`" in problem["detail"]
+
+
 @pytest.mark.parametrize(
     "request_body",
-    [{}, {"bulk_object_ids": None}, {"bulk_object_ids": "a"}, {"bulk_object_ids": [1]}],
+    [{"bulk_object_ids": None}, {"bulk_object_ids": "a"}, {"bulk_object_ids": [1]}],
 )
-def test_options_bulk_malformed(
+def test_options_bulk_invalid(
     mongo_client: MongoClient[dict[str, Any]],
     overlay: Path,
     request_body: dict[str, Any],
 ) -> None:
-    """Bulk requests without a list of identifiers get `400`.
+    """Bulk requests whose identifiers aren't a list of strings get `400`.
+
+    Rejected by the validation of the request body against the
+    specification (`BulkObjectIdNoPassport`), with the invalid fields.
 
     Args:
         mongo_client: MongoDB client.
@@ -286,6 +309,7 @@ def test_options_bulk_malformed(
     problem = body(response)
     validate_error(problem)
     assert problem["status"] == 400
+    assert "errors" in problem
 
 
 @pytest.mark.parametrize(("patches", "need_login"), READ_MODES)
