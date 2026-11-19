@@ -38,6 +38,9 @@ STATS_CACHE = "drs_filer.object_stats"
 STATS_GENERATION = "drs_filer.object_stats_generation"
 # Guards the generation and the kept stats, for the threads of a process
 _STATS_LOCK = threading.Lock()
+# Held by the thread of a process that computes the stats, so that requests
+# that need them at the same time don't each read all objects
+_COMPUTE_LOCK = threading.Lock()
 # The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
 # of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
 # implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
@@ -58,27 +61,54 @@ def object_stats() -> dict[str, int]:
     thread of the process (Gunicorn's threads) made them stale aren't kept,
     as they may miss that write.
 
+    Only one thread of the process computes them at a time; threads that
+    need them meanwhile wait, and get the stats it keeps. They are kept from
+    the time they were computed, so that slow computations are kept too.
+
     Returns:
         The stats of `DrsService` (DRS 1.5.0), see `_compute_object_stats()`.
     """
     cache_seconds = get_custom_config().stats.cache_seconds
+    if not cache_seconds:
+        return _compute_object_stats()
+    generation, stats = _kept_stats(cache_seconds)
+    if stats is not None:
+        return stats
+    with _COMPUTE_LOCK:
+        # Another thread may have computed them while this one waited
+        generation, stats = _kept_stats(cache_seconds)
+        if stats is not None:
+            return stats
+        stats = _compute_object_stats()
+        extensions = current_app.extensions
+        with _STATS_LOCK:
+            if extensions.get(STATS_GENERATION, 0) == generation:
+                extensions[STATS_CACHE] = (generation, time.monotonic(), stats)
+    return dict(stats)
+
+
+def _kept_stats(cache_seconds: int) -> tuple[int, dict[str, int] | None]:
+    """Get the kept stats of the objects, unless they are stale.
+
+    Args:
+        cache_seconds: How long stats are kept, in seconds.
+
+    Returns:
+        The current generation, and a copy of the kept stats; `None` if
+        there are none, or if they are older than `cache_seconds` or of an
+        earlier generation.
+    """
     extensions = current_app.extensions
-    now = time.monotonic()
     with _STATS_LOCK:
         generation: int = extensions.get(STATS_GENERATION, 0)
         cached: tuple[int, float, dict[str, int]] | None = extensions.get(STATS_CACHE)
     if (
         cached is not None
         and cached[0] == generation
-        and now - cached[1] < cache_seconds
+        and time.monotonic() - cached[1] < cache_seconds
     ):
-        return dict(cached[2])
-    stats = _compute_object_stats()
-    if cache_seconds:
-        with _STATS_LOCK:
-            if extensions.get(STATS_GENERATION, 0) == generation:
-                extensions[STATS_CACHE] = (generation, now, stats)
-    return dict(stats)
+        return generation, dict(cached[2])
+    return generation, None
 
 
 def invalidate_object_stats() -> None:

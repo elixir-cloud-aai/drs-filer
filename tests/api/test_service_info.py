@@ -2,10 +2,12 @@
 
 from importlib.metadata import version
 from pathlib import Path
+import threading
 from typing import Any
 from unittest.mock import MagicMock, patch
 from urllib.parse import urljoin
 
+from connexion import App
 from flask.testing import FlaskClient
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -458,3 +460,75 @@ def test_get_service_info_stats_write_while_computing(
     ):
         assert _stats(client) == drs_service_fields(0, 0)["drs"]
     assert _stats(client) == drs_service_fields(1, 7)["drs"]
+
+
+def test_get_service_info_stats_slow(
+    client: FlaskClient,
+    objects: Collection[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stats that take longer than `cache_seconds` to compute are kept too.
+
+    They are kept from the time they were computed.
+    """
+    clock = _Clock()
+    monkeypatch.setattr(service_info_module, "time", clock)
+    compute = service_info_module._compute_object_stats
+
+    def slow() -> dict[str, int]:
+        """Compute the stats, taking 100 s.
+
+        Returns:
+            The stats.
+        """
+        clock.now += 100
+        return compute()
+
+    with patch.object(
+        service_info_module, "_compute_object_stats", side_effect=slow
+    ) as computed:
+        assert _stats(client) == drs_service_fields(0, 0)["drs"]
+        objects.insert_one({"id": "other", "size": 7})
+        clock.now += 59
+        assert _stats(client) == drs_service_fields(0, 0)["drs"]
+    assert computed.call_count == 1
+
+
+def test_get_service_info_stats_computed_once(app: App) -> None:
+    """Threads that need the stats while one computes them wait for its stats.
+
+    Only one thread of a process reads all objects at a time.
+    """
+    started = threading.Event()
+    release = threading.Event()
+    compute = service_info_module._compute_object_stats
+    results: list[dict[str, int]] = []
+
+    def blocking() -> dict[str, int]:
+        """Compute the stats once released.
+
+        Returns:
+            The stats.
+        """
+        started.set()
+        assert release.wait(10)
+        return compute()
+
+    def get_stats() -> None:
+        """Get the stats in an app context, as a request would."""
+        with app.app.app_context():
+            results.append(service_info_module.object_stats())
+
+    with patch.object(
+        service_info_module, "_compute_object_stats", side_effect=blocking
+    ) as computed:
+        threads = [threading.Thread(target=get_stats) for _ in range(3)]
+        threads[0].start()
+        assert started.wait(10)
+        for thread in threads[1:]:
+            thread.start()
+        release.set()
+        for thread in threads:
+            thread.join(10)
+    assert computed.call_count == 1
+    assert results == [{"objectCount": 0, "totalObjectSize": 0}] * 3
