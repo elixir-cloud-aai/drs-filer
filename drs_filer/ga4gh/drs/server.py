@@ -43,7 +43,9 @@ def self_uri(object_id: str) -> str:
     A hostname-based DRS URI, `drs://<hostname>/<id>`, of the host name of
     the config (`custom.drs.hostname`, not of the request, whose `Host`
     clients set), with the identifier percent-encoded, as DRS requires
-    (the unreserved characters of URLs stay as they are).
+    (the unreserved characters of URLs stay as they are, except in the
+    identifiers `.` and `..`, which would be dot segments that clients
+    remove when resolving the URI, RFC 3986, section 5.2.4).
 
     Args:
         object_id: Identifier of the object.
@@ -56,7 +58,10 @@ def self_uri(object_id: str) -> str:
         `drs://drs.example.org/a%3Ab`.
     """
     hostname = get_custom_config().drs.hostname
-    return f"drs://{hostname}/{quote(object_id, safe='')}"
+    encoded = quote(object_id, safe="")
+    if encoded in {".", ".."}:
+        encoded = encoded.replace(".", "%2E")
+    return f"drs://{hostname}/{encoded}"
 
 
 def _served(obj: dict[str, Any]) -> dict[str, Any]:

@@ -586,13 +586,16 @@ def test_host_name_required() -> None:
         "drs.example.org/x",
         "DRS.example.org",
         "drs_filer.example.org",
+        f"{'a' * 64}.example.org",
+        ".".join(["a" * 63] * 4),
     ],
 )
 def test_host_name_invalid(host: str) -> None:
     """Rendering fails for a `hostName` that isn't a lowercase DNS name.
 
-    Kubernetes requires lowercase DNS names (RFC 1123) as hosts, and the
-    app would refuse hosts with a scheme, port or path on startup.
+    Kubernetes requires lowercase DNS names (RFC 1123: labels of at most 63
+    characters, 253 in all) as hosts, and the app would refuse hosts with a
+    scheme, port or path, or beyond these limits, on startup.
 
     Args:
         host: Invalid host name.

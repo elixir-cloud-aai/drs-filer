@@ -13,8 +13,9 @@
     },
     "hostName": {
       "type": "string",
-      "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$",
-      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route): a lowercase DNS name (RFC 1123, as Kubernetes requires for hosts), without scheme, port or path; also sets the host name of the self_uri of objects (custom.drs.hostname of the app config); required"
+      "maxLength": 253,
+      "pattern": "^$|^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$",
+      "description": "Public host name of the app (of the Ingress, HTTPRoute or Route): a lowercase DNS name (RFC 1123, as Kubernetes requires for hosts: labels of at most 63 characters, 253 in all), without scheme, port or path; also sets the host name of the self_uri of objects (custom.drs.hostname of the app config); required"
     },
     "config": {
       "type": [

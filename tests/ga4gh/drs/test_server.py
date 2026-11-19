@@ -31,6 +31,7 @@ from drs_filer.ga4gh.drs.server import (
     PostServiceInfo,
     PutObject,
     RegisterObject,
+    self_uri,
 )
 
 MOCK_ID_NA = "unavailable"
@@ -534,3 +535,30 @@ def test_PostServiceInfo() -> None:
     assert body is None
     # An integer, not the string "201", so that Flask sets the status code
     assert status == 201
+
+
+@pytest.mark.parametrize(
+    ("object_id", "expected"),
+    [
+        (".", "drs://drs.example.org/%2E"),
+        ("..", "drs://drs.example.org/%2E%2E"),
+        ("...", "drs://drs.example.org/..."),
+        ("a.b", "drs://drs.example.org/a.b"),
+        ("x:y", "drs://drs.example.org/x%3Ay"),
+    ],
+)
+def test_self_uri(object_id: str, expected: str) -> None:
+    """The identifier in `self_uri` is percent-encoded, dot segments too.
+
+    `.` and `..` would otherwise be dot segments, which clients remove when
+    they resolve the URI to a URL (RFC 3986, section 5.2.4); other
+    identifiers keep their unreserved characters.
+
+    Args:
+        object_id: Identifier of the object.
+        expected: Its `self_uri`.
+    """
+    app = Flask(__name__)
+    app.config.foca = Config(custom=CUSTOM_CONFIG)
+    with app.app_context():
+        assert self_uri(object_id) == expected
