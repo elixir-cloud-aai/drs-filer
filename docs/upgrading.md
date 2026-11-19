@@ -19,6 +19,11 @@ upgrading:
 - Update clients that list objects (scripts, portals) to read `objects`
   of the response, and to request the next pages with `pageToken`, until
   a page has no `nextPageToken`.
+- During a rolling update, pods of the earlier version still return
+  arrays until they are replaced, so clients may get either shape. To
+  avoid that, stop them before the new ones start, e.g., scale the app's
+  Deployment to `0` before `helm upgrade`, as described in [Access tokens
+  for writes](#access-tokens-for-writes).
 - To change the page sizes, set `custom.objects.list.default_page_size`
   and `max_page_size` (see [Settings](configuration.md#settings)); the
   default can't be larger than the maximum, or the app doesn't start.

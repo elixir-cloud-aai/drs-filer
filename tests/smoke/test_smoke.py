@@ -106,6 +106,7 @@ def _list_objects(
         response = client.get(_url("/objects"), params=params, timeout=TIMEOUT)
         assert response.status_code == 200, response.text
         page = response.json()
+        assert len(page["objects"]) <= page_size
         objects.extend(page["objects"])
         if "nextPageToken" not in page:
             return objects
