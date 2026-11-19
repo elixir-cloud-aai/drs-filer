@@ -16,7 +16,22 @@ it gets `401 Unauthorized`. While access URLs need login, `GET /objects` and
 `GET /objects/{object_id}` serve objects without the `access_url` of their
 access methods (see [Objects without access
 URLs](access-control.md#objects-without-access-urls)); the stored objects
-are unchanged. The other reads stay public. Before upgrading, either:
+are unchanged. The other reads stay public. Before upgrading:
+
+- If objects have access methods without `access_id` (stored before #121),
+  register them again first, as described in [Access methods without
+  identifiers](#access-methods-without-identifiers): while access URLs need
+  login, these methods are served without their access URL, and can't be
+  addressed by `access_id` either, so their access URLs can't be read at
+  all.
+- Don't reuse objects as `GET` serves them as bodies of `PUT
+  /objects/{object_id}` (e.g., in scripts or portals that edit objects):
+  without their access URLs, the `PUT` would delete them. Build the body
+  from the object as registered.
+- Expect `401` responses, which FOCA logs as errors with a traceback, from
+  clients that still read access URLs without a token.
+
+Then, either:
 
 - let the clients that read access URLs send a token, and get access URLs
   by their `access_id` instead of from the objects:

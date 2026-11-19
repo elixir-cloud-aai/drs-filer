@@ -63,6 +63,15 @@ def _access_url_security(security: Any) -> dict[str, Any]:
         ({"append": [{"security": BEARER}]}, True),
         ({"patches": [{"security": BEARER}]}, True),
         ({"patches": [{"security": [{}, *BEARER]}]}, False),
+        # Operation fields that FOCA adds to operations without them
+        ({"add_operation_fields": {"security": BEARER}}, True),
+        (
+            {
+                "add_operation_fields": {"security": BEARER},
+                "patches": [_access_url_security([])],
+            },
+            False,
+        ),
     ],
 )
 def test_requires_login(settings: dict[str, Any], expected: bool) -> None:

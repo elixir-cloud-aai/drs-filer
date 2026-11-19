@@ -56,7 +56,8 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
 
     The files of `path`, in order, then the root fields of `append`, then
     the `patches`, deep-merged in order (mappings are merged, lists and
-    other values replace earlier ones).
+    other values replace earlier ones), then `add_operation_fields`, for
+    operations that don't set them themselves.
 
     Args:
         spec: Config of the specification.
@@ -70,6 +71,11 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
         merged.update(item)
     for patch in spec.patches or []:
         merged = deep_merge(merged, _load_patch(patch))
+    for path_item in (merged.get("paths") or {}).values():
+        for operation in (path_item or {}).values():
+            if isinstance(operation, dict):
+                for key, value in (spec.add_operation_fields or {}).items():
+                    operation.setdefault(key, value)
     return merged
 
 
