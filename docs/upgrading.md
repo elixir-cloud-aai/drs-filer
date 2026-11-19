@@ -22,6 +22,16 @@ upgrading:
 - To change the page sizes, set `custom.objects.list.default_page_size`
   and `max_page_size` (see [Settings](configuration.md#settings)); the
   default can't be larger than the maximum, or the app doesn't start.
+  The maximum can be at most 10000.
+- Pages are ordered by the database identifiers (`_id`) of the objects,
+  which DRS-Filer sets as MongoDB `ObjectId`s. Objects inserted into the
+  database by other means (e.g., `mongoimport` or `mongorestore` of data
+  of another tool) with other types of `_id` can't be listed beyond the
+  first page. Check with `db.objects.countDocuments({_id: {$not: {$type:
+  "objectId"}}})` in `mongosh` (database `drsStore`); if it isn't `0`,
+  delete these objects and register them again through the API (`PUT
+  /objects/{object_id}`, see [Registering
+  objects](api.md#registering-objects)).
 
 ## Authorization info
 

@@ -15,6 +15,7 @@ import pytest
 import yaml
 
 from drs_filer.app import create_app
+from drs_filer.ga4gh.drs.server import PAGE_TOKEN
 from tests.conftest import admin_client
 from tests.mock_data import API, body, drs_object, validate_error
 
@@ -118,6 +119,17 @@ def test_page_schema(client: FlaskClient) -> None:
     for page in (_page(client, pageSize=2), _page(client)):
         errors = [error.message for error in validator.iter_errors(page)]
         assert not errors, errors
+
+
+def test_page_token_pattern(client: FlaskClient) -> None:
+    """The controller checks tokens by the pattern of the specification."""
+    spec = body(client.get(f"{API}/openapi.json"))
+    (token,) = [
+        param
+        for param in spec["paths"]["/objects"]["get"]["parameters"]
+        if param["name"] == "pageToken"
+    ]
+    assert token["schema"]["pattern"] == f"^{PAGE_TOKEN.pattern}$"
 
 
 def test_pages_served_objects(client: FlaskClient) -> None:

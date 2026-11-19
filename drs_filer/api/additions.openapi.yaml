@@ -80,10 +80,12 @@ paths:
     get:
       summary: List the objects
       description: >-
-        List the `DrsObject`s, newest registered first, one page at a time.
-        Pages have `pageSize` objects, or fewer on the last page; the next
-        page is that of `nextPageToken`. Objects registered while paging
-        are not on later pages, as they come first.
+        List the `DrsObject`s, newest registered first (to the second), one
+        page at a time. Pages have `pageSize` objects, or fewer on the last
+        page; the next page is that of `nextPageToken`. No object is skipped
+        or listed twice while paging; objects registered meanwhile come
+        first, so they are usually not on later pages (they can be, if
+        registered in the same second as the last object of a page).
       operationId: ListDrsObjects
       tags:
         - DRS-Filer

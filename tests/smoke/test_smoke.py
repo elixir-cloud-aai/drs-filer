@@ -113,11 +113,22 @@ def _list_objects(
 
 
 def test_list_objects(object_id: str) -> None:
-    """Registered objects are listed, on pages of one object, too."""
-    assert object_id in [obj["id"] for obj in _list_objects()]
-    objects = _list_objects(page_size=1)
-    assert object_id in [obj["id"] for obj in objects]
-    assert len({obj["id"] for obj in objects}) == len(objects)
+    """Registered objects are listed, on pages of one object, too.
+
+    A second object makes sure that the pages of one object are several.
+    """
+    response = WRITER.post(
+        _url("/objects/register"), json=drs_object(), timeout=TIMEOUT
+    )
+    assert response.status_code == 200, response.text
+    other: str = response.json()
+    try:
+        assert {object_id, other} <= {obj["id"] for obj in _list_objects()}
+        objects = _list_objects(page_size=1)
+        assert {object_id, other} <= {obj["id"] for obj in objects}
+        assert len({obj["id"] for obj in objects}) == len(objects)
+    finally:
+        WRITER.delete(_url(f"/objects/{other}"), timeout=TIMEOUT)
 
 
 def test_get_object(object_id: str) -> None:

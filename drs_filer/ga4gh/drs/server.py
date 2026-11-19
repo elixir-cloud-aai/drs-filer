@@ -120,9 +120,12 @@ def ListDrsObjects(
 ) -> dict[str, Any]:
     """Get a page of the DRS objects.
 
-    Objects are listed by their database identifier (`_id`), which is unique
-    and grows with the time of registration, newest first, and served as the
-    object reads serve them (`_read()`). Replacing an object (`PUT`) keeps
+    Objects are listed by their database identifier (`_id`), descending, and
+    served as the object reads serve them (`_read()`). `_id`s are unique, so
+    no object is skipped or listed twice; they start with the time of
+    registration (in seconds), so the list is newest first, to the second
+    (in the same second, and across app instances with clock skew, the order
+    is arbitrary, but fixed). Replacing an object (`PUT`) keeps
     its `_id`, so its place in the list. The page token is the `_id` of the
     last object of the previous page, as 24 hexadecimal digits
     (`PAGE_TOKEN`). Connexion checks it against the pattern of the

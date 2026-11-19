@@ -251,6 +251,7 @@ def test_list_config_defaults() -> None:
     assert ListConfig.model_validate(
         {"default_page_size": "10", "max_page_size": "10"}
     ) == ListConfig(default_page_size=10, max_page_size=10)
+    assert ListConfig(max_page_size=10000).max_page_size == 10000
 
 
 @pytest.mark.parametrize(
@@ -263,6 +264,8 @@ def test_list_config_defaults() -> None:
         {"max_page_size": True},
         {"default_page_size": 201},
         {"default_page_size": 20, "max_page_size": 10},
+        {"max_page_size": 10001},
+        {"max_page_size": 2**63},
         {"page_size": 10},
     ],
 )

@@ -62,6 +62,9 @@ def _integer(value: object) -> object:
 
 # Positive integer, also as a string of digits (e.g., from `${VAR}`)
 PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
+# Largest maximum size of the pages of the object list
+# (`custom.objects.list.max_page_size`), which bounds the cost of a request
+MAX_PAGE_SIZE = 10000
 # Non-negative integer, also as a string of digits (e.g., from `${VAR}`)
 NonNegativeInteger = Annotated[int, BeforeValidator(_integer), Field(ge=0)]
 
@@ -190,8 +193,8 @@ class ListConfig(FOCABaseConfig):
     Args:
         default_page_size: Number of objects of a page if the request has no
             `pageSize`; at most `max_page_size`.
-        max_page_size: Largest number of objects of a page; larger `pageSize`s
-            are reduced to it.
+        max_page_size: Largest number of objects of a page, at most
+            `MAX_PAGE_SIZE`; larger `pageSize`s are reduced to it.
 
     Attributes:
         default_page_size: Number of objects of a page if the request has no
@@ -199,8 +202,9 @@ class ListConfig(FOCABaseConfig):
         max_page_size: Largest number of objects of a page.
 
     Raises:
-        pydantic.ValidationError: A setting is not a positive integer, or the
-            default page size is larger than the maximum.
+        pydantic.ValidationError: A setting is not a positive integer, the
+            maximum is larger than `MAX_PAGE_SIZE`, or the default page size
+            is larger than the maximum.
 
     Example:
         >>> ListConfig(default_page_size="10").default_page_size
@@ -208,7 +212,7 @@ class ListConfig(FOCABaseConfig):
     """
 
     default_page_size: PositiveInteger = 50
-    max_page_size: PositiveInteger = 200
+    max_page_size: Annotated[PositiveInteger, Field(le=MAX_PAGE_SIZE)] = 200
 
     @model_validator(mode="after")
     def check_default_page_size(self) -> "ListConfig":

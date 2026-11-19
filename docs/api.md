@@ -104,9 +104,12 @@ Tokens are opaque: pass them on as they are, don't build or change them.
 Malformed tokens and page sizes that aren't positive integers get `400 Bad
 Request`, with the parameter in `errors`; the problem details don't quote
 the token. A token stays valid when objects are registered, replaced or
-deleted: objects registered while a client pages through the list come
-before the first page, so they are not on the next pages, and no object of
-the next pages is skipped or listed twice. Replacing an object (`PUT
+deleted: no object of the next pages is skipped or listed twice, and
+objects registered while a client pages through the list come before the
+first page, so they are not on the next pages. The order is that of the
+time of registration to the second only: an object registered in the same
+second as the last object of a page (or, with several app instances, whose
+clocks differ) may still show up on a later page. Replacing an object (`PUT
 /objects/{object_id}`) keeps its place in the list. While reads need login
 (see [Requiring login for
 reads](access-control.md#requiring-login-for-reads)), the list does too,
