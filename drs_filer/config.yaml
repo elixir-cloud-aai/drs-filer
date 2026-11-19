@@ -215,11 +215,17 @@ custom:
     # Generated identifiers: `length` characters drawn from those listed in
     # `charset` (the characters themselves, not an expression, which fails
     # the start), by default all unreserved characters of URLs, the only
-    # ones allowed: letters, digits and `.-_~`
+    # ones allowed: letters, digits and `.-_~`. Pages of the object list
+    # (`GET /objects`): `default_page_size` objects unless the request sets
+    # `pageSize`, at most `max_page_size` (larger `pageSize`s are reduced to
+    # it); the default can't be larger than the maximum
     objects:
         id:
             charset: &id_charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_~"
             length: 6
+        list:
+            default_page_size: 50
+            max_page_size: 200
     access_methods:
         id:
             charset: *id_charset

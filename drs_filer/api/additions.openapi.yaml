@@ -78,21 +78,46 @@ paths:
           $ref: "#/components/responses/500InternalServerError"
   /objects:
     get:
-      summary: List all objects
+      summary: List the objects
       description: >-
-        Get all `DrsObject`s, without pagination.
+        List the `DrsObject`s, newest registered first, one page at a time.
+        Pages have `pageSize` objects, or fewer on the last page; the next
+        page is that of `nextPageToken`. Objects registered while paging
+        are not on later pages, as they come first.
       operationId: ListDrsObjects
       tags:
         - DRS-Filer
+      parameters:
+        - name: pageSize
+          in: query
+          required: false
+          description: >-
+            Maximum number of objects of the page. By default, and at most,
+            the numbers of the configuration
+            (`custom.objects.list.default_page_size`, 50, and
+            `max_page_size`, 200, unless configured otherwise); larger
+            values are reduced to the maximum.
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageToken
+          in: query
+          required: false
+          description: >-
+            `nextPageToken` of the previous page, to list the objects after
+            it. Tokens are opaque: don't build or change them.
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{24}$"
       responses:
         "200":
-          description: All objects.
+          description: A page of objects.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DrsObject"
+                $ref: "#/components/schemas/DrsObjectPage"
+        "400":
+          $ref: "#/components/responses/400BadRequest"
         "500":
           $ref: "#/components/responses/500InternalServerError"
     # Bulk reads with passports in the body (`GetBulkObjects`): not
@@ -511,6 +536,25 @@ components:
           enum:
             - "1.5.0"
           description: Version of the API or specification.
+    # A page of the object list (`GET /objects`), in the style of the other
+    # lists of ELIXIR On-Cloud services (`pageSize`, `pageToken` and
+    # `nextPageToken`, as GA4GH APIs name them)
+    DrsObjectPage:
+      description: A page of the object list.
+      type: object
+      required:
+        - objects
+      additionalProperties: false
+      properties:
+        objects:
+          type: array
+          description: Objects of the page, newest registered first.
+          items:
+            $ref: "#/components/schemas/DrsObject"
+        nextPageToken:
+          type: string
+          description: >-
+            Token for the next page (`pageToken`); missing on the last page.
     DrsObjectRegister:
       description: >-
         Metadata of a data object to register (`DrsObject` without the

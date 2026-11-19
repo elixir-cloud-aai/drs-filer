@@ -35,6 +35,7 @@ The settings that deployments usually change:
 | `custom.drs.hostname` | none (required) | Public host name of the app, for the `self_uri` (DRS URI) of objects, see [Host name](#host-name) |
 | `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
 | `custom.objects.id`, `custom.access_methods.id` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
+| `custom.objects.list.default_page_size`, `custom.objects.list.max_page_size` | `50`, `200` | Number of objects of a page of `GET /objects` if the request has no `pageSize`, and the most it can have (larger `pageSize`s are reduced to it; the default can't be larger), see [Listing objects](api.md#listing-objects) |
 | `custom.stats.enabled`, `custom.stats.cache_seconds` | `true`, `60` | Stats of the objects in the service info, and how long each process keeps them, see [Service info](#service-info) |
 | `custom.bulk.max_request_length` | `100` | Maximum number of identifiers of bulk requests (`OPTIONS /objects`), served as `maxBulkRequestLength`, see [Authorization info](access-control.md#authorization-info) |
 | `db.host`, `db.port` | `mongodb`, `27017` | MongoDB |

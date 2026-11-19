@@ -86,11 +86,38 @@ def access_ids(object_id: str) -> list[str]:
     return [method["access_id"] for method in response.json()["access_methods"]]
 
 
+def _list_objects(
+    session: requests.Session | None = None, page_size: int = 50
+) -> list[dict[str, Any]]:
+    """List all objects, page by page.
+
+    Args:
+        session: Session of the requests (e.g., `WRITER`, with a token); by
+            default, requests without a token.
+        page_size: Number of objects per page.
+
+    Returns:
+        Objects of all pages.
+    """
+    client = session or requests.Session()
+    objects: list[dict[str, Any]] = []
+    params: dict[str, Any] = {"pageSize": page_size}
+    while True:
+        response = client.get(_url("/objects"), params=params, timeout=TIMEOUT)
+        assert response.status_code == 200, response.text
+        page = response.json()
+        objects.extend(page["objects"])
+        if "nextPageToken" not in page:
+            return objects
+        params["pageToken"] = page["nextPageToken"]
+
+
 def test_list_objects(object_id: str) -> None:
-    """Registered objects are listed."""
-    response = requests.get(_url("/objects"), timeout=TIMEOUT)
-    assert response.status_code == 200
-    assert object_id in [obj["id"] for obj in response.json()]
+    """Registered objects are listed, on pages of one object, too."""
+    assert object_id in [obj["id"] for obj in _list_objects()]
+    objects = _list_objects(page_size=1)
+    assert object_id in [obj["id"] for obj in objects]
+    assert len({obj["id"] for obj in objects}) == len(objects)
 
 
 def test_get_object(object_id: str) -> None:
@@ -157,9 +184,7 @@ def test_service_info(object_id: str) -> None:
     """
     response = WRITER.post(_url("/service-info"), json=SERVICE_INFO, timeout=TIMEOUT)
     assert response.status_code == 201
-    response = WRITER.get(_url("/objects"), timeout=TIMEOUT)
-    assert response.status_code == 200
-    objects = response.json()
+    objects = _list_objects(WRITER)
     assert object_id in [obj["id"] for obj in objects]
     blobs = [obj["size"] for obj in objects if "contents" not in obj]
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)

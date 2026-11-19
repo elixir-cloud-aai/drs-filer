@@ -106,7 +106,7 @@ def test_register_old_path(client: FlaskClient) -> None:
     assert response.status_code == 501
     problem = body(response)
     assert PASSPORT_DOCS in problem["detail"]
-    assert client.get(f"{API}/objects").get_json() == []
+    assert client.get(f"{API}/objects").get_json() == {"objects": []}
 
 
 @pytest.mark.parametrize("operation", sorted(PASSPORT_REQUESTS))

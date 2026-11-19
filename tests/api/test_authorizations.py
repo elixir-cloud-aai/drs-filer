@@ -386,7 +386,7 @@ def test_access_method_authorizations(
     assert expected == (BEARER if patches else NONE)
     headers = make_headers(USER)
     obj = body(client.get(f"{API}/objects/{object_id}", headers=headers))
-    objects = body(client.get(f"{API}/objects", headers=headers))
+    objects = body(client.get(f"{API}/objects", headers=headers))["objects"]
     methods = [method for o in (obj, *objects) for method in o["access_methods"]]
     assert len(methods) == 4
     for method in methods:

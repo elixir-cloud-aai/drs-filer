@@ -57,15 +57,60 @@ an access token of an admin, sent as a bearer token (`Authorization: Bearer
 | `POST /objects/access` | DRS | Not implemented (`501`), see [Passport POST endpoints](#passport-post-endpoints) |
 | `OPTIONS /objects/{object_id}` | DRS | Get the authorization info of an object: how to authorize `GET /objects/{object_id}`, see [Authorization info](access-control.md#authorization-info) |
 | `OPTIONS /objects` | DRS | Get the authorization info of several objects (bulk), see [Authorization info](access-control.md#authorization-info) |
-| `GET /objects` | DRS-Filer | List all objects |
+| `GET /objects` | DRS-Filer | List the objects, one page at a time, see [Listing objects](#listing-objects) |
 | `POST /objects/register` | DRS-Filer | Register an object; DRS-Filer generates its identifier |
 | `PUT /objects/{object_id}` | DRS-Filer | Register an object with the given identifier, or replace the object of that identifier |
 | `DELETE /objects/{object_id}` | DRS-Filer | Delete an object |
 | `DELETE /objects/{object_id}/access/{access_id}` | DRS-Filer | Delete one of an object's access methods |
 | `POST /service-info` | DRS-Filer | Replace the service info until the next start, see [Service info](configuration.md#service-info) |
 
-`GET /objects` returns all objects at once, without pagination
-([#59](https://github.com/elixir-cloud-aai/drs-filer/issues/59)).
+## Listing objects
+
+`GET /objects` lists the objects one page at a time (`DrsObjectPage`),
+newest registered first. DRS doesn't define the listing, so its parameters
+are those of the lists of the other ELIXIR On-Cloud services, named as in
+GA4GH APIs:
+
+- `pageSize`: the maximum number of objects of the page, a positive
+  integer. By default 50, and at most 200; larger values are reduced to
+  the maximum. Deployments set both
+  (`custom.objects.list.default_page_size` and `max_page_size`, see
+  [Settings](configuration.md#settings)).
+- `pageToken`: the `nextPageToken` of the previous page, to get the next
+  one.
+
+A page has its `objects`, served as `GET /objects/{object_id}` serves them,
+and a `nextPageToken`, unless it is the last page:
+
+```bash
+curl "https://drs.example.org/ga4gh/drs/v1/objects?pageSize=2"
+```
+
+```json
+{
+  "objects": [
+    {"id": "b2c3d4", "...": "..."},
+    {"id": "a1b2c3", "...": "..."}
+  ],
+  "nextPageToken": "<token>"
+}
+```
+
+```bash
+curl "https://drs.example.org/ga4gh/drs/v1/objects?pageSize=2&pageToken=<token>"
+```
+
+Tokens are opaque: pass them on as they are, don't build or change them.
+Malformed tokens and page sizes that aren't positive integers get `400 Bad
+Request`, with the parameter in `errors`; the problem details don't quote
+the token. A token stays valid when objects are registered, replaced or
+deleted: objects registered while a client pages through the list come
+before the first page, so they are not on the next pages, and no object of
+the next pages is skipped or listed twice. Replacing an object (`PUT
+/objects/{object_id}`) keeps its place in the list. While reads need login
+(see [Requiring login for
+reads](access-control.md#requiring-login-for-reads)), the list does too,
+and the token is no substitute for it.
 
 ## Registering objects
 
