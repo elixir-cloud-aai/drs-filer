@@ -62,11 +62,11 @@ def _integer(value: object) -> object:
 
 # Positive integer, also as a string of digits (e.g., from `${VAR}`)
 PositiveInteger = Annotated[int, BeforeValidator(_integer), Field(gt=0)]
+# Non-negative integer, also as a string of digits (e.g., from `${VAR}`)
+NonNegativeInteger = Annotated[int, BeforeValidator(_integer), Field(ge=0)]
 # Largest maximum size of the pages of the object list
 # (`custom.objects.list.max_page_size`), which bounds the cost of a request
 MAX_PAGE_SIZE = 10000
-# Non-negative integer, also as a string of digits (e.g., from `${VAR}`)
-NonNegativeInteger = Annotated[int, BeforeValidator(_integer), Field(ge=0)]
 
 
 class DrsConfig(FOCABaseConfig):

@@ -124,8 +124,11 @@ def ListDrsObjects(
     served as the object reads serve them (`_read()`). `_id`s are unique, so
     no object is skipped or listed twice; they start with the time of
     registration (in seconds), so the list is newest first, to the second
-    (in the same second, and across app instances with clock skew, the order
-    is arbitrary, but fixed). Replacing an object (`PUT`) keeps
+    (in the same second, and across the app instances and the database
+    server, which generates the `_id`s of objects created by `PUT`, with
+    clock skew, the order is arbitrary, but fixed). Objects whose `_id` isn't
+    an `ObjectId` (not stored by DRS-Filer) aren't listed. Replacing an
+    object (`PUT`) keeps
     its `_id`, so its place in the list. The page token is the `_id` of the
     last object of the previous page, as 24 hexadecimal digits
     (`PAGE_TOKEN`). Connexion checks it against the pattern of the
@@ -161,7 +164,13 @@ def ListDrsObjects(
         settings.default_page_size if pageSize is None else pageSize,
         settings.max_page_size,
     )
-    query = {} if pageToken is None else {"_id": {"$lt": ObjectId(pageToken)}}
+    # Only objects with `ObjectId`s, as DRS-Filer stores them: others (e.g.,
+    # imported with other `_id`s) sort outside of them and would give tokens
+    # that aren't `PAGE_TOKEN`s (see `docs/upgrading.md`)
+    condition: dict[str, Any] = {"$type": "objectId"}
+    if pageToken is not None:
+        condition["$lt"] = ObjectId(pageToken)
+    query = {"_id": condition}
     # One more than the page, to learn whether there is a next page
     found = list(get_collection("objects").find(query).sort("_id", -1).limit(size + 1))
     page: dict[str, Any] = {"objects": [_read(_served(obj)) for obj in found[:size]]}

@@ -108,9 +108,12 @@ deleted: no object of the next pages is skipped or listed twice, and
 objects registered while a client pages through the list come before the
 first page, so they are not on the next pages. The order is that of the
 time of registration to the second only: an object registered in the same
-second as the last object of a page (or, with several app instances, whose
-clocks differ) may still show up on a later page. Replacing an object (`PUT
-/objects/{object_id}`) keeps its place in the list. While reads need login
+second as the last object of a page (or when the clocks of the app
+instances and of MongoDB, which times the objects that `PUT` creates,
+differ) may still show up on a later page. Replacing an object (`PUT
+/objects/{object_id}`) keeps its place in the list. Objects that weren't
+stored by DRS-Filer and lack its kind of database identifier aren't listed
+(see [Upgrading](upgrading.md#pages-of-the-object-list)). While reads need login
 (see [Requiring login for
 reads](access-control.md#requiring-login-for-reads)), the list does too,
 and the token is no substitute for it.

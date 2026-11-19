@@ -11,6 +11,7 @@ from typing import Any
 
 from flask.testing import FlaskClient
 from jsonschema import Draft4Validator
+from pymongo.collection import Collection
 import pytest
 import yaml
 
@@ -255,6 +256,25 @@ def test_invalid_page_token(client: FlaskClient, token: str) -> None:
     ]
     if token:
         assert token not in response.get_data(as_text=True)
+
+
+@pytest.mark.parametrize("stored_id", ["legacy", 7], ids=["string", "number"])
+def test_other_ids_not_listed(
+    client: FlaskClient, objects: Collection[dict[str, Any]], stored_id: str | int
+) -> None:
+    """Objects whose `_id` isn't an `ObjectId` are not listed.
+
+    DRS-Filer doesn't store such objects, but imports may. They would sort
+    outside the `ObjectId`s and give tokens that the app refuses.
+
+    Args:
+        client: Test client.
+        objects: Collection of the objects.
+        stored_id: `_id` of the imported object.
+    """
+    ids = _register(client, 2)
+    objects.insert_one({**drs_object(), "_id": stored_id, "id": "imported"})
+    assert _all_pages(client, 1) == [[ids[1]], [ids[0]]]
 
 
 def test_unknown_page_token(client: FlaskClient) -> None:

@@ -26,11 +26,13 @@ upgrading:
 - Pages are ordered by the database identifiers (`_id`) of the objects,
   which DRS-Filer sets as MongoDB `ObjectId`s. Objects inserted into the
   database by other means (e.g., `mongoimport` or `mongorestore` of data
-  of another tool) with other types of `_id` can't be listed beyond the
-  first page. Check with `db.objects.countDocuments({_id: {$not: {$type:
-  "objectId"}}})` in `mongosh` (database `drsStore`); if it isn't `0`,
-  delete these objects and register them again through the API (`PUT
-  /objects/{object_id}`, see [Registering
+  of another tool) with other types of `_id` aren't listed (they can still
+  be read by their `id`). Check with `db.objects.countDocuments({_id:
+  {$not: {$type: "objectId"}}})` in `mongosh` (database `drsStore`); if it
+  isn't `0`, export these objects first (e.g., `mongoexport --db drsStore
+  --collection objects --query '{"_id": {"$not": {"$type":
+  "objectId"}}}'`), then delete them and register them again through the
+  API (`PUT /objects/{object_id}`, see [Registering
   objects](api.md#registering-objects)).
 
 ## Authorization info
