@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 CONFIG_KEY = "DRS_FILER_ACCESS_URLS_NEED_LOGIN"
 # The operation that serves access URLs
 OPERATION_ID = "GetAccessURL"
+# HTTP methods of the Path Item Objects of OpenAPI 3, whose values are the
+# operations (other fields, e.g., `parameters`, are not)
+METHODS = frozenset(
+    {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+)
 
 
 # `_load_patch()` and `_merged_spec()` follow how FOCA assembles a
@@ -72,8 +77,8 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
     for patch in spec.patches or []:
         merged = deep_merge(merged, _load_patch(patch))
     for path_item in (merged.get("paths") or {}).values():
-        for operation in (path_item or {}).values():
-            if isinstance(operation, dict):
+        for method, operation in (path_item or {}).items():
+            if method in METHODS and isinstance(operation, dict):
                 for key, value in (spec.add_operation_fields or {}).items():
                     operation.setdefault(key, value)
     return merged
