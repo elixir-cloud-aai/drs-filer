@@ -410,3 +410,30 @@ def test_options_cors_preflight(app: Any) -> None:
     )
     assert response.status_code == 200
     assert "OPTIONS" in response.headers["Allow"]
+
+
+@pytest.mark.parametrize("object_id", ["register", "access"])
+def test_options_static_paths(
+    mongo_client: MongoClient[dict[str, Any]], overlay: Path, object_id: str
+) -> None:
+    """`OPTIONS` of the identifiers `register` and `access` gets Flask's answer.
+
+    Their paths are the static `POST` paths of DRS-Filer and DRS, so
+    `OPTIONS` doesn't reach `OptionsObject`, also for registered objects of
+    these identifiers (see "Deviations from the specification" in
+    `docs/api.md`).
+
+    Args:
+        mongo_client: MongoDB client.
+        overlay: Config overlay.
+        object_id: Identifier of the object.
+    """
+    client = _client(overlay, [ACCESS_URLS_PATCH, READS_PATCH])
+    response = client.put(
+        f"{API}/objects/{object_id}", json=drs_object(), headers=make_headers(ADMIN)
+    )
+    assert response.status_code == 200, body(response)
+    response = client.options(f"{API}/objects/{object_id}")
+    assert response.status_code == 200
+    assert "OPTIONS" in response.headers["Allow"]
+    assert response.get_data() == b""
