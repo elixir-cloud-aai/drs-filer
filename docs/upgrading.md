@@ -34,7 +34,10 @@ Before upgrading:
     ```
 
     The app refuses to start with `custom.service`, or without
-    `custom.drs.hostname`. The host name has no scheme, port or path. With
+    `custom.drs.hostname`. The host name has no scheme, port or path, and
+    is a lowercase RFC 1123 host name or an IPv4 address: unlike
+    `external_host`, it can't have `_` (e.g., of Docker Compose service
+    names), uppercase letters or IPv6 addresses. With
     the Helm chart, `hostName` sets it; remove `config.custom.service` from
     your values file, if set (the chart refuses to render with it).
 2. Serve the app via HTTPS on port 443 of that host (e.g., behind an
@@ -46,14 +49,25 @@ The `Location` of posted service info (`POST /service-info`) is the
 relative reference `service-info`, which resolves to the URL it was posted
 to, instead of a URL of the public URL of the config.
 
-During a rolling update, pods of the earlier version keep serving until
-they are replaced, against the same database, and fail on objects that the
-new version registered (without stored `self_uri`, which they require in
-responses). To avoid that, stop all apps of the earlier version before the
-new ones start (e.g., scale the app's Deployment to `0` before `helm
-upgrade`, as described in [Access tokens for
-writes](#access-tokens-for-writes)), or don't register objects until the
-upgrade is done.
+Objects that the new version registers or replaces (`POST
+/objects/register`, `PUT /objects/{object_id}`) are stored without
+`self_uri`, which earlier versions require in their responses: they answer
+`500` for these objects, and for `GET /objects` as soon as there is one.
+This affects pods of the earlier version during a rolling update (stop
+them before the new ones start, e.g., scale the app's Deployment to `0`
+before `helm upgrade`, as described in [Access tokens for
+writes](#access-tokens-for-writes), or don't write until the upgrade is
+done), and rollbacks. Before rolling back (e.g., `helm rollback`), restore
+the backup of the database from before the upgrade, or give the objects
+without `self_uri` one of the earlier form, of your earlier public URL,
+e.g., with `mongosh`:
+
+```javascript
+db.getSiblingDB("drsStore").objects.updateMany(
+  { self_uri: { $exists: false } },
+  [{ $set: { self_uri: { $concat: ["https://drs.example.org:443/ga4gh/drs/v1/", "$id"] } } }]
+)
+```
 
 ## Access tokens for writes
 

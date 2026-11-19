@@ -85,7 +85,7 @@ def ListDrsObjects() -> list[dict[str, Any]]:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
     db_collection = get_collection("objects")
-    return [_served(obj) for obj in db_collection.find({}, {"_id": 0})]
+    return [_served(obj) for obj in db_collection.find()]
 
 
 @log_traffic

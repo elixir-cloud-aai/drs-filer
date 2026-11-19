@@ -6,6 +6,7 @@ instead of requests. The service info is configured in FOCA's section
 `service_info`, not here.
 """
 
+import ipaddress
 import re
 import string
 from typing import Annotated, Any
@@ -21,13 +22,17 @@ UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
 # URLs, as the expression of earlier versions
 # (`string.ascii_letters + string.digits + ".-_~"`)
 DEFAULT_ID_CHARSET = string.ascii_letters + string.digits + ".-_~"
-# Host names (RFC 1123): labels of at most 63 letters, digits and `-` (not
-# at either end), separated by `.`, at most 253 characters in all; IPv4
-# addresses match too
+# Host names (RFC 1123), in lowercase (as DNS names compare, and as the Helm
+# chart requires): labels of at most 63 lowercase letters, digits and `-`
+# (not at either end), separated by `.`, at most 253 characters in all; the
+# last label (top-level domain) not of digits only, which leaves numbers
+# (e.g., ports) and dotted digits for IPv4 addresses (`IPV4_PATTERN`)
 HOST_NAME_PATTERN = re.compile(
-    r"(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-    r"(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"
+    r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*"
+    r"(?![0-9]+$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
 )
+# IPv4 addresses, in dotted decimal notation, checked by `ipaddress` too
+IPV4_PATTERN = re.compile(r"[0-9]{1,3}(\.[0-9]{1,3}){3}")
 # Integers in strings: digits only
 INTEGER_PATTERN = re.compile(r"[0-9]+")
 
@@ -97,16 +102,25 @@ class DrsConfig(FOCABaseConfig):
             The host name.
 
         Raises:
-            ValueError: The host name is empty, or has a scheme, port, path
-                or other characters (e.g., an IPv6 address, which DRS URIs
-                can't have).
+            ValueError: The host name is empty, has a scheme, port, path,
+                uppercase letters or other characters (e.g., an IPv6
+                address, which DRS URIs can't have), is a number (e.g., a
+                port), or an invalid IPv4 address.
         """
-        if not HOST_NAME_PATTERN.fullmatch(value):
-            raise ValueError(
-                "The host name must be a host name (letters, digits and '-', "
-                "in labels separated by '.'), without scheme, port or path"
-            )
-        return value
+        if HOST_NAME_PATTERN.fullmatch(value):
+            return value
+        if IPV4_PATTERN.fullmatch(value):
+            try:
+                ipaddress.IPv4Address(value)
+            except ValueError:
+                pass
+            else:
+                return value
+        raise ValueError(
+            "The host name must be a lowercase host name (letters, digits and "
+            "'-', in labels separated by '.', not a number) or an IPv4 "
+            "address, without scheme, port or path"
+        )
 
 
 class IdConfig(FocaIdConfig):

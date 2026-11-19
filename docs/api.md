@@ -132,7 +132,9 @@ with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
 
 `POST /service-info` takes the fields of the GA4GH `Service` schema, with
 the `type` of the served API (`org.ga4gh`, `drs`, `1.5.0`); it can't set the
-computed fields.
+computed fields. It answers `201` with the `Location` `service-info`, a
+relative reference to the URL it was posted to (that of `GET
+/service-info`).
 
 ## Passport POST endpoints
 

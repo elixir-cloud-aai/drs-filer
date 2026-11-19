@@ -145,8 +145,9 @@ the configured host name, not from the `Host` of the request (which clients
 set), and doesn't store it: a new host name applies to all objects, also
 those registered before.
 
-`hostname` is a host name (labels of letters, digits and `-`, separated by
-`.`; IPv4 addresses work too), without scheme, port or path; DRS URIs can't
+`hostname` is a lowercase host name (RFC 1123: labels of letters, digits
+and `-`, separated by `.`, without `_`; not a number) or an IPv4 address,
+without scheme, port or path; DRS URIs can't
 have ports or IPv6 addresses. It can be set from an environment variable
 (e.g., `hostname: ${PUBLIC_HOST}`). Integer settings (the lengths of
 identifiers) take integers or strings of digits, so they can be set from

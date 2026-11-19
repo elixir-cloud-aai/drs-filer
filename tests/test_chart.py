@@ -293,8 +293,9 @@ def test_overlay_merged_by_app(tmp_path: Path) -> None:
     """The app merges the overlay into its base config, as mounted.
 
     The Deployment points `FOCA_CONFIG_OVERLAY` to the mounted ConfigMap; the
-    merged config has the public URL and the MongoDB host, and keeps the
-    defaults of the base config (e.g., the API path).
+    merged config has the host name (`custom.drs.hostname`) and the MongoDB
+    host, and keeps the defaults of the base config (e.g., the length of
+    identifiers).
 
     Args:
         tmp_path: Directory for the rendered overlay.
@@ -573,7 +574,7 @@ def test_autoscaling_rejected() -> None:
 
 
 def test_host_name_required() -> None:
-    """Rendering fails without `hostName`, which sets the public URL."""
+    """Rendering fails without `hostName`, which sets the host name."""
     assert "hostName must be set" in render_error("--set", "hostName=")
 
 

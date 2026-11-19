@@ -408,7 +408,8 @@ jobs:
           fi
       # Writes without authentication (`config` value of the chart; for this
       # test only, see "Running without authentication" in
-      # `docs/development.md`), to check the public URL that the chart sets
+      # `docs/development.md`), to check the self URI of the host name that the
+      # chart sets
       # and for the smoke test; the changed value restarts the app (checksum
       # of its overlay), so the port forward is started again once the old
       # pods are gone

@@ -127,13 +127,22 @@ def test_id_config_expression_message() -> None:
         {"hostname": "a" * 64},
         {"hostname": ".".join(["a" * 63] * 4)},
         {"hostname": "drs.example.org", "port": 443},
+        {"hostname": "DRS.Example.org"},
+        {"hostname": "8080"},
+        {"hostname": "1"},
+        {"hostname": "drs.123"},
+        {"hostname": "999.999.1.1"},
+        {"hostname": "1.2.3"},
+        {"hostname": "01.2.3.4"},
     ],
 )
 def test_drs_config_invalid(settings: dict[str, Any]) -> None:
     """Missing, invalid and unknown settings of the DRS host are refused.
 
     The host name is required. DRS URIs (`drs://<hostname>/<id>`) have a
-    host name only, without scheme, port (always 443), user or path.
+    host name only, without scheme, port (always 443), user or path; it is
+    lowercase, as the chart requires (so that the URIs of a host compare
+    equal), and not a number (e.g., a port) or an invalid IPv4 address.
 
     Args:
         settings: Invalid settings of the DRS host.
@@ -147,15 +156,16 @@ def test_drs_config_invalid(settings: dict[str, Any]) -> None:
     [
         "drs.example.org",
         "localhost",
-        "DRS.Example.org",
         "drs-1.example.org",
+        "1drs.example.org",
+        "drs.example.o1",
         "192.0.2.1",
         "a" * 63,
         ".".join(["a" * 63] * 3 + ["a" * 61]),
     ],
 )
 def test_drs_config_valid(hostname: str) -> None:
-    """Host names (and IPv4 addresses, which look like ones) are valid.
+    """Lowercase host names and IPv4 addresses are valid.
 
     Args:
         hostname: Valid host name.
