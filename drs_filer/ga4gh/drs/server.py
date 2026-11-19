@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any, NoReturn, cast
+from urllib.parse import quote
 
 from flask import request
 from foca.utils.logging import log_traffic
@@ -22,7 +23,7 @@ from drs_filer.ga4gh.drs.endpoints.service_info import (
     RegisterServiceInfo,
     drs_service_fields,
 )
-from drs_filer.utils import get_collection
+from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,51 @@ def _request_body() -> dict[str, Any]:
     return cast(dict[str, Any], request.json)
 
 
+def self_uri(object_id: str) -> str:
+    """Get the `self_uri` of an object: its DRS URI on the configured host.
+
+    A hostname-based DRS URI, `drs://<hostname>/<id>`, of the host name of
+    the config (`custom.drs.hostname`, not of the request, whose `Host`
+    clients set), with the identifier percent-encoded, as DRS requires
+    (the unreserved characters of URLs stay as they are, except in the
+    identifiers `.` and `..`, which would be dot segments that clients
+    remove when resolving the URI, RFC 3986, section 5.2.4).
+
+    Args:
+        object_id: Identifier of the object.
+
+    Returns:
+        The DRS URI of the object.
+
+    Example:
+        With `custom.drs.hostname: drs.example.org`, `self_uri("a:b")` is
+        `drs://drs.example.org/a%3Ab`.
+    """
+    hostname = get_custom_config().drs.hostname
+    encoded = quote(object_id, safe="")
+    if encoded in {".", ".."}:
+        encoded = encoded.replace(".", "%2E")
+    return f"drs://{hostname}/{encoded}"
+
+
+def _served(obj: dict[str, Any]) -> dict[str, Any]:
+    """Get a stored object as it is served.
+
+    Without the database's `_id`, and with the `self_uri` of the configured
+    host (`self_uri()`), which isn't stored, and replaces the one that
+    earlier versions stored (an HTTP URL, of the host of their config).
+
+    Args:
+        obj: Stored object.
+
+    Returns:
+        The object, as served.
+    """
+    served = {key: value for key, value in obj.items() if key != "_id"}
+    served["self_uri"] = self_uri(served["id"])
+    return served
+
+
 @log_traffic
 def ListDrsObjects() -> list[dict[str, Any]]:
     """Get all DRS objects.
@@ -44,11 +90,7 @@ def ListDrsObjects() -> list[dict[str, Any]]:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
     db_collection = get_collection("objects")
-    cursor = db_collection.find({}, {"_id": 0})
-    objects = []
-    for obj in cursor:
-        objects.append(obj)
-    return objects
+    return [_served(obj) for obj in db_collection.find()]
 
 
 @log_traffic
@@ -83,8 +125,7 @@ def _get_object(object_id: str) -> dict[str, Any]:
     obj = db_collection.find_one({"id": object_id})
     if not obj:
         raise ObjectNotFound
-    del obj["_id"]
-    return obj
+    return _served(obj)
 
 
 @log_traffic

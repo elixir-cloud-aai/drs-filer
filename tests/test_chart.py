@@ -276,17 +276,14 @@ def test_names_from_release() -> None:
 
 
 def test_config_overlay() -> None:
-    """The overlay has the public URL, MongoDB's host and the `config` value.
+    """The overlay has the host name, MongoDB's host and the `config` value.
 
-    The public URL (`custom.service`) is `https://<hostName>:443`.
+    The host name of the `self_uri` of objects (`custom.drs.hostname`) is
+    `hostName`.
     """
     config = overlay(render("--set", "config.service_info.service.name=My DRS"))
     assert config["custom"] == {
-        "service": {
-            "url_prefix": "https",
-            "external_host": HOST,
-            "external_port": 443,
-        },
+        "drs": {"hostname": HOST},
     }
     assert config["service_info"] == {"service": {"name": "My DRS"}}
     assert config["db"] == {"host": MONGODB}
@@ -296,8 +293,9 @@ def test_overlay_merged_by_app(tmp_path: Path) -> None:
     """The app merges the overlay into its base config, as mounted.
 
     The Deployment points `FOCA_CONFIG_OVERLAY` to the mounted ConfigMap; the
-    merged config has the public URL and the MongoDB host, and keeps the
-    defaults of the base config (e.g., the API path).
+    merged config has the host name (`custom.drs.hostname`) and the MongoDB
+    host, and keeps the defaults of the base config (e.g., the length of
+    identifiers).
 
     Args:
         tmp_path: Directory for the rendered overlay.
@@ -318,11 +316,9 @@ def test_overlay_merged_by_app(tmp_path: Path) -> None:
     file = tmp_path / path.name
     file.write_text(yaml.safe_dump(overlay(resources)), encoding="utf-8")
     config = ConfigParser.merge_yaml(app_module.CONFIG_FILE, file)
-    service = CustomConfig(**config["custom"]).service
-    assert service.url_prefix == "https"
-    assert service.external_host == HOST
-    assert service.external_port == 443
-    assert service.api_path == "ga4gh/drs/v1"
+    custom = CustomConfig(**config["custom"])
+    assert custom.drs.hostname == HOST
+    assert custom.objects.id.length == 6
     assert config["db"]["host"] == MONGODB
 
 
@@ -331,20 +327,40 @@ def test_config_overrides_generated() -> None:
     config = overlay(
         render(
             "--set",
-            "config.custom.service.external_port=8443",
+            "config.custom.drs.hostname=drs.example.net",
             "--set",
             "config.custom.objects.id.length=8",
         )
     )
-    assert config["custom"]["service"]["external_port"] == 8443
-    assert config["custom"]["service"]["external_host"] == HOST
+    assert config["custom"]["drs"] == {"hostname": "drs.example.net"}
     assert config["custom"]["objects"] == {"id": {"length": 8}}
 
 
 def test_config_custom_null() -> None:
-    """`config.custom: null` keeps the generated public URL."""
+    """`config.custom: null` keeps the generated host name."""
     config = overlay(render("--set-json", "config.custom=null"))
-    assert config["custom"]["service"]["external_host"] == HOST
+    assert config["custom"]["drs"] == {"hostname": HOST}
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--set", "config.custom.service.external_host=drs.example.org"),
+        ("--set-json", "config.custom.service=null"),
+    ],
+)
+def test_config_custom_service_fails(args: tuple[str, ...]) -> None:
+    """The public URL of earlier versions, `config.custom.service`, fails.
+
+    The app would fail to start with it; the error names `hostName`, which
+    sets the host name of the `self_uri` of objects.
+
+    Args:
+        args: Arguments that set `config.custom.service`.
+    """
+    error = render_error(*args)
+    assert "config.custom.service was removed" in error
+    assert "hostName" in error
 
 
 def test_auth_settings() -> None:
@@ -558,7 +574,7 @@ def test_autoscaling_rejected() -> None:
 
 
 def test_host_name_required() -> None:
-    """Rendering fails without `hostName`, which sets the public URL."""
+    """Rendering fails without `hostName`, which sets the host name."""
     assert "hostName must be set" in render_error("--set", "hostName=")
 
 
@@ -570,13 +586,16 @@ def test_host_name_required() -> None:
         "drs.example.org/x",
         "DRS.example.org",
         "drs_filer.example.org",
+        f"{'a' * 64}.example.org",
+        ".".join(["a" * 63] * 4),
     ],
 )
 def test_host_name_invalid(host: str) -> None:
     """Rendering fails for a `hostName` that isn't a lowercase DNS name.
 
-    Kubernetes requires lowercase DNS names (RFC 1123) as hosts, and the
-    app would refuse hosts with a scheme, port or path on startup.
+    Kubernetes requires lowercase DNS names (RFC 1123: labels of at most 63
+    characters, 253 in all) as hosts, and the app would refuse hosts with a
+    scheme, port or path, or beyond these limits, on startup.
 
     Args:
         host: Invalid host name.
@@ -625,7 +644,7 @@ def test_config_endpoints_fails(args: tuple[str, ...]) -> None:
     """
     error = render_error(*args)
     assert "config.endpoints was replaced" in error
-    assert "config.custom.service" in error
+    assert "hostName" in error
     assert "config.service_info.service" in error
 
 

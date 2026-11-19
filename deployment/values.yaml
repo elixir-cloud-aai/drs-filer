@@ -14,9 +14,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 # Public host name of the app (of the Ingress, HTTPRoute or Route); required.
-# Also sets the public URL of the app, for the `self_uri` of objects
-# (`custom.service` in the app config:
-# `https://<hostName>:443/ga4gh/drs/v1/<id>`)
+# Also sets the host name of the `self_uri` of objects
+# (`custom.drs.hostname` in the app config: `drs://<hostName>/<id>`, which
+# DRS clients resolve to `https://<hostName>/ga4gh/drs/v1/objects/<id>`)
 hostName: ""
 
 # App config overriding the base config in the image (`drs_filer/config.yaml`

@@ -183,15 +183,13 @@ service_info:
 # Custom app configuration, validated on startup
 # (`drs_filer.custom_config.CustomConfig`): unknown keys fail the start
 custom:
-    # Public URL of the app, for the `self_uri` of objects and the `Location`
-    # of posted service info
-    # (`<url_prefix>://<external_host>:<external_port>/<api_path>/...`);
-    # deployments set their own
-    service:
-        url_prefix: http
-        external_host: localhost
-        external_port: 8080
-        api_path: ga4gh/drs/v1
+    # Public host name of the app, without scheme, port or path; required,
+    # without default: each deployment sets its own (the start fails
+    # without). The `self_uri` of each object is its DRS URI
+    # (`drs://<hostname>/<id>`), which DRS clients resolve to
+    # `https://<hostname>/ga4gh/drs/v1/objects/<id>` (port 443), e.g.:
+    # drs:
+    #     hostname: drs.example.org
     # Generated identifiers: `length` characters drawn from those listed in
     # `charset` (the characters themselves, not an expression, which fails
     # the start), by default all unreserved characters of URLs, the only

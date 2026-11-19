@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 from drs_filer import app as app_module
-from drs_filer.custom_config import CustomConfig
+from drs_filer.custom_config import DEFAULT_ID_CHARSET, CustomConfig
 from drs_filer.utils import get_custom_config
 from tests.conftest import CONFIG_OVERLAY
 
@@ -128,16 +128,14 @@ def test_create_app_overlays(
         tmp_path / "first.yaml",
         {
             "custom": {
-                "service": {
-                    "external_host": "first.example.org",
-                    "external_port": 8443,
-                },
+                "drs": {"hostname": "first.example.org"},
+                "objects": {"id": {"length": 8}},
             },
         },
     )
     second = _write(
         tmp_path / "second.yaml",
-        {"custom": {"service": {"external_host": "localhost"}}, "db": {"host": "db"}},
+        {"custom": {"drs": {"hostname": "localhost"}}, "db": {"host": "db"}},
     )
     monkeypatch.setenv(
         app_module.OVERLAY_VARIABLE, f"{CONFIG_OVERLAY}:{first}::{second}:"
@@ -145,10 +143,10 @@ def test_create_app_overlays(
     app = app_module.create_app()
     with app.app.app_context():
         config = get_config()
-        service = get_custom_config().service
-    assert service.external_host == "localhost"
-    assert service.external_port == 8443
-    assert service.api_path == "ga4gh/drs/v1"
+        custom = get_custom_config()
+    assert custom.drs.hostname == "localhost"
+    assert custom.objects.id.length == 8
+    assert custom.objects.id.charset == DEFAULT_ID_CHARSET
     assert config.db is not None
     assert config.db.host == "db"
 

@@ -3,6 +3,74 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## DRS URIs
+
+!!! warning "Breaking changes"
+    The `self_uri` of objects is a DRS URI, and the public URL
+    (`custom.service`) is replaced by the host name
+    (`custom.drs.hostname`), which is required.
+
+The `self_uri` of objects is the hostname-based DRS URI
+`drs://<hostname>/<id>` (#97), as DRS requires, instead of an HTTP URL
+(`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>`). The app
+computes it when serving an object, from the configured host name, and no
+longer stores it: objects registered by earlier versions are served with
+the new `self_uri` (the stored value is ignored), and a changed host name
+applies to all objects. See [Host name](configuration.md#host-name).
+
+| Removed | Replacement |
+| --- | --- |
+| `custom.service.external_host` | `custom.drs.hostname` (required, no default) |
+| `custom.service.url_prefix`, `custom.service.external_port`, `custom.service.api_path` | none: DRS clients resolve `drs://<hostname>/<id>` to `https://<hostname>/ga4gh/drs/v1/objects/<id>`, always on port 443 |
+
+Before upgrading:
+
+1. Replace `custom.service` in your overlay with the host name, e.g.:
+
+    ```yaml
+    custom:
+      drs:
+        hostname: drs.example.org
+    ```
+
+    The app refuses to start with `custom.service`, or without
+    `custom.drs.hostname`. The host name has no scheme, port or path, and
+    is a lowercase RFC 1123 host name or an IPv4 address: unlike
+    `external_host`, it can't have `_` (e.g., of Docker Compose service
+    names), uppercase letters or IPv6 addresses. With
+    the Helm chart, `hostName` sets it; remove `config.custom.service` from
+    your values file, if set (the chart refuses to render with it).
+2. Serve the app via HTTPS on port 443 of that host (e.g., behind an
+   ingress that terminates TLS), where DRS clients resolve the URIs to.
+3. Update clients that took `self_uri` for a URL to fetch: they resolve
+   the DRS URI as above, or build the URL from the identifier.
+
+The `Location` of posted service info (`POST /service-info`) is the
+relative reference `service-info`, which resolves to the URL it was posted
+to, instead of a URL of the public URL of the config.
+
+Objects that the new version registers or replaces (`POST
+/objects/register`, `PUT /objects/{object_id}`) are stored without
+`self_uri`, which earlier versions require in their responses: they answer
+`500` for these objects, and for `GET /objects` as soon as there is one.
+This affects pods of the earlier version during a rolling update (stop
+them before the new ones start, e.g., scale the app's Deployment to `0`
+before `helm upgrade`, as described in [Access tokens for
+writes](#access-tokens-for-writes), or don't write until the upgrade is
+done), and rollbacks. Before rolling back (e.g., `helm rollback`), restore
+the backup of the database from before the upgrade, or set the `self_uri`
+of the objects without one to the earlier form,
+`<url_prefix>://<external_host>:<external_port>/<api_path>/<id>` of your
+earlier `custom.service` (identifiers aren't percent-encoded there), e.g.,
+with `mongosh`:
+
+```javascript
+db.getSiblingDB("drsStore").objects.updateMany(
+  { self_uri: { $exists: false } },
+  [{ $set: { self_uri: { $concat: ["https://drs.example.org:443/ga4gh/drs/v1/", "$id"] } } }]
+)
+```
+
 ## Access tokens for writes
 
 !!! warning "Breaking changes"
@@ -459,8 +527,9 @@ deployments.
      --archive < drs.archive`, and only then
      `docker compose up --build --detach --wait`.
 
-  Restored objects keep the `self_uri` and access URLs they were registered
-  with (e.g., of an earlier public URL); `drs://` self URIs come with #97.
+  Restored objects keep the access URLs they were registered with; their
+  `self_uri` is the DRS URI of the configured host since #97 (see [DRS
+  URIs](#drs-uris)).
 - **Helm chart (3.0.0):** the Job that wrote the config into the ConfigMap
   (with a service account bound to the `admin` cluster role) is replaced by
   a ConfigMap with the chart's overlay; the value `apiServer` is gone, and

@@ -13,19 +13,42 @@ from drs_filer.custom_config import (
     DEFAULT_ID_CHARSET,
     UNRESERVED,
     CustomConfig,
+    DrsConfig,
     IdConfig,
-    ServiceConfig,
 )
+
+# The required settings, which have no defaults
+REQUIRED: dict[str, Any] = {"drs": {"hostname": "drs.example.org"}}
 
 
 def test_defaults() -> None:
     """Without settings, the defaults are those of the base config.
 
-    The base config lists them anyway, so that operators see them.
+    The base config lists them anyway, so that operators see them; it has no
+    DRS host name, which each deployment must set.
     """
     base = yaml.safe_load(Path(CONFIG_FILE).read_text())["custom"]
-    assert CustomConfig().model_dump() == base
-    assert CustomConfig(**base) == CustomConfig()
+    assert "drs" not in base
+    assert CustomConfig(**REQUIRED).model_dump() == {**base, **REQUIRED}
+    assert CustomConfig(**base, **REQUIRED) == CustomConfig(**REQUIRED)
+
+
+def test_hostname_required() -> None:
+    """Without the DRS host name, the config is refused."""
+    with pytest.raises(ValidationError, match="drs"):
+        CustomConfig.model_validate({})
+
+
+def test_service_section_removed() -> None:
+    """The public URL of earlier versions is refused, naming its replacement.
+
+    `custom.service` built `self_uri` as an HTTP(S) URL, which is now a DRS
+    URI of `custom.drs.hostname`.
+    """
+    with pytest.raises(ValidationError, match=r"custom\.drs\.hostname"):
+        CustomConfig.model_validate(
+            {"service": {"external_host": "drs.example.org"}, **REQUIRED}
+        )
 
 
 def test_default_charset() -> None:
@@ -83,45 +106,71 @@ def test_id_config_expression_message() -> None:
 @pytest.mark.parametrize(
     "settings",
     [
-        {"url_prefix": "ftp"},
-        {"url_prefix": "HTTPS"},
-        {"external_host": ""},
-        {"external_port": 0},
-        {"external_port": 65536},
-        {"external_port": "https"},
-        {"external_port": True},
-        {"external_host": "https://drs.example.org"},
-        {"external_host": "drs.example.org:443"},
-        {"external_host": "drs.example.org/x"},
-        {"external_host": "a b"},
-        {"external_host": "::1"},
-        {"external_host": "."},
-        {"external_host": "a..b"},
-        {"external_host": "-drs"},
-        {"external_host": "[:]"},
-        {"external_host": "[1.2.3.4]"},
-        {"api_path": ".."},
-        {"api_path": "a/../b"},
-        {"api_path": "a/."},
-        {"external_port": 8080.0},
-        {"external_port": "1_000"},
-        {"api_path": "a b"},
-        {"api_path": "x?y"},
-        {"api_path": "a//b"},
-        {"api_path": ""},
-        {"api_path": "/ga4gh/drs/v1"},
-        {"api_path": "ga4gh/drs/v1/"},
-        {"host": "drs.example.org"},
+        {},
+        {"hostname": ""},
+        {"hostname": None},
+        {"hostname": 443},
+        {"hostname": "drs://drs.example.org"},
+        {"hostname": "https://drs.example.org"},
+        {"hostname": "drs.example.org:443"},
+        {"hostname": "drs.example.org/x"},
+        {"hostname": "drs.example.org."},
+        {"hostname": "a b"},
+        {"hostname": "::1"},
+        {"hostname": "[2001:db8::1]"},
+        {"hostname": "."},
+        {"hostname": "a..b"},
+        {"hostname": "-drs"},
+        {"hostname": "drs-"},
+        {"hostname": "drs_filer"},
+        {"hostname": "user@drs.example.org"},
+        {"hostname": "a" * 64},
+        {"hostname": ".".join(["a" * 63] * 4)},
+        {"hostname": "drs.example.org", "port": 443},
+        {"hostname": "DRS.Example.org"},
+        {"hostname": "8080"},
+        {"hostname": "1"},
+        {"hostname": "drs.123"},
+        {"hostname": "999.999.1.1"},
+        {"hostname": "1.2.3"},
+        {"hostname": "01.2.3.4"},
     ],
 )
-def test_service_config_invalid(settings: dict[str, Any]) -> None:
-    """Invalid and unknown settings of the public URL are refused.
+def test_drs_config_invalid(settings: dict[str, Any]) -> None:
+    """Missing, invalid and unknown settings of the DRS host are refused.
+
+    The host name is required. DRS URIs (`drs://<hostname>/<id>`) have a
+    host name only, without scheme, port (always 443), user or path; it is
+    lowercase, as the chart requires (so that the URIs of a host compare
+    equal), and not a number (e.g., a port) or an invalid IPv4 address.
 
     Args:
-        settings: Invalid settings of the public URL.
+        settings: Invalid settings of the DRS host.
     """
     with pytest.raises(ValidationError):
-        ServiceConfig(**settings)
+        DrsConfig(**settings)
+
+
+@pytest.mark.parametrize(
+    "hostname",
+    [
+        "drs.example.org",
+        "localhost",
+        "drs-1.example.org",
+        "1drs.example.org",
+        "drs.example.o1",
+        "192.0.2.1",
+        "a" * 63,
+        ".".join(["a" * 63] * 3 + ["a" * 61]),
+    ],
+)
+def test_drs_config_valid(hostname: str) -> None:
+    """Lowercase host names and IPv4 addresses are valid.
+
+    Args:
+        hostname: Valid host name.
+    """
+    assert DrsConfig(hostname=hostname).hostname == hostname
 
 
 @pytest.mark.parametrize(
@@ -131,8 +180,9 @@ def test_service_config_invalid(settings: dict[str, Any]) -> None:
         {"objects": {"id_charset": "abc"}},
         {"access_methods": {"id_length": 6}},
         {"url_prefix": "https"},
+        {"hostname": "drs.example.org"},
     ],
-    ids=["service-info", "objects-legacy", "access-legacy", "flat-url"],
+    ids=["service-info", "objects-legacy", "access-legacy", "flat-url", "flat-host"],
 )
 def test_custom_config_unknown_keys(settings: dict[str, Any]) -> None:
     """Unknown keys are refused, e.g., those of earlier versions.
@@ -141,45 +191,21 @@ def test_custom_config_unknown_keys(settings: dict[str, Any]) -> None:
         settings: Settings with an unknown key.
     """
     with pytest.raises(ValidationError):
-        CustomConfig(**settings)
+        CustomConfig(**settings, **REQUIRED)
 
 
 def test_custom_config_partial() -> None:
     """Settings that are set are merged with the defaults of the others."""
     config = CustomConfig.model_validate(
         {
-            "service": {"url_prefix": "https", "external_host": "drs.example.org"},
+            **REQUIRED,
             "access_methods": {"id": {"length": 12}},
         }
     )
-    assert config.service.url_prefix == "https"
-    assert config.service.external_host == "drs.example.org"
-    assert config.service.external_port == 8080
+    assert config.drs.hostname == "drs.example.org"
     assert config.access_methods.id.length == 12
     assert config.access_methods.id.charset == DEFAULT_ID_CHARSET
     assert config.objects.id == IdConfig()
-
-
-@pytest.mark.parametrize(
-    "settings",
-    [
-        {"external_host": "drs.example.org"},
-        {"external_host": "192.0.2.1"},
-        {"external_host": "[2001:db8::1]"},
-        {"external_host": "drs_filer"},
-        {"api_path": "drs"},
-        {"api_path": "ga4gh/drs/v1.1"},
-    ],
-)
-def test_service_config_valid(settings: dict[str, Any]) -> None:
-    """Host names, IP addresses and paths of unreserved characters are valid.
-
-    Args:
-        settings: Valid settings of the public URL.
-    """
-    config = ServiceConfig.model_validate(settings)
-    for key, value in settings.items():
-        assert getattr(config, key) == value
 
 
 def test_integers_in_strings() -> None:
@@ -187,5 +213,4 @@ def test_integers_in_strings() -> None:
 
     FOCA interpolates variables into strings.
     """
-    assert ServiceConfig.model_validate({"external_port": "8443"}).external_port == 8443
     assert IdConfig.model_validate({"length": "12"}).length == 12
