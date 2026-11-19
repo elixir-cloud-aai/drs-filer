@@ -14,6 +14,7 @@ import pytest
 import yaml
 
 from drs_filer.app import CONFIG_FILE, create_app
+from drs_filer.ga4gh.drs import server as server_module
 from drs_filer.ga4gh.drs.endpoints import service_info as service_info_module
 from tests.conftest import admin_client
 from tests.mock_data import (
@@ -405,3 +406,55 @@ def test_get_service_info_stats_disabled(
     with patch.object(service_info_module, "_compute_object_stats") as compute:
         assert _stats(client) == {"maxBulkRequestLength": 1}
     compute.assert_not_called()
+
+
+def test_get_service_info_stats_failed_write(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """A write that fails after changing objects makes the kept stats stale."""
+    assert _stats(client) == drs_service_fields(0, 0)["drs"]
+
+    def fail(**kwargs: Any) -> str:
+        """Change objects, then fail.
+
+        Args:
+            **kwargs: Arguments of `register_object()`.
+
+        Raises:
+            PyMongoError: Always.
+        """
+        objects.insert_one({"id": "partial", "size": 7})
+        raise PyMongoError("down")
+
+    with patch.object(server_module, "register_object", side_effect=fail):
+        response = client.post(f"{API}/objects/register", json=drs_object())
+    assert response.status_code == 500
+    assert _stats(client) == drs_service_fields(1, 7)["drs"]
+
+
+def test_get_service_info_stats_write_while_computing(
+    client: FlaskClient, objects: Collection[dict[str, Any]]
+) -> None:
+    """Stats computed while a write made them stale aren't kept.
+
+    As with a write of another thread of the process between the queries of
+    the stats: the stats served then may miss it, the next ones don't.
+    """
+    compute = service_info_module._compute_object_stats
+
+    def concurrent_write() -> dict[str, int]:
+        """Compute the stats, while another thread writes an object.
+
+        Returns:
+            The stats, from before the write.
+        """
+        stats = compute()
+        objects.insert_one({"id": "concurrent", "size": 7})
+        service_info_module.invalidate_object_stats()
+        return stats
+
+    with patch.object(
+        service_info_module, "_compute_object_stats", side_effect=concurrent_write
+    ):
+        assert _stats(client) == drs_service_fields(0, 0)["drs"]
+    assert _stats(client) == drs_service_fields(1, 7)["drs"]

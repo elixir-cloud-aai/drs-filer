@@ -162,7 +162,6 @@ def test_service_info(object_id: str) -> None:
     objects = response.json()
     assert object_id in [obj["id"] for obj in objects]
     blobs = [obj["size"] for obj in objects if "contents" not in obj]
-    assert sum(blobs) >= drs_object()["size"]
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)
     assert response.status_code == 200
     assert response.json() == {

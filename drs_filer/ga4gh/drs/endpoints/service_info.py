@@ -10,7 +10,10 @@ next startup. Both remove the records that earlier versions stored (one per
 service info `id`).
 """
 
+from collections.abc import Callable
+import functools
 import logging
+import threading
 import time
 from typing import Any
 
@@ -25,9 +28,16 @@ logger = logging.getLogger(__name__)
 
 # `_id` of the record of the service info that is served
 CURRENT_ID = "current"
-# Key of the kept stats of the objects in the app's `extensions`: the time
-# they were computed (`time.monotonic()`) and the stats
+# Key of the kept stats of the objects in the app's `extensions`: the
+# generation they were computed in, the time (`time.monotonic()`) and the
+# stats
 STATS_CACHE = "drs_filer.object_stats"
+# Key of the generation of the stats in the app's `extensions`: the number
+# of writes of objects of the process, so that stats computed during a
+# write aren't kept
+STATS_GENERATION = "drs_filer.object_stats_generation"
+# Guards the generation and the kept stats, for the threads of a process
+_STATS_LOCK = threading.Lock()
 # The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
 # of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
 # implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
@@ -43,31 +53,79 @@ def object_stats() -> dict[str, int]:
 
     They are kept in the app (`current_app.extensions[STATS_CACHE]`, so per
     process) for `custom.stats.cache_seconds`, as computing them reads each
-    object; writes of the process remove them (`invalidate_object_stats()`).
+    object; writes of the process make them stale
+    (`invalidate_object_stats()`). Stats computed while a write of another
+    thread of the process (Gunicorn's threads) made them stale aren't kept,
+    as they may miss that write.
 
     Returns:
         The stats of `DrsService` (DRS 1.5.0), see `_compute_object_stats()`.
     """
     cache_seconds = get_custom_config().stats.cache_seconds
+    extensions = current_app.extensions
     now = time.monotonic()
-    cached: tuple[float, dict[str, int]] | None = current_app.extensions.get(
-        STATS_CACHE
-    )
-    if cached is not None and now - cached[0] < cache_seconds:
-        return dict(cached[1])
+    with _STATS_LOCK:
+        generation: int = extensions.get(STATS_GENERATION, 0)
+        cached: tuple[int, float, dict[str, int]] | None = extensions.get(STATS_CACHE)
+    if (
+        cached is not None
+        and cached[0] == generation
+        and now - cached[1] < cache_seconds
+    ):
+        return dict(cached[2])
     stats = _compute_object_stats()
     if cache_seconds:
-        current_app.extensions[STATS_CACHE] = (now, stats)
+        with _STATS_LOCK:
+            if extensions.get(STATS_GENERATION, 0) == generation:
+                extensions[STATS_CACHE] = (generation, now, stats)
     return dict(stats)
 
 
 def invalidate_object_stats() -> None:
-    """Remove the kept stats of the objects, after writes of objects.
+    """Make the kept stats of the objects stale, after writes of objects.
 
-    The next request of the service info computes them again. Other
-    processes keep theirs until they expire.
+    The next request of the service info computes them again, and stats
+    being computed meanwhile aren't kept. Other processes keep theirs until
+    they expire.
     """
-    current_app.extensions.pop(STATS_CACHE, None)
+    extensions = current_app.extensions
+    with _STATS_LOCK:
+        extensions[STATS_GENERATION] = extensions.get(STATS_GENERATION, 0) + 1
+        extensions.pop(STATS_CACHE, None)
+
+
+def invalidates_object_stats[**P, R](
+    func: Callable[P, R],
+) -> Callable[P, R]:
+    """Decorate the controllers that write objects.
+
+    The kept stats are made stale after the write, also if it fails, as it
+    may have changed objects before failing.
+
+    Args:
+        func: Controller.
+
+    Returns:
+        The controller, which makes the kept stats stale after each call.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Call the controller, then make the kept stats stale.
+
+        Args:
+            *args: Positional arguments of the controller.
+            **kwargs: Keyword arguments of the controller.
+
+        Returns:
+            The return value of the controller.
+        """
+        try:
+            return func(*args, **kwargs)
+        finally:
+            invalidate_object_stats()
+
+    return wrapper
 
 
 def _compute_object_stats() -> dict[str, int]:
