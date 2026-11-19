@@ -26,8 +26,6 @@ see the `security` section of the
     - [#95](https://github.com/elixir-cloud-aai/drs-filer/issues/95):
       owners and maintainers of objects, so that users other than admins
       can register objects and change their own;
-    - [#98](https://github.com/elixir-cloud-aai/drs-filer/issues/98):
-      authorization info of objects;
     - [#92](https://github.com/elixir-cloud-aai/drs-filer/issues/92): the
       security patterns of the other registries of ELIXIR On-Cloud.
 
@@ -38,7 +36,9 @@ access token by default, of any user (see [Requiring login for
 reads](#requiring-login-for-reads)). The other read operations (the `GET`
 endpoints), the service info, the API specification
 (`/ga4gh/drs/v1/openapi.json`) and the Swagger UI (`/ga4gh/drs/v1/ui/`) are
-public, and ignore tokens; so are the [passport `POST`
+public, and ignore tokens; so are the [authorization
+info](#authorization-info) of objects (`OPTIONS`), which tells clients
+which reads need a token, and the [passport `POST`
 endpoints](api.md#passport-post-endpoints), which answer `501`. All write
 operations of DRS-Filer (`POST /objects/register`, `PUT` and `DELETE
 /objects/{object_id}`, `DELETE /objects/{object_id}/access/{access_id}`,
@@ -283,6 +283,76 @@ refuses named rules after a list).
     applied patches, say whether access URLs need login, and warn of
     operations that patches make public (see FOCA's [patching
     specifications](https://foca.readthedocs.io/en/latest/configuration/api/#patching-specifications)).
+
+## Authorization info
+
+Clients can find out how to authorize their reads before they send them
+(DRS's `Authorizations`), from the same security requirements of the
+patched specification that DRS-Filer enforces (see [Requiring login for
+reads](#requiring-login-for-reads)); so the answers change with the
+patches, and match what the served specification (`openapi.json`) says:
+
+- **Objects** (`GET /objects/{object_id}`): `OPTIONS /objects/{object_id}`
+  answers with the authorization info of the object, and `OPTIONS /objects`
+  with that of several objects (`bulk_object_ids` in the request body).
+  Both are public, and take no token.
+- **Access URLs** (`GET /objects/{object_id}/access/{access_id}`): each
+  access method of the objects that `GET /objects` and `GET
+  /objects/{object_id}` serve has the authorization info of its access URL
+  (`authorizations`), if it has an `access_id`.
+
+While a read requires login, its authorization info lists bearer tokens
+(`BearerAuth`) of the trusted issuers (`bearer_auth_issuers`, those of
+`security.auth.issuers`); otherwise no authorization (`None`). E.g., with
+the default patches, objects are public and access URLs need login:
+
+```console
+$ curl -X OPTIONS "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>"
+{"drs_object_id": "<object_id>", "supported_types": ["None"]}
+$ curl "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>"
+{..., "access_methods": [{"type": "https", "access_id": "<access_id>",
+  "authorizations": {"supported_types": ["BearerAuth"],
+  "bearer_auth_issuers": ["https://login.example.org/oidc/"]}, ...}], ...}
+```
+
+With [login for all reads](#login-for-all-reads), `OPTIONS` lists
+`BearerAuth` too, and with [public access URLs](#public-access-urls),
+access methods list `None`. The authorization info says which token a read
+needs, not whether the user may read: with [rules for
+readers](#readers), the tokens of other users get `403 Forbidden`.
+
+The authorization info never lists passports (`PassportAuth`,
+`passport_auth_issuers`) or basic authentication (`BasicAuth`), which
+DRS-Filer doesn't accept (see [Passport POST
+endpoints](api.md#passport-post-endpoints)).
+
+While object reads require login, `OPTIONS` answers the same for every
+identifier, whether an object exists or not, so that anonymous clients
+can't find out which objects exist; they get `404` (or `401`) only from the
+reads, with a token. While object reads are public, `OPTIONS
+/objects/{object_id}` answers `404 Not Found` for unknown objects, and
+`OPTIONS /objects` lists them under `unresolved_drs_objects`, with
+`error_code` `404`:
+
+```console
+$ curl -X OPTIONS "https://drs.example.org/ga4gh/drs/v1/objects" \
+    -H "Content-Type: application/json" \
+    -d '{"bulk_object_ids": ["<object_id>", "unknown"]}'
+{"summary": {"requested": 2, "resolved": 1, "unresolved": 1},
+ "unresolved_drs_objects": [{"error_code": 404, "object_ids": ["unknown"]}],
+ "resolved_drs_object": [{"drs_object_id": "<object_id>", "supported_types": ["None"]}]}
+```
+
+`OPTIONS /objects` answers each identifier once, in the order of the
+request, and counts distinct identifiers in its `summary`. It takes at most
+`custom.bulk.max_request_length` identifiers (100 by default, counted as
+sent, duplicates too; see [Service info](configuration.md#service-info) in
+the configuration), the `maxBulkRequestLength` of the service info; requests
+with more get `413 Payload Too Large`, and requests without
+`bulk_object_ids` `400 Bad Request`. CORS preflight requests (`OPTIONS`
+with `Origin` and `Access-Control-Request-Method`) don't get the
+authorization info, but Flask's answer for CORS (see [Deviations from the
+specification](api.md#deviations-from-the-specification)).
 
 ## Network access
 

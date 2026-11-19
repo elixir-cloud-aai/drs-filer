@@ -133,27 +133,12 @@ def test_passport_operations_not_implemented(
 
 
 @pytest.mark.parametrize("path", ["/objects/{id}", "/objects"])
-def test_options_not_implemented(client: FlaskClient, path: str) -> None:
-    """The authorization info of objects (`OPTIONS`) answers `501` (#98)."""
-    obj = _register(client, drs_object())
-    response = client.options(
-        f"{API}{_fill(path, {'id': obj['id']})}",
-        json={"bulk_object_ids": [obj["id"]]},
-    )
-    assert response.status_code == 501, body(response)
-    problem = body(response)
-    validate_error(problem)
-    assert problem["status"] == 501
-    assert "authorization" in problem["detail"]
-
-
-@pytest.mark.parametrize("path", ["/objects/{id}", "/objects"])
 def test_cors_preflight(client: FlaskClient, path: str) -> None:
-    """CORS preflight requests get Flask's answer, not the `501` of `OPTIONS`.
+    """CORS preflight requests get Flask's answer, not that of `OPTIONS`.
 
-    Browsers refuse requests whose preflight isn't answered with `2xx`; the
-    preflight of `OPTIONS /objects` has no body, which `OptionsBulkObject`
-    requires.
+    Not the authorization info of objects: browsers refuse requests whose
+    preflight isn't answered with `2xx`, and the preflight of `OPTIONS
+    /objects` has no body, which `OptionsBulkObject` requires.
     """
     obj = _register(client, drs_object())
     response = client.options(

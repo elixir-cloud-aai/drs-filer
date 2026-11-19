@@ -47,15 +47,16 @@ REGISTER_SCHEMAS: dict[str, tuple[str, set[str]]] = {
 
 # Operations of the DRS specification that DRS-Filer doesn't implement
 # (`501 Not Implemented`): the passport `POST` variants of the reads, which
-# need no credentials, so that every client gets the `501`, and the
-# authorization info of objects (until #98)
+# need no credentials, so that every client gets the `501`
 PASSPORT_OPERATIONS = {
     "PostObject",
     "PostAccessURL",
     "GetBulkObjects",
     "GetBulkAccessURL",
 }
-NOT_IMPLEMENTED = PASSPORT_OPERATIONS | {"OptionsObject", "OptionsBulkObject"}
+# The authorization info of objects, which the specification makes public
+# (`security` with an anonymous alternative), and the additions don't change
+AUTHORIZATION_INFO = {"OptionsObject", "OptionsBulkObject"}
 
 METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
@@ -178,14 +179,28 @@ def test_not_implemented_operations(
 ) -> None:
     """Operations that DRS-Filer doesn't implement document their `501`."""
     operations = _operations(drs_spec)
-    for operation_id in NOT_IMPLEMENTED:
+    for operation_id in PASSPORT_OPERATIONS:
         path, method = operations[operation_id]
         operation = additions["paths"][path][method]
         assert operation["responses"]["501"] == {
             "$ref": "#/components/responses/501NotImplemented"
         }, operation_id
-        if operation_id in PASSPORT_OPERATIONS:
-            assert operation["security"] == [], operation_id
+        assert operation["security"] == [], operation_id
+
+
+def test_authorization_info_public(
+    drs_spec: dict[str, Any], additions: dict[str, Any]
+) -> None:
+    """The authorization info of objects is public, as the specification has it.
+
+    Clients ask for it before they have a token; the additions don't change
+    the operations (`tests/api/test_authorizations.py` checks the answers).
+    """
+    operations = _operations(drs_spec)
+    for operation_id in AUTHORIZATION_INFO:
+        path, method = operations[operation_id]
+        assert drs_spec["paths"][path][method]["security"] == [{}], operation_id
+        assert method not in additions["paths"].get(path, {}), operation_id
 
 
 @pytest.mark.parametrize("name", sorted(REGISTER_SCHEMAS))

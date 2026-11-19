@@ -79,9 +79,9 @@ def drs_service_fields(
 ) -> dict[str, Any]:
     """Get the fields of the service info that the app computes.
 
-    The fields of `DrsService` (DRS 1.5.0): bulk requests aren't
-    implemented, so the bulk maximum is the least allowed one; the stats
-    are those of the registered objects.
+    The fields of `DrsService` (DRS 1.5.0): the bulk maximum of the base
+    config (`custom.bulk.max_request_length`), and the stats of the
+    registered objects.
 
     Args:
         object_count: Number of registered objects (`drs.objectCount`).
@@ -92,9 +92,9 @@ def drs_service_fields(
         The computed fields, a new copy on each call.
     """
     return {
-        "maxBulkRequestLength": 1,
+        "maxBulkRequestLength": 100,
         "drs": {
-            "maxBulkRequestLength": 1,
+            "maxBulkRequestLength": 100,
             "objectCount": object_count,
             "totalObjectSize": total_object_size,
         },

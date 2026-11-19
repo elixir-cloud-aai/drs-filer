@@ -14,6 +14,7 @@ from foca.api.service_info import get_service_info as get_config_service_info
 from foca.config.config_parser import CONFIG_OVERLAY_ENV_VAR
 
 from drs_filer.ga4gh.drs.access_urls import access_urls_need_login
+from drs_filer.ga4gh.drs.authorizations import object_reads_need_login
 from drs_filer.ga4gh.drs.endpoints.service_info import (
     SERVICE_TYPE,
     RegisterServiceInfo,
@@ -80,8 +81,9 @@ def answer_cors_preflight() -> Response | None:
     """Answer CORS preflight requests before the API operations do.
 
     DRS defines `OPTIONS` operations (the authorization info of objects),
-    which DRS-Filer answers with `501` (until #98), and which would get the
-    preflight requests of browsers too. These get Flask's default answer,
+    which would get the preflight requests of browsers too (and fail for
+    `OPTIONS /objects`, whose preflight has no body). These get Flask's
+    default answer,
     with the CORS headers that FOCA adds (if CORS is enabled), as for paths
     without `OPTIONS` operations. Registered with `before_request`.
 
@@ -111,8 +113,9 @@ def create_app() -> App:
     sections of earlier versions (`check_removed_sections()`) and service
     info of another type than DRS (`check_service_type()`). The service
     info of the config (with the version of the package, unless set) then
-    replaces the stored one. Whether access URLs need login is read from the
-    patched specification, and logged (`access_urls_need_login()`). CORS
+    replaces the stored one. Whether access URLs and object reads need login
+    is read from the patched specification, and logged
+    (`access_urls_need_login()`, `object_reads_need_login()`). CORS
     preflight requests are answered before the API operations
     (`answer_cors_preflight()`). The config is the
     package's `config.yaml`, with the overlays of `FOCA_CONFIG_OVERLAY`
@@ -143,6 +146,7 @@ def create_app() -> App:
         check_removed_sections()
         check_service_type()
         access_urls_need_login()
+        object_reads_need_login()
         service_info = RegisterServiceInfo()
         service_info.set_service_info_from_config()
     app.app.before_request(answer_cors_preflight)

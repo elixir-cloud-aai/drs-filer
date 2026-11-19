@@ -243,6 +243,32 @@ class StatsConfig(FOCABaseConfig):
     cache_seconds: NonNegativeInteger = 60
 
 
+class BulkConfig(FOCABaseConfig):
+    """Model for bulk requests.
+
+    The authorization info of several objects (`OPTIONS /objects`) takes at
+    most `max_request_length` identifiers; requests with more get `413`. The
+    maximum is served in the service info (`maxBulkRequestLength` of DRS
+    1.5.0).
+
+    Args:
+        max_request_length: Maximum number of identifiers of a bulk request,
+            counted as sent (duplicates too).
+
+    Attributes:
+        max_request_length: Maximum number of identifiers of a bulk request.
+
+    Raises:
+        pydantic.ValidationError: The maximum is not a positive integer.
+
+    Example:
+        >>> BulkConfig(max_request_length="50").max_request_length
+        50
+    """
+
+    max_request_length: PositiveInteger = 100
+
+
 class CustomConfig(FOCABaseConfig):
     """Model for the app's own configuration (`custom`).
 
@@ -255,12 +281,14 @@ class CustomConfig(FOCABaseConfig):
         objects: Settings of objects.
         access_methods: Settings of access methods.
         stats: Stats of the objects in the service info.
+        bulk: Bulk requests.
 
     Attributes:
         drs: DRS host of the app.
         objects: Settings of objects.
         access_methods: Settings of access methods.
         stats: Stats of the objects in the service info.
+        bulk: Bulk requests.
 
     Raises:
         pydantic.ValidationError: A setting is missing, invalid or unknown.
@@ -270,6 +298,7 @@ class CustomConfig(FOCABaseConfig):
     objects: ObjectsConfig = Field(default_factory=ObjectsConfig)
     access_methods: AccessMethodsConfig = Field(default_factory=AccessMethodsConfig)
     stats: StatsConfig = Field(default_factory=StatsConfig)
+    bulk: BulkConfig = Field(default_factory=BulkConfig)
 
     @model_validator(mode="before")
     @classmethod

@@ -85,31 +85,38 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
     return merged
 
 
-def requires_login(spec: SpecConfig) -> bool | None:
-    """Check whether a specification requires a token for access URLs.
+def requires_login(
+    spec: SpecConfig,
+    path: str = ACCESS_URL_PATH,
+    operation_id: str = OPERATION_ID,
+) -> bool | None:
+    """Check whether a specification requires a token for a read.
 
-    The operations for access URLs are `GET` of their path
-    (`ACCESS_URL_PATH`) and any `GET` operation `GetAccessURL`, so that
-    neither a changed `operationId` nor a moved path makes them look
-    public. An operation requires a token if its security requirements (or,
-    if it sets none, those of the specification) are not empty and have no
-    empty alternative (`{}`, anonymous), and authentication isn't disabled
-    (`disable_auth`, which removes them).
+    The operations for the read are `GET` of its path and any `GET`
+    operation of its `operationId`, so that neither a changed
+    `operationId` nor a moved path makes it look public; by default, those
+    of access URLs (`ACCESS_URL_PATH`, `GetAccessURL`). An operation
+    requires a token if its security requirements (or, if it sets none,
+    those of the specification) are not empty and have no empty alternative
+    (`{}`, anonymous), and authentication isn't disabled (`disable_auth`,
+    which removes them).
 
     Args:
         spec: Config of the specification.
+        path: Path of the read.
+        operation_id: `operationId` of the read.
 
     Returns:
-        Whether an operation for access URLs requires a token; `None` if the
+        Whether an operation for the read requires a token; `None` if the
         specification has none.
     """
     merged = _merged_spec(spec)
     paths = merged.get("paths") or {}
     operations = [
         operation
-        for path, path_item in paths.items()
+        for item_path, path_item in paths.items()
         if isinstance(operation := (path_item or {}).get("get"), dict)
-        and (path == ACCESS_URL_PATH or operation.get("operationId") == OPERATION_ID)
+        and (item_path == path or operation.get("operationId") == operation_id)
     ]
     if not operations:
         return None
@@ -122,18 +129,25 @@ def requires_login(spec: SpecConfig) -> bool | None:
     )
 
 
-def specs_require_login(specs: Iterable[SpecConfig]) -> bool:
-    """Check whether the specifications of an app require login for access URLs.
+def specs_require_login(
+    specs: Iterable[SpecConfig],
+    path: str = ACCESS_URL_PATH,
+    operation_id: str = OPERATION_ID,
+) -> bool:
+    """Check whether the specifications of an app require login for a read.
 
     Args:
         specs: Configs of the specifications.
+        path: Path of the read; by default, that of access URLs.
+        operation_id: `operationId` of the read; by default, that of access
+            URLs.
 
     Returns:
-        Whether a specification has an operation for access URLs and requires
-        a token for it; `False` if none has it (as then access URLs are only
-        served with objects).
+        Whether a specification has an operation for the read and requires
+        a token for it; `False` if none has it (as then, for access URLs,
+        they are only served with objects).
     """
-    return any(requires_login(spec) for spec in specs)
+    return any(requires_login(spec, path, operation_id) for spec in specs)
 
 
 def access_urls_need_login() -> bool:
