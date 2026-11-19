@@ -95,6 +95,8 @@ Run `docker compose up --wait` without the variable to enable it again. Only
 use this on your machine (Docker Compose publishes the app on the loopback
 interface only), never for deployments. The smoke test (see
 [Tests](#tests)) needs it, or an admin's access token in `DRS_FILER_TOKEN`.
+Access URLs need a token too, unless authentication is disabled (see
+[Requiring login for reads](access-control.md#requiring-login-for-reads)).
 
 ## Tests
 
@@ -125,8 +127,9 @@ same targets for Codecov in `codecov.yml`):
 
 - **Smoke test** (`tests/smoke/`): the API of a running app, e.g., of the
   Compose stack (see [Getting started](getting-started.md)); skipped unless
-  `DRS_FILER_URL` is set. It registers objects and service info, so it
-  needs an admin's access token in `DRS_FILER_TOKEN`, or an app without
+  `DRS_FILER_URL` is set. It registers objects and service info, and reads
+  access URLs, so it needs an admin's access token in `DRS_FILER_TOKEN`
+  (sent with writes and access URLs), or an app without
   authentication (see [Running without
   authentication](#running-without-authentication)), as in CI:
 

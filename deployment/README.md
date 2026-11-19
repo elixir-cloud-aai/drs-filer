@@ -8,9 +8,10 @@ documentation](https://github.com/elixir-cloud-aai/foca/blob/chart-v0.5.0/docs/h
 The chart in the repository downloads the library chart with `helm
 dependency build` (see [Installation](#installation)).
 
-Reads are public; writes need an access token of an admin of the identity
-provider that `config` sets (see [Configuration](#configuration) and
-[Access control](https://drs-filer.readthedocs.io/en/latest/access-control/)).
+Reads are public, except access URLs, which need an access token by
+default; writes need an access token of an admin of the identity provider
+that `config` sets (see [Configuration](#configuration) and [Access
+control](https://drs-filer.readthedocs.io/en/latest/access-control/)).
 
 ## Configuration
 
@@ -271,9 +272,13 @@ exits on startup).
 
 ## Access
 
-Reads are public; writes (registering, replacing and deleting objects and
-access methods, posting the service info) need an access token of an admin
-of the identity provider in `config` (see
+Reads are public, except access URLs, which need an access token of any
+user by default (see [Requiring login for
+reads](https://drs-filer.readthedocs.io/en/latest/access-control/#requiring-login-for-reads),
+also to make them public or to require login for all reads, with
+`config`); writes (registering, replacing and deleting objects and access
+methods, posting the service info) need an access token of an admin of the
+identity provider in `config` (see
 [Configuration](#configuration) and [Access
 control](https://drs-filer.readthedocs.io/en/latest/access-control/)). Helm's
 notes after installing say so, and warn if authentication is disabled

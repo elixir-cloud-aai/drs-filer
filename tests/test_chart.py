@@ -834,7 +834,7 @@ def test_readme_references() -> None:
 
 
 def test_notes(tmp_path: Path) -> None:
-    """The notes show the API's URL, that the Ingress has no TLS, and who may write.
+    """The notes show the API's URL, the missing TLS, and who may read and write.
 
     Args:
         tmp_path: Directory for the copy of the chart.
@@ -843,6 +843,7 @@ def test_notes(tmp_path: Path) -> None:
     assert f"https://{HOST}/ga4gh/drs/v1/service-info" in notes
     assert "The Ingress has no TLS" in notes
     assert "writes (POST, PUT and DELETE) need an access token of" in notes
+    assert "except access URLs, which need an access token" in notes
     assert "WARNING" not in notes
 
 

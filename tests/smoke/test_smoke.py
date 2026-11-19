@@ -3,11 +3,12 @@
 Skipped unless `DRS_FILER_URL` is set to the base URL of the API, e.g.,
 `http://localhost:8080/ga4gh/drs/v1`; network access is allowed for these
 tests (see `tests/smoke/conftest.py`). Each test registers the objects it
-needs and deletes them again. Writes need an access token of an admin, set
-in `DRS_FILER_TOKEN`, unless authentication is disabled (as in CI, with
-`config.noauth.yaml` or `config.api.specs.drs.disable_auth` of the chart;
-see "Running without authentication" in `docs/development.md`); reads and
-the passport operations are sent without a token.
+needs and deletes them again. Writes and access URLs need an access token
+of an admin, set in `DRS_FILER_TOKEN`, unless authentication is disabled
+(as in CI, with `config.noauth.yaml` or `config.api.specs.drs.disable_auth`
+of the chart; see "Running without authentication" in
+`docs/development.md`); other reads and the passport operations are sent
+without a token.
 """
 
 from collections.abc import Iterator
@@ -21,7 +22,8 @@ from tests.mock_data import DRS_SERVICE_FIELDS, SERVICE_INFO, drs_object
 
 DRS_FILER_URL = os.environ.get("DRS_FILER_URL", "")
 TIMEOUT = 30  # seconds per request
-# Session of the writes, with the token of `DRS_FILER_TOKEN`, if set
+# Session of the writes and of access URLs, with the token of
+# `DRS_FILER_TOKEN`, if set
 WRITER = requests.Session()
 if token := os.environ.get("DRS_FILER_TOKEN", ""):
     WRITER.headers["Authorization"] = f"Bearer {token}"
@@ -107,8 +109,8 @@ def test_get_object_not_found() -> None:
 
 
 def test_get_access_url(object_id: str, access_ids: list[str]) -> None:
-    """The access URL of an access method is returned."""
-    response = requests.get(
+    """The access URL of an access method is returned (with the token)."""
+    response = WRITER.get(
         _url(f"/objects/{object_id}/access/{access_ids[1]}"), timeout=TIMEOUT
     )
     assert response.status_code == 200

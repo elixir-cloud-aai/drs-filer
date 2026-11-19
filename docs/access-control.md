@@ -1,8 +1,11 @@
 # Access control
 
-Objects, their access URLs and the service info can be read by anyone.
-Writing, i.e., registering, replacing and deleting objects and access
-methods, and posting the service info (see [API](api.md#endpoints)),
+Objects and the service info can be read by anyone; access URLs need an
+access token of any user, by default (see [Requiring login for
+reads](#requiring-login-for-reads), also for how to make them public, or
+to require login for all reads). Writing, i.e., registering, replacing and
+deleting objects and access methods, and posting the service info (see
+[API](api.md#endpoints)),
 requires an access token of an OpenID Connect provider that the deployment
 trusts (see [Authentication](#authentication)), and, for now, the role
 `admin` (see [Admins](#admins)). The identity provider, its claims and the
@@ -23,8 +26,6 @@ see the `security` section of the
     - [#95](https://github.com/elixir-cloud-aai/drs-filer/issues/95):
       owners and maintainers of objects, so that users other than admins
       can register objects and change their own;
-    - [#96](https://github.com/elixir-cloud-aai/drs-filer/issues/96):
-      optional login for reads;
     - [#98](https://github.com/elixir-cloud-aai/drs-filer/issues/98):
       authorization info of objects;
     - [#92](https://github.com/elixir-cloud-aai/drs-filer/issues/92): the
@@ -32,11 +33,14 @@ see the `security` section of the
 
 ## Authentication
 
-Read operations (the `GET` endpoints), the service info, the API
-specification (`/ga4gh/drs/v1/openapi.json`) and the Swagger UI
-(`/ga4gh/drs/v1/ui/`) are public, and ignore tokens; so are the [passport
-`POST` endpoints](api.md#passport-post-endpoints), which answer `501`. All
-write operations of DRS-Filer (`POST /objects/register`, `PUT` and `DELETE
+Access URLs (`GET /objects/{object_id}/access/{access_id}`) require an
+access token by default, of any user (see [Requiring login for
+reads](#requiring-login-for-reads)). The other read operations (the `GET`
+endpoints), the service info, the API specification
+(`/ga4gh/drs/v1/openapi.json`) and the Swagger UI (`/ga4gh/drs/v1/ui/`) are
+public, and ignore tokens; so are the [passport `POST`
+endpoints](api.md#passport-post-endpoints), which answer `501`. All write
+operations of DRS-Filer (`POST /objects/register`, `PUT` and `DELETE
 /objects/{object_id}`, `DELETE /objects/{object_id}/access/{access_id}`,
 `POST /service-info`) require an access token of a trusted issuer, sent as
 a bearer token (the scheme `BearerAuth` of the DRS specification):
@@ -140,6 +144,141 @@ cached), or set `security.auth.validate_userinfo: true`, which fetches the
 user info for every request with a token (and so also rejects revoked
 tokens), at the cost of a request to the identity provider each time (see
 FOCA's [authentication](https://foca.readthedocs.io/en/latest/authentication/)).
+
+## Requiring login for reads
+
+Access URLs, which may carry credentials (e.g., the `headers` of an
+`access_url`, or presigned URLs), require login by default, and deployments
+can make them public, or require login for all reads, except `GET
+/service-info`. Both use FOCA's [spec
+patches](https://foca.readthedocs.io/en/latest/configuration/api/#patching-specifications)
+and [named
+entries](https://foca.readthedocs.io/en/latest/configuration/#named-entries),
+as TRS-Filer does. DRS-Filer ships two patches, which set the security
+requirements of read operations to a bearer token (`BearerAuth`, the
+scheme of DRS):
+
+- [`drs_filer/api/patches/login-for-access-urls.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/api/patches/login-for-access-urls.yaml),
+  for access URLs (`GET /objects/{object_id}/access/{access_id}`), which
+  the base config applies:
+
+    ```yaml
+    --8<-- "drs_filer/api/patches/login-for-access-urls.yaml"
+    ```
+
+- [`drs_filer/api/patches/login-for-reads.yaml`](https://github.com/elixir-cloud-aai/drs-filer/blob/dev/drs_filer/api/patches/login-for-reads.yaml),
+  for the other reads (`GET /objects`, `GET /objects/{object_id}`), which
+  deployments add:
+
+    ```yaml
+    --8<-- "drs_filer/api/patches/login-for-reads.yaml"
+    ```
+
+Requests to the patched reads without a valid token are rejected with `401
+Unauthorized` (also for objects and access methods that don't exist, so
+that their existence doesn't show); any authenticated user may read, by the
+default policies (in `security.access_control.policies`, which are only
+evaluated for reads that require login): `get-access-urls` (`GET
+/objects/{object_id}/access/{access_id}`), `list-objects` (`GET /objects`)
+and `get-objects` (`GET /objects/{object_id}`). `GET /service-info`, the API
+specification (`openapi.json`) and the Swagger UI (`ui/`) stay public. The
+rules allow `HEAD` too, which Flask serves from the `GET` operations and
+which access control checks as `HEAD`.
+
+### Objects without access URLs
+
+Objects carry the access URLs of their access methods, too (`access_url`).
+While access URLs require login, `GET /objects` and `GET
+/objects/{object_id}` serve objects without them, also to logged-in users
+and admins, so that they can't be read without a token through the
+objects; the stored objects stay unchanged. Each access method keeps its
+`access_id` (DRS requires one of `access_url` and `access_id`), with which
+clients get its access URL, with a token:
+
+```bash
+curl "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>/access/<access_id>" \
+  -H "Authorization: Bearer <token>"
+```
+
+So, while access URLs require login, an object as `GET` serves it is no
+body for `PUT /objects/{object_id}`: it would replace the object with one
+whose access methods have no access URLs. Build the body from the object as
+registered instead.
+
+With public access URLs, objects are served with them, as registered.
+DRS-Filer reads whether access URLs require login from the specification as
+patched by all config files, and logs it on startup ("Access URLs need
+login" or "Access URLs are public").
+
+### Public access URLs
+
+To make access URLs public, leave the patch out of the patches of the
+specification (named `drs` in the base config) in an overlay. FOCA merges
+mappings of overlays into the base config, but replaces lists, so an
+overlay that sets `patches` replaces those of the base config:
+
+```yaml title="public-access-urls.yaml"
+api:
+    specs:
+        drs:
+            patches: []
+```
+
+With the Helm chart, put the same in the `config` value. Overlays that set
+patches of their own (e.g., to change the `info` of the specification) must
+list `api/patches/login-for-access-urls.yaml` too, or access URLs become
+public: check the startup log.
+
+### Login for all reads
+
+To require login for all reads, list both patches in an overlay (the paths
+are relative to the directory of the base config, where the patches are
+installed):
+
+```yaml title="login-for-reads.yaml"
+api:
+    specs:
+        drs:
+            patches:
+                - api/patches/login-for-access-urls.yaml
+                - api/patches/login-for-reads.yaml
+```
+
+With only `api/patches/login-for-reads.yaml`, objects require login, but
+access URLs are public, and objects are served with them.
+
+### Readers
+
+To allow reads for some users only, replace the rules by name in an
+overlay, e.g., with rules for a role that a group is mapped to, in addition
+to the deployment's admin groups (`null` removes a rule; admins may always
+read):
+
+```yaml title="readers.yaml"
+security:
+    access_control:
+        group_mapping:
+            drs-admins: admin
+            drs-readers: reader
+        policies:
+            get-access-urls: [p, reader, "/ga4gh/drs/v1/objects/:object_id/access/:access_id", "GET|HEAD"]
+            list-objects: [p, reader, /ga4gh/drs/v1/objects, "GET|HEAD"]
+            get-objects: [p, reader, "/ga4gh/drs/v1/objects/:object_id", "GET|HEAD"]
+```
+
+The rules only apply to the reads that require login: with the default
+patches, `list-objects` and `get-objects` have no effect, and objects stay
+public. If an overlay of the deployment gives the policies as a list, which
+replaces the rules of the base config, add these rules to the list (FOCA
+refuses named rules after a list).
+
+!!! danger "With great power comes great responsibility"
+    Patches and rules in overlays can weaken or remove authentication and
+    access control as easily as they add them. Review them like code, keep
+    them as small as possible, and check the startup logs, which list the
+    applied patches, say whether access URLs need login, and warn of
+    operations that patches make public (see FOCA's [patching
+    specifications](https://foca.readthedocs.io/en/latest/configuration/api/#patching-specifications)).
 
 ## Network access
 

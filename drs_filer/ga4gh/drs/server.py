@@ -16,6 +16,7 @@ from drs_filer.errors.exceptions import (
     PassportOperationNotImplemented,
     URLNotFound,
 )
+from drs_filer.ga4gh.drs.access_urls import served_object
 from drs_filer.ga4gh.drs.endpoints.register_objects import (
     register_object,
 )
@@ -86,16 +87,22 @@ def _served(obj: dict[str, Any]) -> dict[str, Any]:
 def ListDrsObjects() -> list[dict[str, Any]]:
     """Get all DRS objects.
 
+    Without access URLs while these need login (cf.
+    `drs_filer.ga4gh.drs.access_urls.served_object()`).
+
     Returns:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
     db_collection = get_collection("objects")
-    return [_served(obj) for obj in db_collection.find()]
+    return [served_object(_served(obj)) for obj in db_collection.find()]
 
 
 @log_traffic
 def GetObject(object_id: str, expand: bool = False) -> dict[str, Any]:
     """Get DRS object.
+
+    Without access URLs while these need login (cf.
+    `drs_filer.ga4gh.drs.access_urls.served_object()`).
 
     Args:
         object_id: Identifier of DRS object to be retrieved.
@@ -105,7 +112,7 @@ def GetObject(object_id: str, expand: bool = False) -> dict[str, Any]:
     Returns:
         DRS object as dictionary, JSONified if returned in app context.
     """
-    return _get_object(object_id)
+    return served_object(_get_object(object_id))
 
 
 def _get_object(object_id: str) -> dict[str, Any]:

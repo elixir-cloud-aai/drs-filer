@@ -36,12 +36,14 @@ def test_create_app() -> None:
     """The app is created from the packaged config, with the service info.
 
     FOCA validates the custom config against the app's model; sections of
-    earlier versions are checked on startup.
+    earlier versions are checked on startup, and whether access URLs need
+    login is read from the specification.
     """
     with (
         patch.object(app_module, "Foca") as foca,
         patch.object(app_module, "RegisterServiceInfo") as service_info,
         patch.object(app_module, "check_removed_sections") as check_removed,
+        patch.object(app_module, "access_urls_need_login") as need_login,
         # ast-grep-ignore: pydantic-v1-dict
         patch.dict(os.environ),
     ):
@@ -54,6 +56,7 @@ def test_create_app() -> None:
     assert app is foca.return_value.create_app.return_value
     service_info.return_value.set_service_info_from_config.assert_called_once()
     check_removed.assert_called_once_with()
+    need_login.assert_called_once_with()
 
 
 def test_create_app_custom_config(
