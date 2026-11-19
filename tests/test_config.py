@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import string
+import tomllib
 
 import yaml
 
@@ -88,6 +89,7 @@ def test_auth_without_deployment_defaults() -> None:
 
     Each deployment sets its own (the app refuses to start without them);
     access control is enabled and enforced, and admins are required.
+    The only rules let any authenticated user read.
     """
     security = yaml.safe_load(CONFIG_PATH.read_text())["security"]
     assert security["auth"]["issuers"] == []
@@ -99,9 +101,33 @@ def test_auth_without_deployment_defaults() -> None:
     assert access_control["require_enforced"] is True
     assert access_control["require_admin"] is True
     assert "group_mapping" not in access_control
-    assert access_control["policies"] == {}
+    # Only rules for reads, of any authenticated user
+    assert access_control["policies"] == {
+        "get-access-urls": [
+            "p",
+            "*",
+            "/ga4gh/drs/v1/objects/:object_id/access/:access_id",
+            "GET|HEAD",
+        ],
+        "list-objects": ["p", "*", "/ga4gh/drs/v1/objects", "GET|HEAD"],
+        "get-objects": ["p", "*", "/ga4gh/drs/v1/objects/:object_id", "GET|HEAD"],
+    }
     spec = yaml.safe_load(CONFIG_PATH.read_text())["api"]["specs"]["drs"]
     assert spec["disable_auth"] is False
+
+
+def test_access_urls_patch_applied() -> None:
+    """The base config requires login for access URLs, with the shipped patch.
+
+    The patch and the opt-in patch for the other reads are package data.
+    """
+    spec = yaml.safe_load(CONFIG_PATH.read_text())["api"]["specs"]["drs"]
+    assert spec["patches"] == ["api/patches/login-for-access-urls.yaml"]
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    patterns = pyproject["tool"]["setuptools"]["package-data"]["drs_filer"]
+    assert "api/patches/*.yaml" in patterns
+    for name in ("login-for-access-urls.yaml", "login-for-reads.yaml"):
+        assert (CONFIG_PATH.parent / "api" / "patches" / name).is_file()
 
 
 def test_id_charsets_literal() -> None:

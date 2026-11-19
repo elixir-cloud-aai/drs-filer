@@ -1,0 +1,16 @@
+# Patch of the API specification (`api.specs.drs`) that requires login for
+# the reads of objects (`GET /objects`, `GET /objects/{object_id}`), as in
+# TRS-Filer: sets their security requirements to a bearer token
+# (`BearerAuth`, the scheme of DRS). Opt-in, in addition to
+# `login-for-access-urls.yaml`, which covers access URLs; `GET
+# /service-info` stays public. See "Requiring login for reads" in
+# `docs/access-control.md`
+paths:
+  /objects:
+    get:
+      security:
+        - BearerAuth: []
+  "/objects/{object_id}":
+    get:
+      security:
+        - BearerAuth: []

@@ -53,8 +53,9 @@ Swagger UI at
 curl -X GET "http://localhost:8080/ga4gh/drs/v1/service-info" -H "accept: application/json"
 ```
 
-Reads are public; registering, changing and deleting objects needs an access
-token of an admin of a trusted identity provider. The Compose setup trusts
+Reads are public, except access URLs, which need an access token of a
+trusted identity provider by default; registering, changing and deleting
+objects needs an access token of an admin. The Compose setup trusts
 a fictitious one, so to try writes locally, disable authentication (see
 [Running without
 authentication](https://drs-filer.readthedocs.io/en/latest/development/#running-without-authentication));

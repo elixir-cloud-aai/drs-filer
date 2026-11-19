@@ -13,6 +13,7 @@ from foca import Foca, get_config
 from foca.api.service_info import get_service_info as get_config_service_info
 from foca.config.config_parser import CONFIG_OVERLAY_ENV_VAR
 
+from drs_filer.ga4gh.drs.access_urls import access_urls_need_login
 from drs_filer.ga4gh.drs.endpoints.service_info import (
     SERVICE_TYPE,
     RegisterServiceInfo,
@@ -110,8 +111,10 @@ def create_app() -> App:
     sections of earlier versions (`check_removed_sections()`) and service
     info of another type than DRS (`check_service_type()`). The service
     info of the config (with the version of the package, unless set) then
-    replaces the stored one. CORS preflight requests are answered before
-    the API operations (`answer_cors_preflight()`). The config is the
+    replaces the stored one. Whether access URLs need login is read from the
+    patched specification, and logged (`access_urls_need_login()`). CORS
+    preflight requests are answered before the API operations
+    (`answer_cors_preflight()`). The config is the
     package's `config.yaml`, with the overlays of `FOCA_CONFIG_OVERLAY`
     merged into it by FOCA, if any (separated by `:`, in order; relative
     paths of overlays are relative to the working directory). FOCA resolves
@@ -139,6 +142,7 @@ def create_app() -> App:
     with app.app.app_context():
         check_removed_sections()
         check_service_type()
+        access_urls_need_login()
         service_info = RegisterServiceInfo()
         service_info.set_service_info_from_config()
     app.app.before_request(answer_cors_preflight)

@@ -3,6 +3,43 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Login for access URLs
+
+!!! warning "Breaking changes"
+    Access URLs need an access token by default, and objects are served
+    without them.
+
+`GET /objects/{object_id}/access/{access_id}` needs an access token of any
+user of a trusted issuer (#96; see [Requiring login for
+reads](access-control.md#requiring-login-for-reads)): without a valid one,
+it gets `401 Unauthorized`. While access URLs need login, `GET /objects` and
+`GET /objects/{object_id}` serve objects without the `access_url` of their
+access methods (see [Objects without access
+URLs](access-control.md#objects-without-access-urls)); the stored objects
+are unchanged. The other reads stay public. Before upgrading, either:
+
+- let the clients that read access URLs send a token, and get access URLs
+  by their `access_id` instead of from the objects:
+
+    ```bash
+    curl "https://drs.example.org/ga4gh/drs/v1/objects/<object_id>/access/<access_id>" \
+      -H "Authorization: Bearer <token>"
+    ```
+
+- or keep access URLs public, with an overlay that leaves the patch out
+  (`api.specs.drs.patches: []`, see [Public access
+  URLs](access-control.md#public-access-urls)). Overlays that already set
+  `api.specs.drs.patches` replace the patch of the base config: list
+  `api/patches/login-for-access-urls.yaml` in them, unless access URLs are
+  to be public.
+
+The app logs on startup whether access URLs need login. The default
+policies let any authenticated user read access URLs (`get-access-urls`);
+overlays that give `security.access_control.policies` as a list replace
+them, and must add the rules of [Requiring login for
+reads](access-control.md#requiring-login-for-reads) to let users other
+than admins read access URLs.
+
 ## Access tokens for writes
 
 !!! warning "Breaking changes"
@@ -15,7 +52,8 @@ posting the service info (`POST /objects/register`, `PUT` and `DELETE
 `POST /service-info`), need an access token (#94; see [Access
 control](access-control.md)). Without a valid one, they get `401
 Unauthorized`; with the token of a user who isn't an admin, `403
-Forbidden`. Reads stay public. Before upgrading:
+Forbidden`. Reads stay public (except access URLs, see [Login for access
+URLs](#login-for-access-urls)). Before upgrading:
 
 1. Choose the identity provider, register a client for the apps or
    scripts that write (e.g., a portal or a client for scripts), and create
@@ -239,22 +277,29 @@ them (was `500`, #127).
   from drs_filer.app import create_app
   from drs_filer.utils import get_collection
 
+  import json
+
   with create_app().app.app_context():
       query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
-      for obj in get_collection("objects").find(query, {"_id": 0, "id": 1}):
-          print(obj["id"])
+      for obj in get_collection("objects").find(query, {"_id": 0}):
+          object_id = obj.pop("id")
+          obj.pop("self_uri", None)
+          for method in obj.get("access_methods", []):
+              method.pop("access_id", None)
+          print(object_id, json.dumps(obj))
   ' 2>/dev/null
   ```
 
-  It prints the identifier of each such object. Like any start of the app,
-  it serves the service info of the config again (see
-  [Service info](#service-info)).
+  It prints the identifier of each such object, and the object as stored,
+  without `id`, `self_uri` and the `access_id` of each access method, which
+  registrations don't accept. Like any start of the app, it serves the
+  service info of the config again (see [Service info](#service-info)).
 - To make their access methods addressable, register them again
-  (`PUT /objects/{object_id}`, with the object as `GET /objects/{object_id}`
-  returns it, without `id`, `self_uri` and the `access_id` of each access
-  method, which registrations don't accept): this generates new
-  identifiers for all access methods of the object, so clients that stored
-  the earlier ones look them up again. `PUT` replaces the whole object:
+  (`PUT /objects/{object_id}`, with the object as the script prints it; not
+  as `GET /objects/{object_id}` returns it, which is without access URLs
+  while these need login, see [Login for access URLs](#login-for-access-urls)):
+  this generates new identifiers for all access methods of the object, so
+  clients that stored the earlier ones look them up again. `PUT` replaces the whole object:
   changes to it between the `GET` and the `PUT` are lost, so don't change
   the affected objects in the meantime (e.g., pause the clients that
   register objects).

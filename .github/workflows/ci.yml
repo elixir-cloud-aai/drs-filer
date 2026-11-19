@@ -392,8 +392,8 @@ jobs:
           EOF
           bash "${forward}"
       # The app started with the settings of the test values (token issuer,
-      # audience, admin group); reads are public, writes without a token get
-      # `401`
+      # audience, admin group); reads are public, except access URLs; writes
+      # and access URLs without a token get `401`
       - name: Check authentication
         run: |
           curl --fail --silent --show-error --max-time 30 --output /dev/null \
@@ -404,6 +404,13 @@ jobs:
             "${API}/objects/register")"
           if [[ "${status}" != "401" ]]; then
             echo "::error::POST /objects/register: status ${status}, expected 401"
+            exit 1
+          fi
+          status="$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' --max-time 30 \
+            "${API}/objects/smoke/access/smoke")"
+          if [[ "${status}" != "401" ]]; then
+            echo "::error::GET /objects/smoke/access/smoke: status ${status}, expected 401"
             exit 1
           fi
       # Writes without authentication (`config` value of the chart; for this
@@ -494,16 +501,19 @@ jobs:
       - name: Start app
         # Waits until the containers are healthy (see their health checks)
         run: docker compose up --detach --build --wait --wait-timeout 300
-      # Reads are public; writes without a token get `401` (before their
-      # body is validated, so any body does)
+      # Reads are public, except access URLs; writes and access URLs
+      # without a token get `401` (before their body is validated, so any
+      # body does; also for objects that don't exist)
       - name: Check authentication
         run: |
           check() {
-            local method="$1" path="$2" status="$3" actual
+            local method="$1" path="$2" status="$3" actual data=()
+            if [[ "${method}" != GET ]]; then
+              data=(--header 'Content-Type: application/json' --data '{}')
+            fi
             actual="$(curl --silent --show-error --output /dev/null \
               --write-out '%{http_code}' --max-time 30 -X "${method}" \
-              --header 'Content-Type: application/json' --data '{}' \
-              "${DRS_FILER_URL}${path}")"
+              "${data[@]}" "${DRS_FILER_URL}${path}")"
             if [[ "${actual}" != "${status}" ]]; then
               echo "::error::${method} ${path}: status ${actual}, expected ${status}"
               return 1
@@ -516,6 +526,7 @@ jobs:
           check DELETE /objects/smoke 401
           check DELETE /objects/smoke/access/smoke 401
           check POST /service-info 401
+          check GET /objects/smoke/access/smoke 401
       # Writes without authentication (`config.noauth.yaml`, for local
       # development; see "Running without authentication" in
       # `docs/development.md`), for the smoke test: restarts the app with it

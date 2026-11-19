@@ -2,7 +2,8 @@
 
 Writes (registering, replacing and deleting objects and access methods,
 posting the service info) need an access token of a trusted issuer, and,
-until objects have owners (#95), the role `admin`; reads stay public.
+until objects have owners (#95), the role `admin`; reads stay public,
+except access URLs (`tests/api/test_login_for_reads.py`).
 """
 
 from collections.abc import Callable
@@ -264,7 +265,6 @@ def test_write_by_admin(
     [
         "/objects",
         "/objects/{object_id}",
-        "/objects/{object_id}/access/{access_id}",
         "/service-info",
         "/openapi.json",
     ],
@@ -275,7 +275,11 @@ def test_reads_public(
     headers: dict[str, str],
     path: str,
 ) -> None:
-    """Reads need no token, and ignore invalid ones."""
+    """Reads need no token, and ignore invalid ones.
+
+    Except access URLs, which need a token by default
+    (`tests/api/test_login_for_reads.py`).
+    """
     url = API + path.format(object_id=ids[0], access_id=ids[1])
     response = anonymous_client.get(url, headers=headers)
     assert response.status_code == 200, body(response)

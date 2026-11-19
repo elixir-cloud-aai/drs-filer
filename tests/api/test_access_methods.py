@@ -99,8 +99,9 @@ def test_reregister_access_method_without_id(
 
     As in the upgrade notes (`docs/upgrading.md`): the query finds objects
     with access methods without `access_id`, and `PUT` of the object as
-    `GET` returns it, without `id`, `self_uri` and `access_id`, makes all
-    its access methods addressable.
+    stored (not as `GET` serves it, without access URLs while these need
+    login), without `id`, `self_uri` and `access_id`, makes all its access
+    methods addressable, with their access URLs.
     """
     query = {"access_methods": {"$elemMatch": {"access_id": {"$exists": False}}}}
     object_id, access_ids = _register(client, access_methods=2)
@@ -108,21 +109,24 @@ def test_reregister_access_method_without_id(
     objects.update_one(
         {"id": object_id}, {"$unset": {"access_methods.0.access_id": ""}}
     )
-    assert [obj["id"] for obj in objects.find(query)] == [object_id]
-    obj = body(client.get(f"{API}/objects/{object_id}"))
+    stored = list(objects.find(query, {"_id": 0}))
+    assert [obj["id"] for obj in stored] == [object_id]
+    obj = stored[0]
     del obj["id"], obj["self_uri"]
     for method in obj["access_methods"]:
         method.pop("access_id", None)
     response = client.put(f"{API}/objects/{object_id}", json=obj)
     assert response.status_code == 200
     assert list(objects.find(query)) == []
-    obj = body(client.get(f"{API}/objects/{object_id}"))
-    new_ids = [method["access_id"] for method in obj["access_methods"]]
+    new_ids = [
+        method["access_id"]
+        for method in body(client.get(f"{API}/objects/{object_id}"))["access_methods"]
+    ]
     # Generated anew: the kept identifier is replaced, too (a random repeat
     # of the 6 characters is negligibly unlikely)
     assert new_ids[1] != access_ids[1]
-    for method in obj["access_methods"]:
-        response = client.get(f"{API}/objects/{object_id}/access/{method['access_id']}")
+    for access_id, method in zip(new_ids, obj["access_methods"], strict=True):
+        response = client.get(f"{API}/objects/{object_id}/access/{access_id}")
         assert response.status_code == 200
         assert body(response) == method["access_url"]
 
