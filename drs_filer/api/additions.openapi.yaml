@@ -103,12 +103,6 @@ paths:
       responses:
         "501":
           $ref: "#/components/responses/501NotImplemented"
-    # Authorization info of objects (`OptionsBulkObject`): not implemented
-    # yet (#98)
-    options:
-      responses:
-        "501":
-          $ref: "#/components/responses/501NotImplemented"
   # Registration, at the path of the proposed DRS write extension
   # (ga4gh/data-repository-service-schemas#418), with DRS-Filer's request
   # body until the extension is adopted (#99)
@@ -149,11 +143,6 @@ paths:
     # see `post` of `/objects`
     post:
       security: []
-      responses:
-        "501":
-          $ref: "#/components/responses/501NotImplemented"
-    # `OptionsObject`: not implemented yet (#98)
-    options:
       responses:
         "501":
           $ref: "#/components/responses/501NotImplemented"

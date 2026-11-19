@@ -10,13 +10,17 @@ from foca.utils.logging import log_traffic
 from drs_filer.errors.exceptions import (
     AccessMethodNotDeleted,
     AccessMethodNotFound,
-    AuthorizationInfoNotImplemented,
     InternalServerError,
     ObjectNotFound,
     PassportOperationNotImplemented,
     URLNotFound,
 )
 from drs_filer.ga4gh.drs.access_urls import served_object
+from drs_filer.ga4gh.drs.authorizations import (
+    bulk_object_authorizations,
+    object_authorizations,
+    with_access_method_authorizations,
+)
 from drs_filer.ga4gh.drs.endpoints.register_objects import (
     register_object,
 )
@@ -84,26 +88,41 @@ def _served(obj: dict[str, Any]) -> dict[str, Any]:
     return served
 
 
+def _read(obj: dict[str, Any]) -> dict[str, Any]:
+    """Get an object as the object reads serve it.
+
+    Without access URLs while these need login (cf.
+    `drs_filer.ga4gh.drs.access_urls.served_object()`), and with the
+    authorization info of the access URLs in the access methods (cf.
+    `drs_filer.ga4gh.drs.authorizations.with_access_method_authorizations()`).
+
+    Args:
+        obj: Object, as served (`_served()`).
+
+    Returns:
+        The object, as the object reads serve it.
+    """
+    return with_access_method_authorizations(served_object(obj))
+
+
 @log_traffic
 def ListDrsObjects() -> list[dict[str, Any]]:
     """Get all DRS objects.
 
-    Without access URLs while these need login (cf.
-    `drs_filer.ga4gh.drs.access_urls.served_object()`).
+    As the object reads serve them (`_read()`).
 
     Returns:
         List of DRS objects as dictionaries, JSONified if returned in app context.
     """
     db_collection = get_collection("objects")
-    return [served_object(_served(obj)) for obj in db_collection.find()]
+    return [_read(_served(obj)) for obj in db_collection.find()]
 
 
 @log_traffic
 def GetObject(object_id: str, expand: bool = False) -> dict[str, Any]:
     """Get DRS object.
 
-    Without access URLs while these need login (cf.
-    `drs_filer.ga4gh.drs.access_urls.served_object()`).
+    As the object reads serve it (`_read()`).
 
     Args:
         object_id: Identifier of DRS object to be retrieved.
@@ -113,7 +132,7 @@ def GetObject(object_id: str, expand: bool = False) -> dict[str, Any]:
     Returns:
         DRS object as dictionary, JSONified if returned in app context.
     """
-    return served_object(_get_object(object_id))
+    return _read(_get_object(object_id))
 
 
 def _get_object(object_id: str) -> dict[str, Any]:
@@ -345,29 +364,33 @@ def GetBulkAccessURL(**kwargs: Any) -> NoReturn:
 
 
 @log_traffic
-def OptionsObject(**kwargs: Any) -> NoReturn:
-    """Get the authorization info of a DRS object: not implemented yet (#98).
+def OptionsObject(object_id: str) -> dict[str, Any]:
+    """Get the authorization info of a DRS object.
+
+    How to authorize `GetObject` (cf.
+    `drs_filer.ga4gh.drs.authorizations.object_authorizations()`).
 
     Args:
-        **kwargs: Parameters of the operation; ignored.
+        object_id: Identifier of the DRS object.
 
-    Raises:
-        drs_filer.errors.exceptions.AuthorizationInfoNotImplemented: Always.
+    Returns:
+        `Authorizations` of the object, JSONified if returned in app context.
     """
-    raise AuthorizationInfoNotImplemented
+    return object_authorizations(object_id)
 
 
 @log_traffic
-def OptionsBulkObject(**kwargs: Any) -> NoReturn:
-    """Get the authorization info of DRS objects: not implemented yet (#98).
+def OptionsBulkObject() -> dict[str, Any]:
+    """Get the authorization info of several DRS objects.
 
-    Args:
-        **kwargs: Parameters and request body of the operation; ignored.
+    How to authorize `GetObject` for each (cf.
+    `drs_filer.ga4gh.drs.authorizations.bulk_object_authorizations()`).
 
-    Raises:
-        drs_filer.errors.exceptions.AuthorizationInfoNotImplemented: Always.
+    Returns:
+        Summary, unresolved identifiers and `Authorizations` of the
+        resolved objects, JSONified if returned in app context.
     """
-    raise AuthorizationInfoNotImplemented
+    return bulk_object_authorizations(_request_body())
 
 
 @log_traffic

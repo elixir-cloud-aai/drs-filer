@@ -3,6 +3,21 @@
 Changes that need action when upgrading from earlier versions of the
 repository's default branch, newest first.
 
+## Authorization info
+
+`OPTIONS /objects/{object_id}` and `OPTIONS /objects` serve the
+authorization info of objects (#98; see [Authorization
+info](access-control.md#authorization-info)), instead of `501`. No action
+is needed, but note:
+
+- **Access methods** of served objects have the authorization info of
+  their access URLs (`authorizations`); clients that validate objects
+  strictly against an older schema may need to accept the field.
+- **New setting** `custom.bulk.max_request_length` (default `100`): the
+  maximum number of identifiers of `OPTIONS /objects`, served as
+  `maxBulkRequestLength` in the service info (was `1`; see [Service
+  info](configuration.md#service-info) in the configuration).
+
 ## Login for access URLs
 
 !!! warning "Breaking changes"

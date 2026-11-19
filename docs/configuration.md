@@ -36,6 +36,7 @@ The settings that deployments usually change:
 | `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
 | `custom.objects.id`, `custom.access_methods.id` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
 | `custom.stats.enabled`, `custom.stats.cache_seconds` | `true`, `60` | Stats of the objects in the service info, and how long each process keeps them, see [Service info](#service-info) |
+| `custom.bulk.max_request_length` | `100` | Maximum number of identifiers of bulk requests (`OPTIONS /objects`), served as `maxBulkRequestLength`, see [Authorization info](access-control.md#authorization-info) |
 | `db.host`, `db.port` | `mongodb`, `27017` | MongoDB |
 | `server.debug` | `False` | Flask's debug mode, which allows executing arbitrary code: only for local development, see [Development](development.md#development-server) |
 | `log` | console, level `INFO` | Logging (Python's `logging.config` dictionary) |
@@ -217,6 +218,20 @@ Computing the stats reads every object, so each process keeps them for
 `GET /service-info` put on the database. Writes through a process
 recompute its stats at once; with several workers or replicas, the others
 serve theirs up to `cache_seconds` late.
+
+The bulk maximum (`maxBulkRequestLength` and `drs.maxBulkRequestLength`) is
+set in `custom.bulk`: bulk requests for the authorization info of objects
+(`OPTIONS /objects`, see [Authorization
+info](access-control.md#authorization-info)) with more identifiers get `413
+Payload Too Large`:
+
+```yaml
+custom:
+  bulk:
+    # Maximum number of identifiers of a bulk request, counted as sent
+    # (duplicates too); a positive integer
+    max_request_length: 100
+```
 
 ## Identifiers
 

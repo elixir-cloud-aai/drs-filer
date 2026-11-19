@@ -41,11 +41,6 @@ _STATS_LOCK = threading.Lock()
 # Held by the thread of a process that computes the stats, so that requests
 # that need them at the same time don't each read all objects
 _COMPUTE_LOCK = threading.Lock()
-# The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
-# of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
-# implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
-# is the least that the specification allows
-MAX_BULK_REQUEST_LENGTH = 1
 # The service type of the API that the app serves (DRS 1.5.0); the service
 # info must have it (config and `POST /service-info`)
 SERVICE_TYPE = {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
@@ -194,14 +189,17 @@ def drs_service_fields() -> dict[str, Any]:
 
     Returns:
         The fields of `DrsService` (DRS 1.5.0): `maxBulkRequestLength`
-        (deprecated) and `drs`, with the bulk maximum and, unless
+        (deprecated) and `drs`, with the bulk maximum
+        (`custom.bulk.max_request_length`) and, unless
         `custom.stats.enabled` is false, the stats of the objects
         (`object_stats()`).
     """
-    drs: dict[str, Any] = {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH}
-    if get_custom_config().stats.enabled:
+    custom = get_custom_config()
+    max_length = custom.bulk.max_request_length
+    drs: dict[str, Any] = {"maxBulkRequestLength": max_length}
+    if custom.stats.enabled:
         drs.update(object_stats())
-    return {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH, "drs": drs}
+    return {"maxBulkRequestLength": max_length, "drs": drs}
 
 
 class RegisterServiceInfo:

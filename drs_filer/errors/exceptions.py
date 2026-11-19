@@ -14,6 +14,7 @@ from foca.errors import (
     HTTPError,
     InternalServerError,
     NotFound,
+    PayloadTooLarge,
     RequestValidationProblem,
     Unauthorized,
 )
@@ -71,8 +72,18 @@ class PassportOperationNotImplemented(OperationNotImplemented):
     pass
 
 
-class AuthorizationInfoNotImplemented(OperationNotImplemented):
-    """Raised for the authorization info of objects (`OPTIONS`), until #98."""
+class BulkObjectIdsMissing(BadRequest):
+    """Raised for bulk requests without identifiers (`bulk_object_ids`)."""
+
+    pass
+
+
+class BulkRequestTooLarge(PayloadTooLarge):
+    """Raised for bulk requests with more identifiers than allowed.
+
+    The maximum is `custom.bulk.max_request_length` of the config, served as
+    `maxBulkRequestLength` in the service info.
+    """
 
     pass
 
@@ -170,12 +181,19 @@ exceptions = {
         ),
         "status": 501,
     },
-    AuthorizationInfoNotImplemented: {
-        "title": "Not implemented",
+    BulkObjectIdsMissing: {
+        "title": "Bad request",
         "detail": (
-            "DRS-Filer doesn't report the authorization info of objects yet; "
-            f"see {DOCS_API_URL}#deviations-from-the-specification"
+            "The request body needs `bulk_object_ids`, a list of object identifiers."
         ),
-        "status": 501,
+        "status": 400,
+    },
+    BulkRequestTooLarge: {
+        "title": "Payload too large",
+        "detail": (
+            "The bulk request has more identifiers than the service info "
+            "allows (`maxBulkRequestLength`)."
+        ),
+        "status": 413,
     },
 }

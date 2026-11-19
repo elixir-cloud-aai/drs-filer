@@ -170,6 +170,33 @@ def test_service_info(object_id: str) -> None:
     }
 
 
+def test_authorization_info(object_id: str) -> None:
+    """The authorization info of objects follows the served specification.
+
+    `BearerAuth` if `GetObject` requires a bearer token in `openapi.json`,
+    otherwise `None` (e.g., without authentication, as in CI); never
+    passports. Sent without a token, as clients do before they log in.
+
+    Args:
+        object_id: Identifier of a registered object.
+    """
+    spec = requests.get(_url("/openapi.json"), timeout=TIMEOUT).json()
+    operation = spec["paths"]["/objects/{object_id}"]["get"]
+    security = operation.get("security", spec.get("security")) or []
+    need_login = bool(security) and {} not in security
+    response = requests.options(_url(f"/objects/{object_id}"), timeout=TIMEOUT)
+    assert response.status_code == 200
+    info = response.json()
+    assert info["drs_object_id"] == object_id
+    assert info["supported_types"] == (["BearerAuth"] if need_login else ["None"])
+    assert "passport_auth_issuers" not in info
+    response = requests.options(
+        _url("/objects"), json={"bulk_object_ids": [object_id]}, timeout=TIMEOUT
+    )
+    assert response.status_code == 200
+    assert response.json()["resolved_drs_object"] == [info]
+
+
 def test_drs_1_5_0() -> None:
     """The app serves DRS 1.5.0; the passport operations answer `501`."""
     response = requests.get(_url("/openapi.json"), timeout=TIMEOUT)

@@ -85,31 +85,38 @@ def _merged_spec(spec: SpecConfig) -> dict[str, Any]:
     return merged
 
 
-def requires_login(spec: SpecConfig) -> bool | None:
-    """Check whether a specification requires a token for access URLs.
+def requires_login(
+    spec: SpecConfig,
+    path: str = ACCESS_URL_PATH,
+    operation_id: str = OPERATION_ID,
+) -> bool | None:
+    """Check whether a specification requires a token for a read.
 
-    The operations for access URLs are `GET` of their path
-    (`ACCESS_URL_PATH`) and any `GET` operation `GetAccessURL`, so that
-    neither a changed `operationId` nor a moved path makes them look
-    public. An operation requires a token if its security requirements (or,
-    if it sets none, those of the specification) are not empty and have no
-    empty alternative (`{}`, anonymous), and authentication isn't disabled
-    (`disable_auth`, which removes them).
+    The operations for the read are `GET` of its path and any `GET`
+    operation of its `operationId`, so that neither a changed
+    `operationId` nor a moved path makes it look public; by default, those
+    of access URLs (`ACCESS_URL_PATH`, `GetAccessURL`). An operation
+    requires a token if its security requirements (or, if it sets none,
+    those of the specification) are not empty and have no empty alternative
+    (`{}`, anonymous), and authentication isn't disabled (`disable_auth`,
+    which removes them).
 
     Args:
         spec: Config of the specification.
+        path: Path of the read.
+        operation_id: `operationId` of the read.
 
     Returns:
-        Whether an operation for access URLs requires a token; `None` if the
+        Whether an operation for the read requires a token; `None` if the
         specification has none.
     """
     merged = _merged_spec(spec)
     paths = merged.get("paths") or {}
     operations = [
         operation
-        for path, path_item in paths.items()
+        for item_path, path_item in paths.items()
         if isinstance(operation := (path_item or {}).get("get"), dict)
-        and (path == ACCESS_URL_PATH or operation.get("operationId") == OPERATION_ID)
+        and (item_path == path or operation.get("operationId") == operation_id)
     ]
     if not operations:
         return None
@@ -122,40 +129,77 @@ def requires_login(spec: SpecConfig) -> bool | None:
     )
 
 
-def specs_require_login(specs: Iterable[SpecConfig]) -> bool:
-    """Check whether the specifications of an app require login for access URLs.
+def specs_require_login(
+    specs: Iterable[SpecConfig],
+    path: str = ACCESS_URL_PATH,
+    operation_id: str = OPERATION_ID,
+) -> bool:
+    """Check whether the specifications of an app require login for a read.
 
     Args:
         specs: Configs of the specifications.
+        path: Path of the read; by default, that of access URLs.
+        operation_id: `operationId` of the read; by default, that of access
+            URLs.
 
     Returns:
-        Whether a specification has an operation for access URLs and requires
-        a token for it; `False` if none has it (as then access URLs are only
-        served with objects).
+        Whether a specification has an operation for the read and requires
+        a token for it; `False` if none has it (as then, for access URLs,
+        they are only served with objects).
     """
-    return any(requires_login(spec) for spec in specs)
+    return any(requires_login(spec, path, operation_id) for spec in specs)
+
+
+def read_needs_login(
+    config_key: str,
+    path: str,
+    operation_id: str,
+    messages: tuple[str, str],
+    log: logging.Logger | None = None,
+) -> bool:
+    """Check whether a read needs login in the current app.
+
+    Read from the app's specifications once (`specs_require_login()`),
+    then cached in the app's config, and logged.
+
+    Args:
+        config_key: Key of the Flask config that caches the result.
+        path: Path of the read.
+        operation_id: `operationId` of the read.
+        messages: Log messages if the read needs login, and if it is public.
+        log: Logger of the message; by default, that of this module.
+
+    Returns:
+        Whether the read needs login.
+    """
+    need_login = current_app.config.get(config_key)
+    if need_login is None:
+        need_login = specs_require_login(
+            get_foca_config().api.specs, path, operation_id
+        )
+        current_app.config[config_key] = need_login
+        (log or logger).info(messages[0] if need_login else messages[1])
+    return bool(need_login)
 
 
 def access_urls_need_login() -> bool:
     """Check whether access URLs need login in the current app.
 
     Read from the app's specifications once, then cached in the app's
-    config (`CONFIG_KEY`).
+    config (`CONFIG_KEY`, cf. `read_needs_login()`).
 
     Returns:
         Whether access URLs need login.
     """
-    need_login = current_app.config.get(CONFIG_KEY)
-    if need_login is None:
-        need_login = specs_require_login(get_foca_config().api.specs)
-        current_app.config[CONFIG_KEY] = need_login
-        logger.info(
-            "Access URLs %s",
-            "need login; objects are served without them"
-            if need_login
-            else "are public, and served with objects",
-        )
-    return bool(need_login)
+    return read_needs_login(
+        CONFIG_KEY,
+        ACCESS_URL_PATH,
+        OPERATION_ID,
+        (
+            "Access URLs need login; objects are served without them",
+            "Access URLs are public, and served with objects",
+        ),
+    )
 
 
 def served_object(obj: dict[str, Any]) -> dict[str, Any]:

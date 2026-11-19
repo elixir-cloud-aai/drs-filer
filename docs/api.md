@@ -35,7 +35,10 @@ the Swagger UI are public, except access URLs (`GET
 any user by default; while they do, objects are served without the
 `access_url` of their access methods (see [Requiring login for
 reads](access-control.md#requiring-login-for-reads), also to make them
-public, or to require login for all reads). The endpoints of DRS-Filer that
+public, or to require login for all reads); the authorization info of
+objects (`OPTIONS`) and the `authorizations` of access methods tell clients
+which reads need a token (see [Authorization
+info](access-control.md#authorization-info)). The endpoints of DRS-Filer that
 change objects and the service info (`POST /objects/register`, `PUT` and
 `DELETE` of objects, `DELETE` of access methods, `POST /service-info`) need
 an access token of an admin, sent as a bearer token (`Authorization: Bearer
@@ -52,7 +55,8 @@ an access token of an admin, sent as a bearer token (`Authorization: Bearer
 | `POST /objects/{object_id}/access/{access_id}` | DRS | Not implemented (`501`), see [Passport POST endpoints](#passport-post-endpoints) |
 | `POST /objects` | DRS | Not implemented (`501`), see [Passport POST endpoints](#passport-post-endpoints) |
 | `POST /objects/access` | DRS | Not implemented (`501`), see [Passport POST endpoints](#passport-post-endpoints) |
-| `OPTIONS /objects/{object_id}`, `OPTIONS /objects` | DRS | Not implemented yet (`501`), see [Deviations from the specification](#deviations-from-the-specification) |
+| `OPTIONS /objects/{object_id}` | DRS | Get the authorization info of an object: how to authorize `GET /objects/{object_id}`, see [Authorization info](access-control.md#authorization-info) |
+| `OPTIONS /objects` | DRS | Get the authorization info of several objects (bulk), see [Authorization info](access-control.md#authorization-info) |
 | `GET /objects` | DRS-Filer | List all objects |
 | `POST /objects/register` | DRS-Filer | Register an object; DRS-Filer generates its identifier |
 | `PUT /objects/{object_id}` | DRS-Filer | Register an object with the given identifier, or replace the object of that identifier |
@@ -120,7 +124,9 @@ DRS-Filer sets the fields that the server owns:
   way to get it.
 - `authorizations` of access methods: how to authorize requests for the
   access URL, which only DRS-Filer knows; requests that set it are
-  rejected. DRS-Filer doesn't serve it yet.
+  rejected. It is computed when the object is served, for each access
+  method with an `access_id`, from whether access URLs need login (see
+  [Authorization info](access-control.md#authorization-info)).
 
 `PUT` replaces the whole object of that identifier, if there is one, and
 gives its access methods new access identifiers. While access URLs need
@@ -140,9 +146,13 @@ delete the object instead.
 [Service info](configuration.md#service-info)), of type `org.ga4gh:drs:1.5.0`,
 with the fields that DRS 1.5 adds (`DrsService`), which DRS-Filer computes:
 
-- `maxBulkRequestLength` and `drs.maxBulkRequestLength`: `1`, the least
-  value that the specification allows, as DRS-Filer doesn't implement the
-  bulk reads (see [Passport POST endpoints](#passport-post-endpoints)).
+- `maxBulkRequestLength` and `drs.maxBulkRequestLength`: the maximum number
+  of identifiers of bulk requests, `custom.bulk.max_request_length` (100 by
+  default, see [Service info](configuration.md#service-info) in the
+  configuration). The only bulk operation that DRS-Filer implements is the
+  authorization info of objects (`OPTIONS /objects`, see [Authorization
+  info](access-control.md#authorization-info)); the bulk reads are [passport
+  `POST` endpoints](#passport-post-endpoints), which answer `501`.
 - `drs.objectCount`: the number of registered objects, blobs and bundles.
 - `drs.totalObjectSize`: the total `size` of the registered blobs (objects
   without `contents`), in bytes. Bundles aren't added, as their size is
@@ -216,10 +226,12 @@ DRS-Filer serves the specification unchanged, but for these deviations
 (`additions.openapi.yaml`):
 
 - **Not implemented:** the [passport `POST`
-  endpoints](#passport-post-endpoints), by design, and the authorization
-  info of objects (`OPTIONS /objects/{object_id}`, `OPTIONS /objects`,
-  [#98](https://github.com/elixir-cloud-aai/drs-filer/issues/98)) for now,
-  answer `501`.
+  endpoints](#passport-post-endpoints), by design, answer `501`.
+- **Authorization info of unknown objects:** while object reads require
+  login, `OPTIONS /objects/{object_id}` and `OPTIONS /objects` answer for
+  unknown objects as for registered ones, instead of with `404` or as
+  unresolved, so that their existence doesn't show; see [Authorization
+  info](access-control.md#authorization-info).
 - **Errors** are problem details (see [Errors](#errors)), not the `Error`
   schema of DRS (`msg`, `status_code`); the error responses of the served
   specification refer to `Problem`, as `application/problem+json` (which
@@ -240,11 +252,16 @@ DRS-Filer serves the specification unchanged, but for these deviations
   is set.
 - **CORS preflight requests** (`OPTIONS` with `Origin` and
   `Access-Control-Request-Method`) get `200` with the CORS headers, not the
-  `501` of the `OPTIONS` operations, so that browsers can call the API.
+  authorization info of the `OPTIONS` operations (whose bulk variant needs a
+  request body, which preflight requests don't have), so that browsers can
+  call the API.
 - **Object identifiers `register` and `access`** can be used with `GET`,
   `PUT` and `DELETE`, but `POST /objects/register` and `POST /objects/access`
   are the registration and the bulk read of access URLs, not the passport
-  reads of these objects.
+  reads of these objects; `OPTIONS /objects/register` and `OPTIONS
+  /objects/access` get Flask's answer (`200` with `Allow`, no body), not
+  the authorization info of these objects, which is that of any object
+  (see [Authorization info](access-control.md#authorization-info)).
 
 ## Errors
 

@@ -232,3 +232,8 @@ custom:
     stats:
         enabled: true
         cache_seconds: 60
+    # Bulk requests (the authorization info of several objects, `OPTIONS
+    # /objects`): at most `max_request_length` identifiers, counted as sent;
+    # more get `413`. Served as `maxBulkRequestLength` in the service info
+    bulk:
+        max_request_length: 100

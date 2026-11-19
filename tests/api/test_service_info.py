@@ -406,7 +406,7 @@ def test_get_service_info_stats_disabled(
     client = _stats_client(overlay, {"enabled": False})
     _register(client, drs_object())
     with patch.object(service_info_module, "_compute_object_stats") as compute:
-        assert _stats(client) == {"maxBulkRequestLength": 1}
+        assert _stats(client) == {"maxBulkRequestLength": 100}
     compute.assert_not_called()
 
 

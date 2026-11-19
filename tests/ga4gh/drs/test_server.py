@@ -101,7 +101,17 @@ def test_GetObject() -> None:
     del objects[0]["_id"]
     with app.app_context():
         res = GetObject.__wrapped__("a001")
-        assert res == {**objects[0], "self_uri": "drs://drs.example.org/a001"}
+        # The app's config has no specification, so access URLs are public
+        # and need no authorization
+        methods = [
+            {**method, "authorizations": {"supported_types": ["None"]}}
+            for method in objects[0]["access_methods"]
+        ]
+        assert res == {
+            **objects[0],
+            "access_methods": methods,
+            "self_uri": "drs://drs.example.org/a001",
+        }
 
 
 def test_GetObject_Not_Found() -> None:

@@ -44,6 +44,7 @@ def test_create_app() -> None:
         patch.object(app_module, "RegisterServiceInfo") as service_info,
         patch.object(app_module, "check_removed_sections") as check_removed,
         patch.object(app_module, "access_urls_need_login") as need_login,
+        patch.object(app_module, "object_reads_need_login") as reads_need_login,
         # ast-grep-ignore: pydantic-v1-dict
         patch.dict(os.environ),
     ):
@@ -57,6 +58,7 @@ def test_create_app() -> None:
     service_info.return_value.set_service_info_from_config.assert_called_once()
     check_removed.assert_called_once_with()
     need_login.assert_called_once_with()
+    reads_need_login.assert_called_once_with()
 
 
 def test_create_app_custom_config(
