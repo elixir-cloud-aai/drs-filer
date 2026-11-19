@@ -182,8 +182,12 @@ evaluated for reads that require login): `get-access-urls` (`GET
 /objects/{object_id}/access/{access_id}`), `list-objects` (`GET /objects`)
 and `get-objects` (`GET /objects/{object_id}`). `GET /service-info`, the API
 specification (`openapi.json`) and the Swagger UI (`ui/`) stay public. The
-rules allow `HEAD` too, which Flask serves from the `GET` operations and
-which access control checks as `HEAD`.
+service info has the number and total size of the objects
+(`drs.objectCount`, `drs.totalObjectSize`); deployments that require login
+for all reads so that not even that shows set `custom.stats.enabled:
+false` (see [Service info](configuration.md#service-info) in the
+configuration). The rules allow `HEAD` too, which Flask serves from the
+`GET` operations and which access control checks as `HEAD`.
 
 ### Objects without access URLs
 

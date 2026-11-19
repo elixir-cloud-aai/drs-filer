@@ -224,3 +224,11 @@ custom:
         id:
             charset: *id_charset
             length: 6
+    # Stats of the objects in the service info (`drs.objectCount` and
+    # `drs.totalObjectSize` of `GET /service-info`): `enabled: false` leaves
+    # them out (e.g., where reads require login); they are computed from the
+    # database and kept for `cache_seconds` in each process (`0`: computed
+    # for each request)
+    stats:
+        enabled: true
+        cache_seconds: 60

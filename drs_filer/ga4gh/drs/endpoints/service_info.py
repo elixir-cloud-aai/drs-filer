@@ -2,26 +2,45 @@
 
 The service info is stored as a single record, with `_id` `CURRENT_ID`,
 which `GET /service-info` serves, with the DRS fields that the app computes
-(`drs_service_fields()`). On startup, the service info of the config
-(FOCA's section `service_info`, with the version of the package unless
-`service_info.service.version` is set) replaces it, if it differs; `POST
-/service-info` replaces it until the next startup. Both remove the records
-that earlier versions stored (one per service info `id`).
+(`drs_service_fields()`, with the stats of the objects of `object_stats()`).
+On startup, the service info of the config (FOCA's section `service_info`,
+with the version of the package unless `service_info.service.version` is
+set) replaces it, if it differs; `POST /service-info` replaces it until the
+next startup. Both remove the records that earlier versions stored (one per
+service info `id`).
 """
 
+from collections.abc import Callable
+import functools
 import logging
+import threading
+import time
 from typing import Any
 
+from flask import current_app
 from foca.api.service_info import get_service_info as get_config_service_info
 from pymongo.errors import DuplicateKeyError
 
 from drs_filer.errors.exceptions import NotFound
-from drs_filer.utils import get_collection
+from drs_filer.utils import get_collection, get_custom_config
 
 logger = logging.getLogger(__name__)
 
 # `_id` of the record of the service info that is served
 CURRENT_ID = "current"
+# Key of the kept stats of the objects in the app's `extensions`: the
+# generation they were computed in, the time (`time.monotonic()`) and the
+# stats
+STATS_CACHE = "drs_filer.object_stats"
+# Key of the generation of the stats in the app's `extensions`: the number
+# of writes of objects of the process, so that stats computed during a
+# write aren't kept
+STATS_GENERATION = "drs_filer.object_stats_generation"
+# Guards the generation and the kept stats, for the threads of a process
+_STATS_LOCK = threading.Lock()
+# Held by the thread of a process that computes the stats, so that requests
+# that need them at the same time don't each read all objects
+_COMPUTE_LOCK = threading.Lock()
 # The maximum number of identifiers of bulk requests (`maxBulkRequestLength`
 # of DRS 1.5.0, which `DrsService` requires): the bulk operations aren't
 # implemented (`501`, see "Passport POST endpoints" in `docs/api.md`), so it
@@ -32,6 +51,141 @@ MAX_BULK_REQUEST_LENGTH = 1
 SERVICE_TYPE = {"group": "org.ga4gh", "artifact": "drs", "version": "1.5.0"}
 
 
+def object_stats() -> dict[str, int]:
+    """Get the stats of the registered objects.
+
+    They are kept in the app (`current_app.extensions[STATS_CACHE]`, so per
+    process) for `custom.stats.cache_seconds`, as computing them reads each
+    object; writes of the process make them stale
+    (`invalidate_object_stats()`). Stats computed while a write of another
+    thread of the process (Gunicorn's threads) made them stale aren't kept,
+    as they may miss that write.
+
+    Only one thread of the process computes them at a time; threads that
+    need them meanwhile wait, and get the stats it keeps. They are kept from
+    the time they were computed, so that slow computations are kept too.
+
+    Returns:
+        The stats of `DrsService` (DRS 1.5.0), see `_compute_object_stats()`.
+    """
+    cache_seconds = get_custom_config().stats.cache_seconds
+    if not cache_seconds:
+        return _compute_object_stats()
+    generation, stats = _kept_stats(cache_seconds)
+    if stats is not None:
+        return stats
+    with _COMPUTE_LOCK:
+        # Another thread may have computed them while this one waited
+        generation, stats = _kept_stats(cache_seconds)
+        if stats is not None:
+            return stats
+        stats = _compute_object_stats()
+        extensions = current_app.extensions
+        with _STATS_LOCK:
+            if extensions.get(STATS_GENERATION, 0) == generation:
+                extensions[STATS_CACHE] = (generation, time.monotonic(), stats)
+    return dict(stats)
+
+
+def _kept_stats(cache_seconds: int) -> tuple[int, dict[str, int] | None]:
+    """Get the kept stats of the objects, unless they are stale.
+
+    Args:
+        cache_seconds: How long stats are kept, in seconds.
+
+    Returns:
+        The current generation, and a copy of the kept stats; `None` if
+        there are none, or if they are older than `cache_seconds` or of an
+        earlier generation.
+    """
+    extensions = current_app.extensions
+    with _STATS_LOCK:
+        generation: int = extensions.get(STATS_GENERATION, 0)
+        cached: tuple[int, float, dict[str, int]] | None = extensions.get(STATS_CACHE)
+    if (
+        cached is not None
+        and cached[0] == generation
+        and time.monotonic() - cached[1] < cache_seconds
+    ):
+        return generation, dict(cached[2])
+    return generation, None
+
+
+def invalidate_object_stats() -> None:
+    """Make the kept stats of the objects stale, after writes of objects.
+
+    The next request of the service info computes them again, and stats
+    being computed meanwhile aren't kept. Other processes keep theirs until
+    they expire.
+    """
+    extensions = current_app.extensions
+    with _STATS_LOCK:
+        extensions[STATS_GENERATION] = extensions.get(STATS_GENERATION, 0) + 1
+        extensions.pop(STATS_CACHE, None)
+
+
+def invalidates_object_stats[**P, R](
+    func: Callable[P, R],
+) -> Callable[P, R]:
+    """Decorate the controllers that write objects.
+
+    The kept stats are made stale after the write, also if it fails, as it
+    may have changed objects before failing.
+
+    Args:
+        func: Controller.
+
+    Returns:
+        The controller, which makes the kept stats stale after each call.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Call the controller, then make the kept stats stale.
+
+        Args:
+            *args: Positional arguments of the controller.
+            **kwargs: Keyword arguments of the controller.
+
+        Returns:
+            The return value of the controller.
+        """
+        try:
+            return func(*args, **kwargs)
+        finally:
+            invalidate_object_stats()
+
+    return wrapper
+
+
+def _compute_object_stats() -> dict[str, int]:
+    """Compute the stats of the registered objects, from the database.
+
+    A count of the objects, and an aggregate over the sizes of the blobs,
+    which reads each object (see "Service info" in `docs/api.md`, which
+    explains what is counted). Two queries, as mongomock lacks the `$type`
+    expression that a single aggregate would need, so a write in between
+    can make them disagree by that write until they are computed again.
+
+    Returns:
+        The stats of `DrsService` (DRS 1.5.0): `objectCount`, the number of
+        objects, blobs and bundles; `totalObjectSize`, the total size of the
+        blobs (objects without `contents`), in bytes.
+    """
+    objects = get_collection("objects")
+    count = objects.count_documents({})
+    totals = list(
+        objects.aggregate(
+            [
+                {"$match": {"contents": {"$exists": False}}},
+                {"$group": {"_id": None, "size": {"$sum": "$size"}}},
+            ]
+        )
+    )
+    size = int(totals[0]["size"]) if totals else 0
+    return {"objectCount": count, "totalObjectSize": size}
+
+
 def drs_service_fields() -> dict[str, Any]:
     """Get the DRS fields of the service info, which the app computes.
 
@@ -40,12 +194,14 @@ def drs_service_fields() -> dict[str, Any]:
 
     Returns:
         The fields of `DrsService` (DRS 1.5.0): `maxBulkRequestLength`
-        (deprecated) and `drs`.
+        (deprecated) and `drs`, with the bulk maximum and, unless
+        `custom.stats.enabled` is false, the stats of the objects
+        (`object_stats()`).
     """
-    return {
-        "maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH,
-        "drs": {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH},
-    }
+    drs: dict[str, Any] = {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH}
+    if get_custom_config().stats.enabled:
+        drs.update(object_stats())
+    return {"maxBulkRequestLength": MAX_BULK_REQUEST_LENGTH, "drs": drs}
 
 
 class RegisterServiceInfo:

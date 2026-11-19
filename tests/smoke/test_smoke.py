@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 import requests
 
-from tests.mock_data import DRS_SERVICE_FIELDS, SERVICE_INFO, drs_object
+from tests.mock_data import SERVICE_INFO, drs_object, drs_service_fields
 
 DRS_FILER_URL = os.environ.get("DRS_FILER_URL", "")
 TIMEOUT = 30  # seconds per request
@@ -144,13 +144,30 @@ def test_delete_object(object_id: str) -> None:
     assert _get_object(object_id).status_code == 404
 
 
-def test_service_info() -> None:
-    """Service info is set and returned."""
+def test_service_info(object_id: str) -> None:
+    """Service info is set and returned, with the stats of the objects.
+
+    The stats are those of the listed objects: their number, and the total
+    size of the blobs (objects without `contents`). The object of the
+    fixture `object_id` makes sure that there is one, so that the stats
+    aren't trivially zero; other tests' objects may be there too. Exact for
+    a single Gunicorn worker (as in CI): other workers keep their stats for
+    `custom.stats.cache_seconds` after writes. Objects are listed with the
+    writer's token, in case reads require login.
+    """
     response = WRITER.post(_url("/service-info"), json=SERVICE_INFO, timeout=TIMEOUT)
     assert response.status_code == 201
+    response = WRITER.get(_url("/objects"), timeout=TIMEOUT)
+    assert response.status_code == 200
+    objects = response.json()
+    assert object_id in [obj["id"] for obj in objects]
+    blobs = [obj["size"] for obj in objects if "contents" not in obj]
     response = requests.get(_url("/service-info"), timeout=TIMEOUT)
     assert response.status_code == 200
-    assert response.json() == {**SERVICE_INFO, **DRS_SERVICE_FIELDS}
+    assert response.json() == {
+        **SERVICE_INFO,
+        **drs_service_fields(len(objects), sum(blobs)),
+    }
 
 
 def test_drs_1_5_0() -> None:

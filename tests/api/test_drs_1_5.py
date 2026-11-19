@@ -203,19 +203,30 @@ def test_object_ids_of_static_paths(client: FlaskClient, object_id: str) -> None
 def test_register_drs_1_5_fields(client: FlaskClient) -> None:
     """The fields that DRS 1.5 adds to access methods are registered.
 
-    Also when replacing an object (`PUT`).
+    `cloud`, `region` and `available` (cold storage) are served unchanged,
+    also after replacing an object (`PUT`); access methods without them are
+    served without them.
     """
-    request_body = drs_object()
-    request_body["access_methods"][0].update(cloud="aws", available=False)
+    request_body = drs_object(access_methods=2)
+    request_body["access_methods"][0].update(
+        cloud="aws", region="eu-central-1", available=False
+    )
+    for field in ("cloud", "region", "available"):
+        request_body["access_methods"][1].pop(field, None)
     obj = _register(client, request_body)
-    method = obj["access_methods"][0]
+    method, other = obj["access_methods"]
     assert method["cloud"] == "aws"
+    assert method["region"] == "eu-central-1"
     assert method["available"] is False
-    request_body["access_methods"][0].update(cloud="gcp", available=True)
+    assert not {"cloud", "region", "available"} & other.keys()
+    request_body["access_methods"][0].update(
+        cloud="gcp", region="europe-west4", available=True
+    )
     response = client.put(f"{API}/objects/{obj['id']}", json=request_body)
     assert response.status_code == 200, body(response)
     method = body(client.get(f"{API}/objects/{obj['id']}"))["access_methods"][0]
     assert method["cloud"] == "gcp"
+    assert method["region"] == "europe-west4"
     assert method["available"] is True
 
 

@@ -23,6 +23,7 @@ from drs_filer.ga4gh.drs.endpoints.register_objects import (
 from drs_filer.ga4gh.drs.endpoints.service_info import (
     RegisterServiceInfo,
     drs_service_fields,
+    invalidates_object_stats,
 )
 from drs_filer.utils import get_collection, get_custom_config
 
@@ -191,6 +192,7 @@ def PostServiceInfo() -> tuple[None, int, dict[str, Any]]:
 
 
 @log_traffic
+@invalidates_object_stats
 def DeleteObject(object_id: str) -> str:
     """Delete DRS object.
 
@@ -274,6 +276,7 @@ def DeleteAccessMethod(object_id: str, access_id: str) -> str:
 
 
 @log_traffic
+@invalidates_object_stats
 def RegisterObject() -> str:
     """Register new DRS object.
 
@@ -368,6 +371,7 @@ def OptionsBulkObject(**kwargs: Any) -> NoReturn:
 
 
 @log_traffic
+@invalidates_object_stats
 def PutObject(object_id: str) -> str:
     """Add/replace DRS object with a user-supplied ID.
 

@@ -35,6 +35,7 @@ The settings that deployments usually change:
 | `custom.drs.hostname` | none (required) | Public host name of the app, for the `self_uri` (DRS URI) of objects, see [Host name](#host-name) |
 | `service_info.service` | placeholders | Service info (`GET /service-info`), see [Service info](#service-info) |
 | `custom.objects.id`, `custom.access_methods.id` | 6 characters, letters, digits and `.-_~` | Generated identifiers, see [Identifiers](#identifiers) |
+| `custom.stats.enabled`, `custom.stats.cache_seconds` | `true`, `60` | Stats of the objects in the service info, and how long each process keeps them, see [Service info](#service-info) |
 | `db.host`, `db.port` | `mongodb`, `27017` | MongoDB |
 | `server.debug` | `False` | Flask's debug mode, which allows executing arbitrary code: only for local development, see [Development](development.md#development-server) |
 | `log` | console, level `INFO` | Logging (Python's `logging.config` dictionary) |
@@ -194,8 +195,28 @@ the DRS specification that the app serves), which mappings in overlays are
 merged with; don't set `type` in overlays: it must be the type of the API
 that the app serves, and other types fail the start.
 The app adds the fields that DRS 1.5 requires (`maxBulkRequestLength`,
-`drs`), which it computes (see [Service info](api.md#service-info) in the
-API docs); don't set them in the config.
+`drs`, with the stats of the objects), which it computes (see [Service
+info](api.md#service-info) in the API docs); don't set them in the config.
+
+The stats of the objects (`drs.objectCount`, `drs.totalObjectSize`) are
+set in `custom.stats`:
+
+```yaml
+custom:
+  stats:
+    # `false` leaves the stats out of the service info, e.g., where reads
+    # require login and the number of objects shouldn't show either
+    enabled: true
+    # How long each process (Gunicorn worker) keeps the stats, in seconds;
+    # `0` computes them for each request
+    cache_seconds: 60
+```
+
+Computing the stats reads every object, so each process keeps them for
+`cache_seconds`, which bounds the load that frequent requests to the public
+`GET /service-info` put on the database. Writes through a process
+recompute its stats at once; with several workers or replicas, the others
+serve theirs up to `cache_seconds` late.
 
 ## Identifiers
 
