@@ -36,10 +36,15 @@ RELEASE_JOBS = {
     "push": "Push release image",
     "scan": "Scan release image",
     "publish": "Publish release",
+    "notify": "Notify Pubgrade",
 }
 # Third-party actions are pinned to a full commit, with the version as comment
 PINNED = re.compile(r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")
 SCAN_ACTION = "elixir-cloud-aai/.github/actions/scan-image"
+# Pubgrade's action that registers a release image, pinned to v0.3.0
+NOTIFY_ACTION = (
+    "elixir-cloud-aai/Pubgrade/actions/notify@344a58adc1c871135f86c404eb33ed91011886ad"
+)
 # A chart file name as the release workflow packages it
 CHART = "drs-filer-1.2.3.tgz"
 # The digest of a release run's image, and another one
@@ -219,12 +224,46 @@ def test_secrets_in_environments() -> None:
 
 
 def test_release_environment() -> None:
-    """Both release jobs with credentials need approval in `release`."""
+    """The release jobs with credentials need approval in `release`."""
     jobs = _release()["jobs"]
     assert jobs["push"]["environment"] == "release"
     assert jobs["publish"]["environment"]["name"] == "release"
     assert "environment" not in jobs["prepare"]
     assert "environment" not in jobs["scan"]
+
+
+def test_release_notify() -> None:
+    """`notify` registers the tagged image at Pubgrade, if it is configured.
+
+    It needs `publish`, which tags the image `X.Y.Z` (the deployments pull
+    that tag), and nothing needs it, so that a failed notification never
+    holds up the release. Without the repository variable `PUBGRADE_URL`,
+    it is skipped (the condition is evaluated before the job enters its
+    environment, so it can't wait for an approval that serves nothing); its
+    token is a secret of the `release` environment, and its `GITHUB_TOKEN`
+    has no permissions.
+    """
+    jobs = _release()["jobs"]
+    notify = jobs["notify"]
+    assert set(notify["needs"]) == {"prepare", "publish"}
+    assert all("notify" not in job.get("needs", []) for job in jobs.values())
+    assert notify["if"] == "vars.PUBGRADE_URL != ''"
+    assert notify["environment"] == "release"
+    assert notify["permissions"] == {}
+    assert notify["timeout-minutes"] == 10
+    (step,) = notify["steps"]
+    assert step["uses"] == NOTIFY_ACTION
+    assert step["with"] == {
+        "url": "${{ vars.PUBGRADE_URL }}",
+        "repository-id": "${{ vars.PUBGRADE_REPOSITORY_ID }}",
+        "token": "${{ secrets.PUBGRADE_TOKEN }}",
+        # The tag that `publish` pushed, without `docker.io/`
+        "image": (
+            "${{ vars.DOCKERHUB_ORG || 'elixircloud' }}/drs-filer:"
+            "${{ needs.prepare.outputs.version }}"
+        ),
+        "git-tag": "${{ github.ref_name }}",
+    }
 
 
 def test_image_name() -> None:

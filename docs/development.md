@@ -462,6 +462,47 @@ commits on `dev` are published by the CI workflow (environment
 `dev-images`): it pushes the image by digest, scans it, and attests, signs
 and tags exactly that digest once all other jobs passed.
 
+Once `publish` has tagged the image (and created the GitHub release, in the
+same job), the job "Notify Pubgrade" (`notify`) registers the image
+(`elixircloud/drs-filer:X.Y.Z`, of `DOCKERHUB_ORG`), with the release tag, at
+[Pubgrade](https://github.com/elixir-cloud-aai/Pubgrade) (`POST
+/repositories/{id}/builds`, through Pubgrade's action
+[`actions/notify`](https://github.com/elixir-cloud-aai/Pubgrade/tree/344a58adc1c871135f86c404eb33ed91011886ad/actions/notify)),
+which notifies the deployments that subscribed to upgrades, also for
+pre-releases, if they subscribed to those. Nothing waits for this job, so a
+failed notification doesn't hold up the release. The action masks the token
+and retries a request only if it never reached Pubgrade, so that one run
+registers the build at most once. This needs Pubgrade's publish mode
+([Pubgrade#33](https://github.com/elixir-cloud-aai/Pubgrade/issues/33)) and
+these settings:
+
+| Setting | Kind | Where | Meaning |
+| --- | --- | --- | --- |
+| `PUBGRADE_URL` | Variable | Repository | Base URL of the Pubgrade API, with `https://`. Switches the notification on. |
+| `PUBGRADE_REPOSITORY_ID` | Variable | Repository, or the `release` environment | The identifier from registering the repository in Pubgrade |
+| `PUBGRADE_TOKEN` | Secret | The `release` environment | The access token from registering the repository in Pubgrade |
+
+Without `PUBGRADE_URL`, the job is skipped (as in forks), so releases don't
+wait for its approval. Set `PUBGRADE_URL` for the repository, not in the
+`release` environment: a job's condition is evaluated before the job enters
+its environment, so a variable there doesn't switch the job on (and would
+override the repository's URL within the job). An organization variable
+would switch it on for every repository it is shared with, also those
+without a Pubgrade token. With `PUBGRADE_URL`, the job waits for an approval
+in the `release` environment, like pushing and publishing, and fails if one
+of the other settings is missing or invalid: the identifier and the token
+may only hold letters, digits, `.`, `~` and `-` (as Pubgrade issues them).
+If only this job fails or is rejected, the release is published all the
+same: fix the settings and re-run the job (re-running the failed jobs runs
+only this one), or leave it; don't release a new version for it. Re-running
+it notifies the subscribed deployments again, without a new release. Unless
+it failed on an invalid setting or with "Could not reach Pubgrade (curl exit
+status 6)" or "(… 7)" (no connection), Pubgrade may have registered the
+build all the same: check the repository's builds (`GET
+/repositories/{id}/builds`) before re-running it. If `publish` fails, the
+job doesn't run; a re-run of the failed jobs that finishes `publish` runs it
+too.
+
 The chart's version is the release version from the first release on; the
 hand-written chart before the move to the FOCA library chart had versions
 up to 3.0.0, which no release packaged.
@@ -593,6 +634,9 @@ Maintainers: the workflows rely on these repository settings:
   and a deployment policy that allows only tags `v*`;
 - the Docker Hub secrets (`DOCKERHUB_LOGIN`, `DOCKERHUB_TOKEN`) only in the
   two environments, not as repository secrets;
+- for Pubgrade (optional, see above): the variables `PUBGRADE_URL` and
+  `PUBGRADE_REPOSITORY_ID`, and the secret `PUBGRADE_TOKEN` in the
+  `release` environment;
 - a tag ruleset for `v*` that restricts who may create them and prevents
   moving or deleting them;
 - immutable releases;
