@@ -496,8 +496,9 @@ in the `release` environment, like pushing and publishing, and fails if one
 of the other settings is missing or invalid: the identifier and the token
 may only hold letters, digits, `.`, `~` and `-` (as Pubgrade issues them).
 If only this job fails or is rejected, the release is published all the
-same: fix the settings and re-run the job (re-running the failed jobs runs
-only this one), or leave it; don't release a new version for it. Re-running
+same (the `release` environment then shows this job's failed deployment as
+its latest one): fix the settings and re-run the job (re-running the failed
+jobs runs only this one), or leave it; don't release a new version for it. Re-running
 it notifies the subscribed deployments again, without a new release. Unless
 it failed on an invalid setting or with "Could not reach Pubgrade (curl exit
 status 6)" or "(… 7)" (no connection), Pubgrade may have registered the
