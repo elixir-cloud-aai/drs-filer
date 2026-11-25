@@ -8,8 +8,9 @@
 # chart against its recorded name and SHA-256, attest the image's build
 # provenance, sign it (Sigstore keyless signing) and tag it, and create the
 # GitHub release with the chart attached, also attested and signed
-# (`publish`; see "Verifying images and charts" in `docs/operations.md`),
-# then tell Pubgrade about the tagged image (`notify`), if it is configured.
+# (`publish`; see "Verifying images and charts" in `docs/operations.md`).
+# After `publish`, `notify` tells Pubgrade about the tagged image, if it is
+# configured.
 # `push` and `publish` each need approval in the `release` environment, and
 # so does `notify` if Pubgrade is configured.
 # Re-running all jobs builds, scans, signs and tags a new digest (and
@@ -637,7 +638,11 @@ jobs:
     if: vars.PUBGRADE_URL != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: release
+    # With the URL of `publish`, so that the environment's latest deployment
+    # still links to the GitHub release
+    environment:
+      name: release
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
     permissions: {}
     steps:
       - name: Notify Pubgrade

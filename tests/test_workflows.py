@@ -228,6 +228,7 @@ def test_release_environment() -> None:
     jobs = _release()["jobs"]
     assert jobs["push"]["environment"] == "release"
     assert jobs["publish"]["environment"]["name"] == "release"
+    assert jobs["notify"]["environment"]["name"] == "release"
     assert "environment" not in jobs["prepare"]
     assert "environment" not in jobs["scan"]
 
@@ -248,7 +249,7 @@ def test_release_notify() -> None:
     assert set(notify["needs"]) == {"prepare", "publish"}
     assert all("notify" not in job.get("needs", []) for job in jobs.values())
     assert notify["if"] == "vars.PUBGRADE_URL != ''"
-    assert notify["environment"] == "release"
+    assert notify["environment"] == jobs["publish"]["environment"]
     assert notify["permissions"] == {}
     assert notify["timeout-minutes"] == 10
     (step,) = notify["steps"]

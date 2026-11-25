@@ -468,8 +468,11 @@ same job), the job "Notify Pubgrade" (`notify`) registers the image
 [Pubgrade](https://github.com/elixir-cloud-aai/Pubgrade) (`POST
 /repositories/{id}/builds`, through Pubgrade's action
 [`actions/notify`](https://github.com/elixir-cloud-aai/Pubgrade/tree/344a58adc1c871135f86c404eb33ed91011886ad/actions/notify)),
-which notifies the deployments that subscribed to upgrades, also for
-pre-releases, if they subscribed to those. Nothing waits for this job, so a
+which notifies the deployments that subscribed to upgrades. It runs for
+every release tag, alpha, beta and release candidate versions included, and
+registers the build without a build type, so every subscription of the
+repository that matches the tag (e.g., `*` for any tag) gets it, also for a
+release candidate. Nothing waits for this job, so a
 failed notification doesn't hold up the release. The action masks the token
 and retries a request only if it never reached Pubgrade, so that one run
 registers the build at most once. This needs Pubgrade's publish mode
@@ -634,9 +637,10 @@ Maintainers: the workflows rely on these repository settings:
   and a deployment policy that allows only tags `v*`;
 - the Docker Hub secrets (`DOCKERHUB_LOGIN`, `DOCKERHUB_TOKEN`) only in the
   two environments, not as repository secrets;
-- for Pubgrade (optional, see above): the variables `PUBGRADE_URL` and
-  `PUBGRADE_REPOSITORY_ID`, and the secret `PUBGRADE_TOKEN` in the
-  `release` environment;
+- for Pubgrade (optional, see above): the repository variable
+  `PUBGRADE_URL` (not an environment variable, or the job never runs), the
+  variable `PUBGRADE_REPOSITORY_ID` (repository or `release` environment)
+  and the secret `PUBGRADE_TOKEN` in the `release` environment;
 - a tag ruleset for `v*` that restricts who may create them and prevents
   moving or deleting them;
 - immutable releases;
